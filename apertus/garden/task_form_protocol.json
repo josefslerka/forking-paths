@@ -1,0 +1,441 @@
+{
+  "format": "apertus.task-vs-form-protocol",
+  "schema_version": 1,
+  "protocol_id": "task-vs-form-cs-v1",
+  "title": "Požadovaná relace vs. povrchová forma",
+  "language": "cs",
+  "terminology": {
+    "task": "Operacionalizovaná požadovaná relace: hlavní město nebo oficiální měna.",
+    "form": "Alternativní povrchová formulace téže relace.",
+    "strong_claim": "Reprezentace se organizuje podle požadované relace i po kontrole bezprostředního výstupního cíle."
+  },
+  "design": {
+    "required_primary_model_mode": "hybrid",
+    "allowed_model_modes": [
+      "hybrid",
+      "bf16"
+    ],
+    "layers": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32
+    ],
+    "primary_layers": [
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "layer_bands": {
+      "early": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "middle": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "late": [
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
+      ]
+    },
+    "measurement_positions": [
+      "country_end",
+      "response_boundary"
+    ],
+    "response_boundary_text": "je",
+    "state_hook": "post_decoder_block_residual",
+    "layer_numbering": "L0_embedding_then_one_based_decoder_blocks",
+    "state_storage_dtype": "float32",
+    "primary_distance": "cosine",
+    "baseline": {
+      "distance": "cosine",
+      "definition": "Median of all different-country distances whose two states share family, truth value, relation and one of that family's primary-index forms; pooled over relation and primary form, estimated separately for every family, truth value, layer and position.",
+      "pooling_keys": [
+        "family",
+        "truth_value",
+        "layer",
+        "position"
+      ],
+      "matched_pair_keys": [
+        "relation_id",
+        "form_id"
+      ],
+      "country_pairs": "all unordered pairs of distinct locked countries",
+      "invalid_if": "zero or non-finite from L1 onward",
+      "analysis_scope": "L1-L32; L0 is persisted only as an embedding sanity check"
+    },
+    "primary_index_forms": {
+      "generative": [
+        "g1_predicate",
+        "g2_question"
+      ],
+      "verification": [
+        "v1_predicate",
+        "v2_answer_front",
+        "v3_paraphrase"
+      ]
+    },
+    "factorial_decomposition": {
+      "state_scale": "unit_normalized_residual_vectors",
+      "balanced_axes": [
+        "country_item",
+        "relation",
+        "form"
+      ],
+      "components": [
+        "country_item",
+        "relation",
+        "form",
+        "country_x_relation",
+        "country_x_form",
+        "relation_x_form",
+        "country_x_relation_x_form"
+      ],
+      "generative_forms": [
+        "g1_predicate",
+        "g2_question"
+      ],
+      "verification_truth_conditioned": true,
+      "verification_truth_strata_equal_weighted": true,
+      "analysis_scope": "L1-L32 at both stored positions; the descriptive primary map is L9-L24 at response_boundary",
+      "noncommuting_components": [
+        "relation_x_form",
+        "country_x_relation_x_form"
+      ],
+      "noncommuting_share": "(SS_RF + SS_CRF) / (SS_R + SS_F + SS_CR + SS_CF + SS_RF + SS_CRF)",
+      "commutation_score": "1 - noncommuting_share",
+      "status": "descriptive_structural_map_without_a_support_threshold"
+    },
+    "bootstrap_seed": 20260729,
+    "bootstrap_samples": 5000,
+    "knowledge_sensitivity": {
+      "target_first_token_max_rank": 50,
+      "minimum_supported_generative_forms_per_relation": 2,
+      "minimum_qualified_countries_to_report": 4
+    },
+    "numeric_audit_country_ids": [
+      "ceska_republika",
+      "japonsko",
+      "brazilie"
+    ],
+    "false_statement_assignment": {
+      "kind": "external_locked_donor",
+      "one_to_one": true
+    },
+    "primary_window_rationale": "L9-L24 is the central half of the 32 decoder blocks and was fixed before inspection of these residuals.",
+    "bootstrap_interpretation": "Descriptive stability to the composition of this locked purposive country set; not population inference over countries.",
+    "numeric_audit_role": "The three-country BF16 audit is descriptive and cannot alter the primary support decision."
+  },
+  "relations": {
+    "capital": {
+      "label": "hlavní město",
+      "answer_field": "capital",
+      "generative_forms": {
+        "g1_predicate": "Hlavním městem {country_genitive} je",
+        "g2_question": "Odpovědí na otázku „Jaké je hlavní město {country_genitive}?“ je",
+        "g3_lexical_holdout": "Pokud hledáme státní metropoli {country_genitive}, odpovědí je"
+      },
+      "verification_forms": {
+        "v1_predicate": "Hlavním městem {country_genitive} je {answer}",
+        "v2_answer_front": "{answer} je hlavním městem {country_genitive}",
+        "v3_paraphrase": "Za hlavní město {country_genitive} se považuje {answer}"
+      }
+    },
+    "currency": {
+      "label": "oficiální měna",
+      "answer_field": "currency",
+      "generative_forms": {
+        "g1_predicate": "Oficiální měnou {country_genitive} je",
+        "g2_question": "Odpovědí na otázku „Jaká je oficiální měna {country_genitive}?“ je",
+        "g3_lexical_holdout": "Pokud hledáme peněžní jednotku {country_genitive}, odpovědí je"
+      },
+      "verification_forms": {
+        "v1_predicate": "Oficiální měnou {country_genitive} je {answer}",
+        "v2_answer_front": "{answer} je oficiální měnou {country_genitive}",
+        "v3_paraphrase": "Za oficiální měnu {country_genitive} se považuje {answer}"
+      }
+    }
+  },
+  "verification": {
+    "truth_values": {
+      "true": {
+        "expected_output": "pravdivý"
+      },
+      "false": {
+        "expected_output": "nepravdivý"
+      }
+    },
+    "wrapper": "Výrok „{statement}“ je",
+    "form_ids": [
+      "v1_predicate",
+      "v2_answer_front",
+      "v3_paraphrase"
+    ]
+  },
+  "countries": [
+    {
+      "country_id": "ceska_republika",
+      "country": "Česká republika",
+      "country_genitive": "České republiky",
+      "capital": "Praha",
+      "currency": "česká koruna",
+      "region": "Evropa"
+    },
+    {
+      "country_id": "polsko",
+      "country": "Polsko",
+      "country_genitive": "Polska",
+      "capital": "Varšava",
+      "currency": "polský zlotý",
+      "region": "Evropa"
+    },
+    {
+      "country_id": "madarsko",
+      "country": "Maďarsko",
+      "country_genitive": "Maďarska",
+      "capital": "Budapešť",
+      "currency": "maďarský forint",
+      "region": "Evropa"
+    },
+    {
+      "country_id": "norsko",
+      "country": "Norsko",
+      "country_genitive": "Norska",
+      "capital": "Oslo",
+      "currency": "norská koruna",
+      "region": "Evropa"
+    },
+    {
+      "country_id": "spojene_kralovstvi",
+      "country": "Spojené království",
+      "country_genitive": "Spojeného království",
+      "capital": "Londýn",
+      "currency": "libra šterlinků",
+      "region": "Evropa"
+    },
+    {
+      "country_id": "turecko",
+      "country": "Turecko",
+      "country_genitive": "Turecka",
+      "capital": "Ankara",
+      "currency": "turecká lira",
+      "region": "Asie"
+    },
+    {
+      "country_id": "indie",
+      "country": "Indie",
+      "country_genitive": "Indie",
+      "capital": "Nové Dillí",
+      "currency": "indická rupie",
+      "region": "Asie"
+    },
+    {
+      "country_id": "japonsko",
+      "country": "Japonsko",
+      "country_genitive": "Japonska",
+      "capital": "Tokio",
+      "currency": "japonský jen",
+      "region": "Asie"
+    },
+    {
+      "country_id": "brazilie",
+      "country": "Brazílie",
+      "country_genitive": "Brazílie",
+      "capital": "Brasília",
+      "currency": "brazilský real",
+      "region": "Jižní Amerika"
+    },
+    {
+      "country_id": "australie",
+      "country": "Austrálie",
+      "country_genitive": "Austrálie",
+      "capital": "Canberra",
+      "currency": "australský dolar",
+      "region": "Oceánie"
+    }
+  ],
+  "false_donors": [
+    {
+      "target_country_id": "ceska_republika",
+      "donor_id": "svycarsko",
+      "capital": "Bern",
+      "currency": "švýcarský frank"
+    },
+    {
+      "target_country_id": "polsko",
+      "donor_id": "kanada",
+      "capital": "Ottawa",
+      "currency": "kanadský dolar"
+    },
+    {
+      "target_country_id": "madarsko",
+      "donor_id": "jizni_korea",
+      "capital": "Soul",
+      "currency": "jihokorejský won"
+    },
+    {
+      "target_country_id": "norsko",
+      "donor_id": "novy_zeland",
+      "capital": "Wellington",
+      "currency": "novozélandský dolar"
+    },
+    {
+      "target_country_id": "spojene_kralovstvi",
+      "donor_id": "thajsko",
+      "capital": "Bangkok",
+      "currency": "thajský baht"
+    },
+    {
+      "target_country_id": "turecko",
+      "donor_id": "saudska_arabie",
+      "capital": "Rijád",
+      "currency": "saúdský rijál"
+    },
+    {
+      "target_country_id": "indie",
+      "donor_id": "egypt",
+      "capital": "Káhira",
+      "currency": "egyptská libra"
+    },
+    {
+      "target_country_id": "japonsko",
+      "donor_id": "chile",
+      "capital": "Santiago",
+      "currency": "chilské peso"
+    },
+    {
+      "target_country_id": "brazilie",
+      "donor_id": "kena",
+      "capital": "Nairobi",
+      "currency": "keňský šilink"
+    },
+    {
+      "target_country_id": "australie",
+      "donor_id": "island",
+      "capital": "Reykjavík",
+      "currency": "islandská koruna"
+    }
+  ],
+  "preregistered_analysis": {
+    "primary_structural_quantity": "Primární strukturální veličinou je rozklad reprezentačního rozptylu podle faktorů úlohy, formy a country_item po vrstvách; měří se, které efekty se skládají aditivně a které vytvářejí interakci.",
+    "structural_question": "The balanced factorial map asks what composes with what. Relation-by-form and country-item-by-relation-by-form interaction energy operationalizes failure of additive closure; it does not by itself prove algebraic commutativity of learned operators.",
+    "primary_index": "For each country, layer, position and truth stratum: A is the mean cosine distance between capital and currency within the same primary form; W is the mean cosine distance between different primary forms within the same relation; I=A-W and J=I/B.",
+    "normalization": "B is the pooled condition-matched different-country median defined in design.baseline. Verification uses separate B for true and false.",
+    "aggregation_order": "Compute J per country/layer/(truth); average true and false equally within verification; average L9-L24 within country; only then summarize the ten country values.",
+    "unit_of_aggregation": "locked country block",
+    "primary_position": "response_boundary",
+    "primary_window": "mean across L9-L24",
+    "primary_predictions": [
+      "The mean normalized middle-layer index over g1_predicate and g2_question is positive in the generative family.",
+      "The mean normalized middle-layer index is positive in the verification family after conditioning on the same truth value and therefore the same immediate output label.",
+      "The capital-vs-currency direction estimated from g1_predicate and g2_question aligns positively with the held-out g3_lexical_holdout direction."
+    ],
+    "support_rule": "G and V pass only if their country mean is positive, the lower bound of the 95% percentile country bootstrap interval is above zero, and every leave-one-country-out mean is positive. Alignment passes only if its grand cross-fit mean and every outer country-deletion mean after refitting all remaining cross-fits are positive; its naive country bootstrap and sign-flip are conditional diagnostics because fitted directions overlap. Strong support requires G, V and alignment to pass their respective rules.",
+    "secondary_analyses": [
+      "Balanced seven-component variance decomposition and its descriptive relation-by-form noncommuting share; no post-hoc support threshold is attached to this map.",
+      "Country-level percentile bootstrap interval, leave-one-country-out range and exact one-sided sign-flip diagnostic.",
+      "Descriptive sign at country_end; it is not a replication because available syntax differs across forms at that position.",
+      "Separate early, middle and late profiles without a preregistered inverted-U claim.",
+      "Sensitivity subset based on expected first-token rank; the complete locked set remains primary.",
+      "Residual norms and token-position differences are reported separately."
+    ]
+  },
+  "exclusion_rules": [
+    "No country is excluded from the primary analysis because the model answers incorrectly.",
+    "A factual ambiguity discovered before residual inspection may replace a country only before the protocol is relocked.",
+    "A non-unique country span, a non-identical final boundary token, NaN, zero norm or incomplete state invalidates the whole balanced country block for the affected analysis.",
+    "A tokenizer, runner, protocol or model fingerprint mismatch invalidates the run.",
+    "Knowledge-qualified results are sensitivity analyses and never replace the complete primary result."
+  ],
+  "interpretation_limits": [
+    "Different requested relations must be signalled by some lexical material; lexical influence cannot be removed completely.",
+    "The generative family confounds relation with answer identity and answer class: capitals are mainly proper names while currencies are mainly common multi-token expressions. The verification family is therefore necessary, not optional.",
+    "Different forms necessarily change length, syntax and contextual position. The second anchor and diagnostics constrain this problem but do not erase it.",
+    "Residual similarity indicates representational invariance, not a localized substance called meaning.",
+    "L0 is a sanity check, not part of the primary claim.",
+    "No tuned lens, steering or role-playing is part of this protocol.",
+    "The ten countries are a locked purposive set, not a random sample. Bootstrap intervals describe stability to this set's composition and do not support population inference.",
+    "The country_item factor conflates lexical realization, factual identity and other country-specific structure; it is not an independently randomized pure lexicon factor.",
+    "The commutation score is a normalized additive-closure diagnostic on residual geometry, not evidence that two learned internal operators commute in the algebraic sense.",
+    "The strongest warranted wording is that relation-associated geometry is stable across the locked paraphrases; the protocol cannot prove representation independent of lexical surface."
+  ],
+  "audit": {
+    "locked_before_residual_inspection": true,
+    "expected_counts": {
+      "countries": 10,
+      "generative_stimuli": 60,
+      "verification_stimuli": 120,
+      "total_stimuli": 180
+    }
+  }
+}

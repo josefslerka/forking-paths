@@ -1,0 +1,14 @@
+# Install: python -m pip install -e '.[torch]'
+# Register a local Hugging Face checkpoint with safetensors weights.
+schema_version = 1
+backend = "torch"
+default_model = "my-model"
+enable_research_artifacts = false
+
+[models.my-model]
+label = "My Hugging Face model"
+path = "models/my-model"
+adapter = "causal-lm"
+# Optional pinned download, after choosing a model and checking its license:
+# repository = "publisher/model-name"
+# revision = "0123456789012345678901234567890123456789"

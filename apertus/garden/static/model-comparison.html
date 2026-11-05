@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Porovnání modelů · Pravděpodobnostní zahrada</title>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+  <script src="/static/steering-comparison.js" defer></script>
+  <script src="/static/model-comparison.js" defer></script>
+  <style>
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:var(--pg-sans); line-height:1.55; }
+    .shell { width:min(1160px,calc(100% - 40px)); margin:auto; padding:32px 0 70px; }
+    h1 { font-family:var(--pg-serif); font-weight:400; font-size:clamp(2rem,4vw,3.6rem); margin:0 0 12px; }
+    h2,h3 { margin:0 0 12px; } p { max-width:80ch; }
+    .lede,.muted { color:var(--muted); }
+    .panel { border:1px solid var(--line); border-radius:14px; padding:22px; margin:20px 0; background:var(--panel); }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    label { display:grid; gap:7px; font-size:.9rem; }
+    input,textarea,select,button { font:inherit; }
+    input,textarea,select { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; }
+    textarea { min-height:140px; resize:vertical; }
+    button,.action-link { color:var(--text); background:var(--bg); border:1px solid var(--line); padding:9px 14px; border-radius:8px; cursor:pointer; text-decoration:none; }
+    button.primary { background:var(--leaf); color:var(--ink); font-weight:700; }
+    button:disabled { opacity:.45; cursor:default; } :focus-visible { outline:2px solid var(--leaf); outline-offset:3px; }
+    .actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:18px; }
+    .status { min-height:2em; margin:12px 0 0; }
+    .error { color:var(--danger); } [hidden] { display:none !important; }
+    .table-scroll { overflow:auto; } table { border-collapse:collapse; width:100%; font-size:.88rem; }
+    th,td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { color:var(--muted); } td.num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .chart { width:100%; height:auto; display:block; } .legend { display:flex; gap:24px; flex-wrap:wrap; }
+    .legend .a { color:#287755; } .legend .b { color:#6a53a1; }
+    .metrics { display:flex; flex-wrap:wrap; gap:24px; margin:12px 0; } .metrics strong { display:block; font-variant-numeric:tabular-nums; }
+    details { margin:18px 0; } pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+    @media(max-width:680px) { .grid { grid-template-columns:1fr; } .panel { padding:15px; } .shell { width:calc(100% - 24px); } }
+  </style>
+</head>
+<body data-workbench-page="model-comparison">
+<main class="shell">
+  <h1>Porovnání modelů</h1>
+  <p class="lede">Stejný text, dva modeloví čtenáři. Porovnej překvapení, účinek kontextu nebo steering a uchovej obě měření v jednom experimentu.</p>
+  <form id="comparison-form" class="panel">
+    <div class="grid">
+      <label>Model A<select id="model-a" required></select></label>
+      <label>Model B<select id="model-b" required></select></label>
+      <label>Zadání<select id="input-mode"><option value="text">Hotový text</option><option value="context">Dva kontexty a stejné pokračování</option><option value="batch">Dávka zadání</option><option value="steering">Steering na stejných příkladech</option></select></label>
+      <label>Název experimentu<input id="experiment-title" maxlength="200" value="Apertus × EuroLLM" data-i18n-ignore></label>
+    </div>
+    <div id="text-input" style="margin-top:16px"><label>Text<textarea id="comparison-text" data-i18n-ignore>Na stole ležela kniha, kterou nikdo neotevřel.</textarea></label></div>
+    <div id="context-input" hidden style="margin-top:16px">
+      <div class="grid"><label>Prefix A<textarea id="prefix-a" data-i18n-ignore>Lékař řekl, že</textarea></label><label>Prefix B<textarea id="prefix-b" data-i18n-ignore>Pacient řekl, že</textarea></label></div>
+      <label style="margin-top:12px">Přesné pokračování, včetně úvodní mezery<textarea id="continuation" data-i18n-ignore> operace proběhla úspěšně.</textarea></label>
+    </div>
+    <div id="batch-input" hidden style="margin-top:16px"><label>Zadání v JSON, nejvýše 32 položek<textarea id="batch-json" rows="12" data-i18n-ignore></textarea></label><p class="muted">Položka obsahuje id a text, nebo id, prefix_a, prefix_b a continuation. Oddělovač mezi prefixem a pokračováním patří do continuation.</p></div>
+    <div id="steering-input" hidden style="margin-top:16px">
+      <h2>Konstrukční kontrasty</h2>
+      <p class="muted">Každý model odvodí vlastní směr ze stejných 3 až 8 párů. Obě strany každého páru musí v daném modelu končit stejným tokenem. Testovací věty použij odlišné.</p>
+      <div id="comparison-steering-pairs"></div>
+      <div class="actions"><button id="add-comparison-steering-pair" type="button">Přidat kontrastní pár</button><button id="load-steering-examples" type="button">Načíst tři testovací věty</button></div>
+      <div class="grid" style="margin-top:16px">
+        <label>Hloubka zásahu<select id="comparison-steering-depth"><option value="0.25">Čtvrtina vrstev</option><option value="0.5" selected>Polovina vrstev</option><option value="0.75">Tři čtvrtiny vrstev</option><option value="1">Poslední vrstva</option></select></label>
+        <label>Síla α<input id="comparison-steering-alpha" type="number" min="0.05" max="2" step="0.05" value="1"></label>
+        <label>Počet kontrolních směrů<input id="comparison-steering-shams" type="number" min="2" max="99" step="1" value="9"></label>
+        <label>Seed kontrolních směrů<input id="comparison-steering-seed" type="number" min="0" max="4294967295" step="1" value="20261008"></label>
+      </div>
+      <p class="muted">Polovina odpovídá L16 z 32 u Apertusu a L21 ze 42 u EuroLLM. Síla se vztahuje k typickému rozdílu konstrukčních párů každého modelu. Kontrolní směry mají stejnou skutečnou normu zásahu uvnitř daného modelu.</p>
+      <div id="steering-single-input">
+        <label>Nový testovací prefix<textarea id="comparison-steering-prefix" data-i18n-ignore>Jeho reakce byla</textarea></label>
+        <div class="grid"><label>Záporné pokračování, včetně úvodní mezery<textarea id="comparison-steering-negative" data-i18n-ignore> velmi krutá.</textarea></label><label>Kladné pokračování, včetně úvodní mezery<textarea id="comparison-steering-positive" data-i18n-ignore> velmi laskavá.</textarea></label></div>
+      </div>
+      <label style="display:flex;align-items:center;margin-top:16px"><input id="comparison-steering-batch" type="checkbox" style="width:auto">Více testovacích prefixů</label>
+      <div id="steering-batch-input" hidden><label>Testovací zadání v JSON, nejvýše 12 položek<textarea id="comparison-steering-items" rows="12" data-i18n-ignore></textarea></label><p class="muted">Každá položka obsahuje id, test_text, negative_text a positive_text. Úvodní mezera patří do pokračování.</p></div>
+      <p class="muted">Větve −α, 0 a +α skórují stejná pokračování. Kladný efekt znamená posun ke kladné variantě. Náhodné směry poskytují popisnou referenci; jejich pořadí není test statistické významnosti.</p>
+    </div>
+    <div class="actions"><button id="run-comparison" class="primary" type="submit" disabled>Spustit porovnání</button><button id="cancel-comparison" type="button" disabled>Přerušit běh</button><button id="load-examples" type="button">Načíst 30 příkladů</button></div>
+    <p id="comparison-status" class="status" role="status" aria-live="polite">Načítám dostupné modely…</p>
+  </form>
+  <details class="panel"><summary>Jak číst srovnání</summary>
+    <p>Měříme součet surprisalu kanonické tokenové cesty při teplotě 1. Úseky mají stejné znakové hranice; úvodní mezery a připojená interpunkce patří do měření. Nejde o pravděpodobnost slova přes všechny možné tokenizace.</p>
+    <p>Kladný rozdíl B − A znamená větší překvapení v modelu B. U kontextů kladný účinek znamená, že pokračování je překvapivější za prefixem B než za prefixem A. Shoda směrů ukazuje robustnost napříč modely. Rozdíly samy neurčují příčinu v tréninku, architektuře nebo kvantizaci.</p>
+    <p>Neúplné nebo nejednoznačné úseky jsou označené a nevstupují do párových rozdílů. Tokenová entropie různých slovníků se přímo neporovnává.</p>
+    <p>U steeringu porovnáváme změnu logaritmu poměru pravděpodobností celých stejných pokračování v bitech. Každý model má vlastní směr, vrstvu a škálu zásahu. Výsledek popisuje zásah do modelové predikce.</p>
+  </details>
+  <section id="comparison-results" aria-live="polite"></section>
+</main>
+</body>
+</html>

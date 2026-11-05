@@ -1,0 +1,1552 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Kauzální přenos resid_pre stavů mezi dvěma zarovnanými prefixy modelu Apertus."
+  >
+  <title>Kauzální přenos · Apertus</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070b09;
+      --surface: #0a100c;
+      --surface-2: #0e1711;
+      --text: #eef6f0;
+      --muted: #9db3a6;
+      --line: #24332b;
+      --leaf: #74e0a6;
+      --leaf-bright: #9ceabd;
+      --gold: #d6b96c;
+      --danger: #df897c;
+      --ink: #062012;
+      --radius: 12px;
+      --serif: "Iowan Old Style", "Baskerville", "Times New Roman", serif;
+      --sans: "IBM Plex Sans", "Inter", ui-sans-serif, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      min-width: 320px;
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% -18%, rgba(67, 145, 96, 0.17), transparent 35rem),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+    button, input, textarea, select { font: inherit; }
+    button { color: inherit; }
+    :focus-visible {
+      outline: 3px solid rgba(116, 224, 166, 0.48);
+      outline-offset: 3px;
+    }
+    code { font-family: var(--mono); }
+    .skip-link {
+      position: fixed;
+      z-index: 150;
+      top: 10px;
+      left: 10px;
+      padding: 9px 13px;
+      border-radius: 8px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-weight: 800;
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .shell {
+      width: min(1500px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 90px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: flex-end;
+      min-height: 44px;
+      margin-bottom: 40px;
+    }
+    .model-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 38px;
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(14, 23, 17, 0.82);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 680;
+    }
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gold);
+    }
+    .model-state[data-state="ready"] .state-dot { background: var(--leaf); }
+    .model-state[data-state="error"] .state-dot { background: var(--danger); }
+    .hero {
+      max-width: 1000px;
+      margin-bottom: 30px;
+    }
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--leaf-bright);
+      font-size: 0.76rem;
+      font-weight: 780;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    h1, h2, .serif {
+      font-family: var(--serif);
+      font-weight: 400;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(3.2rem, 5.4vw, 5.7rem);
+      letter-spacing: -0.055em;
+      line-height: 0.94;
+    }
+    .lede {
+      max-width: 790px;
+      margin: 15px 0 0;
+      color: var(--muted);
+      font-size: 1.02rem;
+      line-height: 1.65;
+    }
+    .method-note {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.27fr) minmax(0, 1fr);
+      gap: clamp(22px, 4vw, 56px);
+      margin-bottom: 30px;
+      padding: clamp(22px, 3.2vw, 34px);
+      border: 1px solid rgba(214, 185, 108, 0.38);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(105deg, rgba(214, 185, 108, 0.065), transparent 48%),
+        rgba(10, 16, 12, 0.88);
+    }
+    .method-label {
+      margin: 2px 0 0;
+      color: var(--gold);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    .method-copy p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .method-copy p + p { margin-top: 10px; }
+    .method-copy strong { color: var(--text); }
+    .panel {
+      margin-bottom: 20px;
+      padding: clamp(22px, 3vw, 32px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(10, 16, 12, 0.82);
+    }
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 720;
+    }
+    textarea, input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #08100b;
+      color: var(--text);
+    }
+    textarea {
+      min-height: 122px;
+      padding: 13px 14px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    input, select {
+      min-height: 44px;
+      padding: 9px 12px;
+    }
+    .contrast-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 0.33fr)) minmax(160px, 0.24fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #0d1711;
+      cursor: pointer;
+      font-weight: 720;
+    }
+    button:hover:not(:disabled) {
+      border-color: #3b5d49;
+      background: #122019;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.46;
+    }
+    .primary {
+      border-color: var(--leaf);
+      background: var(--leaf);
+      color: var(--ink);
+    }
+    .primary:hover:not(:disabled) {
+      border-color: var(--leaf-bright);
+      background: var(--leaf-bright);
+    }
+    .help {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .message {
+      min-height: 1.5em;
+      margin: 12px 0 20px;
+      color: var(--muted);
+    }
+    .message.is-error { color: var(--danger); }
+    .message.is-success { color: var(--leaf); }
+    .alignment-panel[hidden], .results[hidden], .compute-overlay[hidden] {
+      display: none;
+    }
+    .panel-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+    .panel-heading h2, .panel-heading h3 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 1.7rem;
+      font-weight: 400;
+    }
+    .panel-heading p {
+      max-width: 760px;
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    .alignment-meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      overflow: hidden;
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--line);
+    }
+    .alignment-meta div {
+      padding: 13px;
+      background: #0b130e;
+    }
+    .alignment-meta span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.67rem;
+      font-weight: 740;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+    .alignment-meta strong {
+      display: block;
+      margin-top: 4px;
+      font-family: var(--mono);
+      font-size: 0.86rem;
+      font-weight: 560;
+    }
+    .selection-tools {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .selection-tools button {
+      min-height: 34px;
+      padding: 6px 10px;
+      font-size: 0.76rem;
+    }
+    .alignment-scroll {
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+    .alignment-track {
+      display: flex;
+      gap: 7px;
+      min-width: max-content;
+    }
+    .token-pair {
+      display: grid;
+      min-width: 94px;
+      min-height: 92px;
+      padding: 8px;
+      text-align: left;
+      border-color: var(--line);
+      background: #0a120d;
+    }
+    .token-pair[data-kind="different"] { border-color: rgba(214, 185, 108, 0.58); }
+    .token-pair[data-selected="true"] {
+      border-color: var(--leaf);
+      box-shadow: inset 0 0 0 1px var(--leaf);
+      background: rgba(31, 78, 50, 0.26);
+    }
+    .token-pair:disabled {
+      cursor: default;
+      opacity: 0.5;
+    }
+    .token-pair small {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.62rem;
+    }
+    .token-pair strong {
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 0.73rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .token-pair em {
+      color: var(--gold);
+      font-size: 0.62rem;
+      font-style: normal;
+    }
+    .run-config {
+      display: grid;
+      grid-template-columns: minmax(200px, 0.33fr) minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: end;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+    .cell-budget {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .cell-budget strong {
+      color: var(--text);
+      font-family: var(--mono);
+    }
+    .result-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 20px;
+    }
+    .result-heading h2 {
+      margin: 0;
+      font-size: clamp(2.2rem, 4vw, 4rem);
+      letter-spacing: -0.045em;
+      line-height: 1;
+    }
+    .result-heading p {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--line);
+    }
+    .summary-card {
+      min-height: 132px;
+      padding: 18px;
+      background: #0b130e;
+    }
+    .summary-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 740;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+    .summary-card strong {
+      display: block;
+      margin-top: 12px;
+      font-family: var(--serif);
+      font-size: 1.85rem;
+      font-weight: 400;
+      line-height: 1.05;
+    }
+    .summary-card small {
+      display: block;
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+    .heatmap-wrap {
+      overflow: auto;
+      max-height: 72vh;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #08100b;
+    }
+    .heatmap {
+      width: max-content;
+      min-width: 100%;
+      border-collapse: separate;
+      border-spacing: 3px;
+      padding: 7px;
+    }
+    .heatmap th {
+      position: sticky;
+      z-index: 3;
+      background: #0b130e;
+      color: var(--muted);
+      font-size: 0.67rem;
+      font-weight: 700;
+    }
+    .heatmap thead th {
+      top: 0;
+      min-width: 76px;
+      height: 70px;
+      padding: 5px;
+      vertical-align: bottom;
+    }
+    .heatmap th:first-child {
+      left: 0;
+      z-index: 5;
+      min-width: 60px;
+    }
+    .heatmap tbody th {
+      left: 0;
+      padding: 7px 10px;
+      font-family: var(--mono);
+      text-align: right;
+    }
+    .heatmap-token {
+      display: grid;
+      gap: 2px;
+      max-width: 76px;
+      font-family: var(--mono);
+      line-height: 1.1;
+    }
+    .heatmap-token strong {
+      overflow: hidden;
+      color: var(--text);
+      font-size: 0.68rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .heatmap-token em {
+      color: var(--gold);
+      font-size: 0.59rem;
+      font-style: normal;
+    }
+    .heat-cell {
+      width: 72px;
+      min-width: 72px;
+      min-height: 38px;
+      padding: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      background: #0d1711;
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 720;
+    }
+    .heat-cell[aria-pressed="true"] {
+      border-color: #fff;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22);
+    }
+    .heatmap-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.73rem;
+    }
+    .heatmap-legend i {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 5px;
+      border-radius: 3px;
+      vertical-align: -2px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--line);
+    }
+    .detail-card {
+      padding: 15px;
+      background: #0b130e;
+    }
+    .detail-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.65rem;
+      font-weight: 740;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .detail-card strong {
+      display: block;
+      margin-top: 6px;
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      font-weight: 560;
+    }
+    .movers {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .movers h4 {
+      margin: 0 0 8px;
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .mover-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .mover-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+    }
+    .warning-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .warning-list li {
+      padding: 10px 12px;
+      border-left: 2px solid var(--gold);
+      background: rgba(214, 185, 108, 0.055);
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .compute-overlay {
+      position: fixed;
+      z-index: 120;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(4, 8, 6, 0.82);
+      backdrop-filter: blur(10px);
+    }
+    .compute-card {
+      width: min(560px, 100%);
+      padding: 30px;
+      border: 1px solid #365543;
+      border-radius: var(--radius);
+      background: #0a120d;
+      text-align: center;
+    }
+    .compute-pulse {
+      width: 11px;
+      height: 11px;
+      margin: 0 auto 18px;
+      border-radius: 50%;
+      background: var(--leaf);
+      box-shadow: 0 0 0 0 rgba(116, 224, 166, 0.45);
+      animation: pulse 1.8s infinite;
+    }
+    .compute-card h2 { margin: 0; font-size: 2rem; }
+    .compute-card p { color: var(--muted); }
+    .compute-card strong { font-family: var(--mono); }
+    @keyframes pulse {
+      70% { box-shadow: 0 0 0 16px rgba(116, 224, 166, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(116, 224, 166, 0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .compute-pulse { animation: none; }
+    }
+    @media (max-width: 900px) {
+      .input-grid, .summary-grid { grid-template-columns: 1fr 1fr; }
+      .contrast-row { grid-template-columns: 1fr 1fr; }
+      .contrast-row label:last-child { grid-column: 1 / -1; }
+      .alignment-meta { grid-template-columns: 1fr 1fr; }
+      .run-config { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 24px, 1500px); }
+      .input-grid, .summary-grid, .contrast-row,
+      .alignment-meta, .detail-grid, .movers {
+        grid-template-columns: 1fr;
+      }
+      .method-note { grid-template-columns: 1fr; }
+      .result-heading, .panel-heading { display: block; }
+      .button-row { margin-top: 12px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+</head>
+<body data-workbench-page="patching">
+  <a class="skip-link" href="#analysis">Přeskočit k analýze</a>
+  <main class="shell" id="analysis">
+    <header class="topbar">
+      <div
+        id="model-state"
+        class="model-state"
+        data-state="loading"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="state-dot" aria-hidden="true"></span>
+        <span id="model-state-text">Zjišťuji stav modelu…</span>
+      </div>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">Apertus · interchange intervention</p>
+      <h1 id="page-title">Přenést stav</h1>
+      <p class="lede">
+        Vezmi přirozený stav z reference A, vlož jej do zarovnané pozice
+        příjemce B před zvolenou vrstvou a nech B znovu doběhnout.
+        Heatmapa ukáže, kde transplantace skutečně posunula budoucí pole k A.
+      </p>
+    </section>
+
+    <aside class="method-note" aria-label="Metodická poznámka">
+      <p class="method-label">Kauzální dostatečnost</p>
+      <div class="method-copy">
+        <p>
+          Každá buňka je samostatný zásah do <strong>resid_pre</strong>.
+          Všechny zbývající vrstvy se po patchi přepočítají bez KV cache.
+          Hodnota <strong>R = 1</strong> znamená úplné obnovení zvoleného
+          logitového kontrastu A, ne totožnost celého vnitřního stavu.
+        </p>
+        <p>
+          Patch i nezměněné kontroly A/B běží společně v
+          <strong>témže pevném batchi</strong>. Každá buňka se proto poměřuje
+          kontrolami z vlastního průchodu, ne baseline spočtenou jinou
+          numerickou cestou.
+        </p>
+        <p>
+          Přenášíme celý reziduální vektor. Výsledek proto ukazuje
+          <strong>použitelnost transplantovaného stavu</strong>, nikoli jedno
+          místo, kde sídlí význam, ani nezbytnost přirozené výpočetní cesty.
+        </p>
+      </div>
+    </aside>
+
+    <form id="patch-form" class="panel">
+      <div class="input-grid">
+        <label>
+          Reference A · donor stavu
+          <textarea id="source-text" maxlength="4000">V tomto příběhu je hlavním městem Česka Praha. Hlavním městem Česka je</textarea>
+        </label>
+        <label>
+          Příjemce B · intervenovaný průchod
+          <textarea id="target-text" maxlength="4000">V tomto příběhu je hlavním městem Česka Brno. Hlavním městem Česka je</textarea>
+        </label>
+      </div>
+      <div class="contrast-row">
+        <label>
+          Výstupní token A
+          <input id="token-a" maxlength="160" value="␠Praha" spellcheck="false">
+        </label>
+        <label>
+          Výstupní token B
+          <input id="token-b" maxlength="160" value="␠Brno" spellcheck="false">
+        </label>
+        <label>
+          Viditelných kandidátů
+          <select id="top-k">
+            <option value="5">Top 5</option>
+            <option value="6" selected>Top 6</option>
+            <option value="8">Top 8</option>
+            <option value="10">Top 10</option>
+          </select>
+        </label>
+      </div>
+      <div class="actions">
+        <span class="help">
+          Nejdřív ověříme skutečné tokenové stopy. Patching se spustí až po
+          výběru zarovnaných modelových pozic. Kontrast vždy znamená
+          <code>logit(A) − logit(B)</code>.
+        </span>
+        <div class="button-row">
+          <button id="swap-ab" type="button">Prohodit A ↔ B</button>
+          <button id="check-alignment" class="primary" type="submit">
+            Zkontrolovat tokeny
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <p id="message" class="message" role="status" aria-live="polite"></p>
+
+    <section id="alignment-panel" class="panel alignment-panel" hidden>
+      <div class="panel-heading">
+        <div>
+          <h2>Zarovnání modelových pozic</h2>
+          <p>
+            Vyber pozice, na nichž se má stav A přenést do B. Společný token
+            po dřívějším rozchodu je metodicky nejzajímavější: povrch je
+            stejný, historie nikoli.
+          </p>
+        </div>
+      </div>
+      <div id="alignment-meta" class="alignment-meta"></div>
+      <div class="selection-tools">
+        <button id="select-after-divergence" type="button">Od prvního rozdílu</button>
+        <button id="select-shared-after" type="button">Jen pozdější společné</button>
+        <button id="select-different" type="button">Jen rozdílné tokeny</button>
+        <button id="clear-positions" type="button">Zrušit výběr</button>
+      </div>
+      <div class="alignment-scroll">
+        <div id="alignment-track" class="alignment-track"></div>
+      </div>
+      <div class="run-config">
+        <label>
+          Vrstvy
+          <select id="layer-preset">
+            <option value="all" selected>L1–L32 · úplná mapa</option>
+            <option value="late">L17–L32 · pozdní poloviny</option>
+            <option value="quarters">L4, L8, …, L32 · rychlý řez</option>
+          </select>
+        </label>
+        <div id="cell-budget" class="cell-budget">
+          Vyber alespoň jednu pozici.
+        </div>
+        <button id="run-patching" class="primary" type="button" disabled>
+          Spustit kauzální přenos
+        </button>
+      </div>
+    </section>
+
+    <section id="results" class="results" hidden aria-live="polite">
+      <div class="result-heading">
+        <div>
+          <p class="eyebrow">Skutečné intervenční běhy</p>
+          <h2>Kde se stav přenáší?</h2>
+          <p id="result-context"></p>
+        </div>
+        <div class="button-row">
+          <button id="download-csv" type="button">Stáhnout CSV</button>
+          <button id="download-json" type="button">Stáhnout JSON</button>
+        </div>
+      </div>
+
+      <div class="summary-grid" aria-label="Souhrn měření">
+        <article class="summary-card">
+          <span>Reference A</span>
+          <strong id="summary-source">—</strong>
+          <small id="summary-source-detail">—</small>
+        </article>
+        <article class="summary-card">
+          <span>Příjemce B</span>
+          <strong id="summary-target">—</strong>
+          <small id="summary-target-detail">—</small>
+        </article>
+        <article class="summary-card">
+          <span>Nejsilnější přenos</span>
+          <strong id="summary-maximum">—</strong>
+          <small id="summary-maximum-detail">—</small>
+        </article>
+        <article class="summary-card">
+          <span>A/B kontrolní přepočet</span>
+          <strong id="summary-identity">—</strong>
+          <small id="summary-identity-detail">—</small>
+        </article>
+      </div>
+
+      <section class="panel" aria-labelledby="heatmap-title">
+        <div class="panel-heading">
+          <div>
+            <h3 id="heatmap-title">Recovery logitového kontrastu</h3>
+            <p>
+              Řádky jsou vrstvy, sloupce zarovnané pozice.
+              Kliknutím otevřeš B bez zásahu → patched B → referenci A,
+              JS recovery a stavové diagnostiky.
+            </p>
+          </div>
+        </div>
+        <div class="heatmap-wrap">
+          <table id="heatmap" class="heatmap"></table>
+        </div>
+        <div class="heatmap-legend" aria-label="Legenda heatmapy">
+          <span><i style="background:#173322"></i>R ≈ 0 · bez účinku</span>
+          <span><i style="background:#327c50"></i>0 &lt; R &lt; 1 · k A</span>
+          <span><i style="background:#74e0a6"></i>R ≈ 1 · obnova A</span>
+          <span><i style="background:#d6b96c"></i>R &gt; 1 · přestřelení</span>
+          <span><i style="background:#8a3f38"></i>R &lt; 0 · od A</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="detail-title">
+        <div class="panel-heading">
+          <div>
+            <h3 id="detail-title">Detail buňky</h3>
+            <p id="detail-context">Vyber buňku v heatmapě.</p>
+          </div>
+        </div>
+        <div id="detail-grid" class="detail-grid"></div>
+        <div class="movers">
+          <div>
+            <h4>Největší zisky proti B</h4>
+            <ul id="mover-gains" class="mover-list"></ul>
+          </div>
+          <div>
+            <h4>Největší ztráty proti B</h4>
+            <ul id="mover-losses" class="mover-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="warnings-title">
+        <div class="panel-heading">
+          <div>
+            <h3 id="warnings-title">Jak výsledek číst</h3>
+            <p>
+              Caveaty jsou součástí měření, nikoli poznámka pod čarou.
+            </p>
+          </div>
+        </div>
+        <ul id="warning-list" class="warning-list"></ul>
+      </section>
+    </section>
+  </main>
+
+  <div id="compute-overlay" class="compute-overlay" hidden>
+    <div class="compute-card" role="status" aria-live="polite">
+      <div class="compute-pulse" aria-hidden="true"></div>
+      <h2>Přenáším stavy</h2>
+      <p>
+        Každá buňka znovu počítá všechny zbývající vrstvy B.
+        Běh může trvat několik minut; modelový worker mezitím nepřijímá
+        další výpočet.
+      </p>
+      <strong id="elapsed">0 s</strong>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const $ = (selector) => document.querySelector(selector);
+      const sourceText = $("#source-text");
+      const targetText = $("#target-text");
+      const tokenA = $("#token-a");
+      const tokenB = $("#token-b");
+      const topK = $("#top-k");
+      const form = $("#patch-form");
+      const message = $("#message");
+      const modelState = $("#model-state");
+      const modelStateText = $("#model-state-text");
+      const alignmentPanel = $("#alignment-panel");
+      const alignmentMeta = $("#alignment-meta");
+      const alignmentTrack = $("#alignment-track");
+      const layerPreset = $("#layer-preset");
+      const cellBudget = $("#cell-budget");
+      const runButton = $("#run-patching");
+      const results = $("#results");
+      const overlay = $("#compute-overlay");
+      const elapsed = $("#elapsed");
+
+      let health = null;
+      let alignmentData = null;
+      let selectedPositions = new Set();
+      let currentResult = null;
+      let selectedCellKey = null;
+      let running = false;
+      let elapsedTimer = null;
+
+      const formatNumber = (value, digits = 3) => {
+        if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+          return "—";
+        }
+        return new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: digits,
+          minimumFractionDigits: digits
+        }).format(Number(value));
+      };
+
+      const formatPercent = (value, digits = 2) => {
+        if (value === null || value === undefined) return "—";
+        return `${formatNumber(Number(value) * 100, digits)} %`;
+      };
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+      const setMessage = (text, kind = "") => {
+        message.textContent = text;
+        message.className = `message${kind ? ` is-${kind}` : ""}`;
+      };
+
+      const fetchJson = (...arguments_) => (
+        window.ProbabilityGardenApi.fetchJson(...arguments_)
+      );
+
+      const publishWorkbenchState = (patch) => {
+        window.dispatchEvent(new CustomEvent(
+          "probability-garden:workbench-state",
+          {detail: {context: patch}}
+        ));
+      };
+
+      const loadHealth = async () => {
+        try {
+          health = await fetchJson("/api/health");
+          const ready = health.status === "ready";
+          modelState.dataset.state = ready ? "ready" : "loading";
+          modelStateText.textContent = ready
+            ? `${health.active_model?.label ?? health.model} je připraven`
+            : health.error || "Model se načítá…";
+          publishWorkbenchState({
+            status: ready ? "Kauzální přenos je připraven" : "Čekám na model",
+            statusKind: ready ? "ready" : "running"
+          });
+          return ready;
+        } catch (error) {
+          modelState.dataset.state = "error";
+          modelStateText.textContent = error.message;
+          setMessage(error.message, "error");
+          return false;
+        }
+      };
+
+      const ordinaryAndSpecial = (trace) => [
+        ...(trace.special_prefix_tokens || []).map((token) => ({
+          ...token,
+          is_special: true
+        })),
+        ...(trace.tokens || [])
+      ];
+
+      const alignmentRows = () => {
+        if (!alignmentData) return [];
+        const left = ordinaryAndSpecial(alignmentData.a);
+        const right = ordinaryAndSpecial(alignmentData.b);
+        return left.map((source, position) => ({
+          position,
+          source,
+          target: right[position],
+          same: source.token_id === right[position]?.token_id,
+          special: Boolean(source.is_special || right[position]?.is_special)
+        }));
+      };
+
+      const selectedLayers = () => {
+        if (layerPreset.value === "late") {
+          return Array.from({length: 16}, (_, index) => index + 17);
+        }
+        if (layerPreset.value === "quarters") {
+          return [4, 8, 12, 16, 20, 24, 28, 32];
+        }
+        return Array.from({length: 32}, (_, index) => index + 1);
+      };
+
+      const firstDivergencePosition = () => {
+        const rows = alignmentRows();
+        return rows.find((row) => !row.special && !row.same)?.position ?? (
+          rows.find((row) => !row.special)?.position ?? 0
+        );
+      };
+
+      const setSelected = (positions) => {
+        selectedPositions = new Set(
+          positions
+            .filter((position) => Number.isInteger(position))
+            .slice(0, 32)
+        );
+        renderAlignment();
+      };
+
+      const updateBudget = () => {
+        const layers = selectedLayers();
+        const cells = layers.length * selectedPositions.size;
+        const valid = (
+          !running &&
+          health?.status === "ready" &&
+          selectedPositions.size > 0 &&
+          cells <= 1024
+        );
+        runButton.disabled = !valid;
+        cellBudget.innerHTML = selectedPositions.size
+          ? (
+              `<strong>${selectedPositions.size}</strong> pozic × ` +
+              `<strong>${layers.length}</strong> vrstev = ` +
+              `<strong>${cells}</strong> intervenčních buněk` +
+              (cells > 1024 ? " · překračuje limit 1024" : "")
+            )
+          : "Vyber alespoň jednu pozici.";
+      };
+
+      const renderAlignment = () => {
+        const rows = alignmentRows();
+        const comparison = alignmentData?.comparison;
+        const firstDifference = firstDivergencePosition();
+        alignmentMeta.innerHTML = `
+          <div>
+            <span>Tokeny A / B</span>
+            <strong>${comparison?.token_count_a ?? 0} / ${comparison?.token_count_b ?? 0}</strong>
+          </div>
+          <div>
+            <span>Stejná délka</span>
+            <strong>${comparison?.token_count_delta_b_minus_a === 0 ? "ano" : "ne"}</strong>
+          </div>
+          <div>
+            <span>První rozdíl</span>
+            <strong>pozice ${firstDifference}</strong>
+          </div>
+          <div>
+            <span>Vybráno</span>
+            <strong>${selectedPositions.size} modelových pozic</strong>
+          </div>
+        `;
+        alignmentTrack.innerHTML = rows.map((row) => {
+          const sourceDisplay = row.source.display ?? row.source.tokenizer_token;
+          const targetDisplay = row.target?.display ?? row.target?.tokenizer_token;
+          return `
+            <button
+              type="button"
+              class="token-pair"
+              data-position="${row.position}"
+              data-kind="${row.special ? "special" : row.same ? "shared" : "different"}"
+              data-selected="${selectedPositions.has(row.position)}"
+              ${row.special ? "disabled" : ""}
+              aria-pressed="${selectedPositions.has(row.position)}"
+              title="modelová pozice ${row.position}"
+            >
+              <small>p${row.position} · #${row.source.token_id}/${row.target?.token_id ?? "—"}</small>
+              <strong>A <span class="observed-token">${escapeHtml(sourceDisplay)}</span></strong>
+              <strong>B <span class="observed-token">${escapeHtml(targetDisplay)}</span></strong>
+              <em>${row.special ? "BOS" : row.same ? "stejný token" : "rozdílné tokeny"}</em>
+            </button>
+          `;
+        }).join("");
+        updateBudget();
+      };
+
+      const checkAlignment = async () => {
+        if (!await loadHealth()) return;
+        setMessage("Tokenizuji oba prefixy…");
+        results.hidden = true;
+        currentResult = null;
+        try {
+          alignmentData = await fetchJson("/api/tokenization", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              text_a: sourceText.value,
+              text_b: targetText.value
+            })
+          });
+          const comparison = alignmentData.comparison;
+          if (!comparison || comparison.token_count_delta_b_minus_a !== 0) {
+            alignmentPanel.hidden = true;
+            throw new Error(
+              `Tokenové stopy nejsou stejně dlouhé: A ${comparison?.token_count_a ?? "?"}, ` +
+              `B ${comparison?.token_count_b ?? "?"}. První verze patchuje jen přesně zarovnané pozice.`
+            );
+          }
+          const rows = alignmentRows();
+          const firstDifference = firstDivergencePosition();
+          const defaults = rows
+            .filter((row) => !row.special && row.position >= firstDifference)
+            .map((row) => row.position)
+            .slice(0, 32);
+          selectedPositions = new Set(defaults);
+          alignmentPanel.hidden = false;
+          renderAlignment();
+          setMessage(
+            `Tokeny jsou zarovnané. Výchozí výběr začíná na první rozdílné pozici ${firstDifference}.`,
+            "success"
+          );
+          alignmentPanel.scrollIntoView({behavior: "smooth", block: "start"});
+        } catch (error) {
+          setMessage(error.message, "error");
+        }
+      };
+
+      const cellColor = (recovery) => {
+        const value = Number(recovery);
+        if (!Number.isFinite(value)) return "#0d1711";
+        if (value < 0) {
+          const alpha = Math.min(0.92, 0.18 + Math.abs(value) * 0.55);
+          return `rgba(138, 63, 56, ${alpha})`;
+        }
+        if (value > 1) {
+          const alpha = Math.min(0.95, 0.45 + (value - 1) * 0.4);
+          return `rgba(214, 185, 108, ${alpha})`;
+        }
+        const alpha = Math.min(0.96, 0.13 + value * 0.78);
+        return `rgba(80, 188, 119, ${alpha})`;
+      };
+
+      const cellKey = (layer, position) => `${layer}:${position}`;
+
+      const renderHeatmap = (data) => {
+        const selected = data.tokenization.selected_positions;
+        const alignment = new Map(
+          data.tokenization.alignment.map((entry) => [entry.position, entry])
+        );
+        const cells = new Map(
+          data.cells.map((cell) => [cellKey(cell.layer, cell.position), cell])
+        );
+        const header = selected.map((position) => {
+          const entry = alignment.get(position);
+          const left = entry?.source?.display ?? `p${position}`;
+          const right = entry?.target?.display ?? `p${position}`;
+          return `
+            <th scope="col" title="modelová pozice ${position}">
+              <span class="heatmap-token">
+                <small>p${position}</small>
+                <strong>${escapeHtml(left)}</strong>
+                ${entry?.same_token_id ? "" : `<em>${escapeHtml(right)}</em>`}
+              </span>
+            </th>
+          `;
+        }).join("");
+        const rows = data.layers.map((layer) => `
+          <tr>
+            <th scope="row">L${layer}</th>
+            ${selected.map((position) => {
+              const cell = cells.get(cellKey(layer, position));
+              const recovery = cell?.contrast_recovery;
+              return `
+                <td>
+                  <button
+                    type="button"
+                    class="heat-cell"
+                    data-cell="${layer}:${position}"
+                    aria-pressed="${selectedCellKey === cellKey(layer, position)}"
+                    style="background:${cellColor(recovery)}"
+                    title="L${layer}, p${position}, R=${formatNumber(recovery, 4)}"
+                  >${formatNumber(recovery, 2)}</button>
+                </td>
+              `;
+            }).join("")}
+          </tr>
+        `).join("");
+        $("#heatmap").innerHTML = `
+          <thead><tr><th scope="col">vrstva</th>${header}</tr></thead>
+          <tbody>${rows}</tbody>
+        `;
+      };
+
+      const renderMoverList = (selector, entries) => {
+        $(selector).innerHTML = (entries || []).map((entry) => `
+          <li>
+            <span class="observed-token">${escapeHtml(entry.display ?? entry.decoded ?? `#${entry.token_id}`)}</span>
+            <strong>${entry.delta_probability >= 0 ? "+" : ""}${formatPercent(entry.delta_probability, 3)}</strong>
+          </li>
+        `).join("") || "<li>—</li>";
+      };
+
+      const renderCellDetail = (cell) => {
+        if (!cell || !currentResult) return;
+        selectedCellKey = cellKey(cell.layer, cell.position);
+        renderHeatmap(currentResult);
+        const entry = currentResult.tokenization.alignment.find(
+          (candidate) => candidate.position === cell.position
+        );
+        const control = currentResult.identity_controls.find(
+          (candidate) => candidate.layer === cell.layer
+        );
+        const matched = cell.matched_baselines ?? {
+          target_contrast: currentResult.baselines.target.contrast,
+          source_contrast: currentResult.baselines.source.contrast
+        };
+        $("#detail-context").textContent = (
+          `L${cell.layer}, modelová pozice ${cell.position}: ` +
+          `A „${entry?.source?.display ?? "—"}“ → B „${entry?.target?.display ?? "—"}“.`
+        );
+        $("#detail-grid").innerHTML = `
+          <article class="detail-card">
+            <span>Kontrast B → patch → A · stejný batch</span>
+            <strong>${formatNumber(matched.target_contrast)} → ${formatNumber(cell.contrast)} → ${formatNumber(matched.source_contrast)}</strong>
+          </article>
+          <article class="detail-card">
+            <span>Recovery kontrastu R</span>
+            <strong>${formatNumber(cell.contrast_recovery, 4)}</strong>
+          </article>
+          <article class="detail-card">
+            <span>Recovery distribuce</span>
+            <strong>${formatNumber(cell.distribution_recovery, 4)}</strong>
+          </article>
+          <article class="detail-card">
+            <span>P(token A) / P(token B)</span>
+            <strong>${formatPercent(cell.probability_a)} / ${formatPercent(cell.probability_b)}</strong>
+          </article>
+          <article class="detail-card">
+            <span>JS k B / JS k A</span>
+            <strong>${formatNumber(cell.js_to_target_bits, 5)} / ${formatNumber(cell.js_to_source_bits, 5)} bitu</strong>
+          </article>
+          <article class="detail-card">
+            <span>Top-1 po patchi</span>
+            <strong><span class="observed-token">${escapeHtml(cell.top1.display ?? `#${cell.top1.token_id}`)}</span> · ${formatPercent(cell.top1.probability)}</strong>
+          </article>
+          <article class="detail-card">
+            <span>Norma A−B stavu</span>
+            <strong>${formatNumber(cell.state.delta_norm, 4)}</strong>
+          </article>
+          <article class="detail-card">
+            <span>Kosinus stavů A/B</span>
+            <strong>${formatNumber(cell.state.cosine, 5)}</strong>
+          </article>
+          <article class="detail-card">
+            <span>Max. chyba kontrol A / B</span>
+            <strong>${formatNumber(control?.source_max_abs_logit_error, 7)} / ${formatNumber(control?.max_abs_logit_error, 7)}</strong>
+          </article>
+        `;
+        renderMoverList("#mover-gains", cell.movers?.gains);
+        renderMoverList("#mover-losses", cell.movers?.losses);
+      };
+
+      const renderResults = (data) => {
+        currentResult = data;
+        const source = data.baselines.source;
+        const target = data.baselines.target;
+        const maximum = data.extrema.strongest_toward_source;
+        $("#result-context").textContent = (
+          `${data.cells.length} patchů · ${data.layers.length} vrstev · ` +
+          `${data.tokenization.selected_positions.length} pozic · ` +
+          `${formatNumber(data.timing_ms.total / 1000, 1)} s`
+        );
+        $("#summary-source").textContent = formatNumber(source.contrast);
+        $("#summary-source-detail").textContent = (
+          `${formatPercent(source.probability_a)} / ${formatPercent(source.probability_b)} · rank ${source.rank_a}/${source.rank_b}`
+        );
+        $("#summary-target").textContent = formatNumber(target.contrast);
+        $("#summary-target-detail").textContent = (
+          `${formatPercent(target.probability_a)} / ${formatPercent(target.probability_b)} · JS(A,B) ${formatNumber(data.baselines.js_source_target_bits, 4)} bitu`
+        );
+        $("#summary-maximum").textContent = maximum
+          ? `L${maximum.layer} · p${maximum.position}`
+          : "—";
+        $("#summary-maximum-detail").textContent = maximum
+          ? `R ${formatNumber(maximum.contrast_recovery, 4)} · Δ ${formatNumber(maximum.delta_contrast_from_target)} logitu`
+          : "Bez platné buňky";
+        $("#summary-identity").textContent = (
+          data.identity_control_summary.passed ? "uzavřeno" : "pozor"
+        );
+        $("#summary-identity-detail").textContent = (
+          `max |Δlogit| ${formatNumber(data.identity_control_summary.max_any_abs_logit_error ?? data.identity_control_summary.max_abs_logit_error, 7)}`
+        );
+        $("#warning-list").innerHTML = data.warnings.map((warning) => `
+          <li><strong>${escapeHtml(warning.code)}</strong> · ${escapeHtml(warning.message)}</li>
+        `).join("");
+        selectedCellKey = maximum
+          ? cellKey(maximum.layer, maximum.position)
+          : cellKey(data.cells[0]?.layer, data.cells[0]?.position);
+        renderHeatmap(data);
+        const initial = data.cells.find(
+          (cell) => cellKey(cell.layer, cell.position) === selectedCellKey
+        ) ?? data.cells[0];
+        renderCellDetail(initial);
+        results.hidden = false;
+        results.scrollIntoView({behavior: "smooth", block: "start"});
+      };
+
+      const startOverlay = () => {
+        overlay.hidden = false;
+        const started = Date.now();
+        elapsed.textContent = "0 s";
+        elapsedTimer = window.setInterval(() => {
+          elapsed.textContent = `${Math.floor((Date.now() - started) / 1000)} s`;
+        }, 1000);
+      };
+
+      const stopOverlay = () => {
+        overlay.hidden = true;
+        if (elapsedTimer !== null) {
+          window.clearInterval(elapsedTimer);
+          elapsedTimer = null;
+        }
+      };
+
+      const runPatching = async () => {
+        if (running || !alignmentData || !selectedPositions.size) return;
+        if (!await loadHealth()) return;
+        running = true;
+        updateBudget();
+        setMessage("Výpočet běží. Každá buňka je skutečný intervenční průchod…");
+        publishWorkbenchState({
+          status: "Počítám kauzální přenos",
+          statusKind: "running"
+        });
+        startOverlay();
+        try {
+          const data = await fetchJson("/api/activation-patching", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              source_text: sourceText.value,
+              target_text: targetText.value,
+              token_a: tokenA.value,
+              token_b: tokenB.value,
+              layers: selectedLayers(),
+              positions: [...selectedPositions].sort((a, b) => a - b),
+              top_k: Number(topK.value),
+              model_id: health.active_model?.id,
+              model_generation: health.model_generation,
+              server_instance_id: health.server_instance_id
+            })
+          });
+          renderResults(data);
+          setMessage(
+            `Hotovo: ${data.cells.length} intervenčních buněk, nejsilnější R ` +
+            `${formatNumber(data.extrema.strongest_toward_source?.contrast_recovery, 4)}.`,
+            "success"
+          );
+          publishWorkbenchState({
+            status: "Kauzální přenos dokončen",
+            statusKind: "ready"
+          });
+        } catch (error) {
+          setMessage(error.message, "error");
+          publishWorkbenchState({
+            status: "Kauzální přenos selhal",
+            statusKind: "error"
+          });
+        } finally {
+          running = false;
+          stopOverlay();
+          updateBudget();
+        }
+      };
+
+      const download = (filename, content, type) => {
+        const blob = new Blob([content], {type});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      const csvEscape = (value) => {
+        const text = value === null || value === undefined ? "" : String(value);
+        return `"${text.replaceAll('"', '""')}"`;
+      };
+
+      const resultCsv = () => {
+        const alignment = new Map(
+          currentResult.tokenization.alignment.map((entry) => [entry.position, entry])
+        );
+        const header = [
+          "layer", "position", "source_token", "target_token", "same_token_id",
+          "contrast_recovery", "distribution_recovery",
+          "delta_contrast_from_target", "patched_contrast",
+          "probability_a", "probability_b", "rank_a", "rank_b",
+          "js_to_source_bits", "js_to_target_bits",
+          "state_delta_norm", "state_cosine"
+        ];
+        const rows = currentResult.cells.map((cell) => {
+          const entry = alignment.get(cell.position);
+          return [
+            cell.layer,
+            cell.position,
+            entry?.source?.display,
+            entry?.target?.display,
+            entry?.same_token_id,
+            cell.contrast_recovery,
+            cell.distribution_recovery,
+            cell.delta_contrast_from_target,
+            cell.contrast,
+            cell.probability_a,
+            cell.probability_b,
+            cell.rank_a,
+            cell.rank_b,
+            cell.js_to_source_bits,
+            cell.js_to_target_bits,
+            cell.state.delta_norm,
+            cell.state.cosine
+          ].map(csvEscape).join(",");
+        });
+        return [header.map(csvEscape).join(","), ...rows].join("\n");
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        checkAlignment();
+      });
+
+      $("#swap-ab").addEventListener("click", () => {
+        [sourceText.value, targetText.value] = [targetText.value, sourceText.value];
+        [tokenA.value, tokenB.value] = [tokenB.value, tokenA.value];
+        alignmentData = null;
+        selectedPositions.clear();
+        alignmentPanel.hidden = true;
+        results.hidden = true;
+        setMessage("Směr A → B byl obrácen. Znovu zkontroluj tokeny.");
+      });
+
+      alignmentTrack.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-position]");
+        if (!button || button.disabled) return;
+        const position = Number(button.dataset.position);
+        if (selectedPositions.has(position)) {
+          selectedPositions.delete(position);
+        } else if (selectedPositions.size < 32) {
+          selectedPositions.add(position);
+        } else {
+          setMessage("Lze vybrat nejvýše 32 pozic.", "error");
+        }
+        renderAlignment();
+      });
+
+      $("#select-after-divergence").addEventListener("click", () => {
+        const first = firstDivergencePosition();
+        setSelected(
+          alignmentRows()
+            .filter((row) => !row.special && row.position >= first)
+            .map((row) => row.position)
+        );
+      });
+
+      $("#select-shared-after").addEventListener("click", () => {
+        const first = firstDivergencePosition();
+        setSelected(
+          alignmentRows()
+            .filter((row) => !row.special && row.same && row.position > first)
+            .map((row) => row.position)
+        );
+      });
+
+      $("#select-different").addEventListener("click", () => {
+        setSelected(
+          alignmentRows()
+            .filter((row) => !row.special && !row.same)
+            .map((row) => row.position)
+        );
+      });
+
+      $("#clear-positions").addEventListener("click", () => setSelected([]));
+      layerPreset.addEventListener("change", updateBudget);
+      runButton.addEventListener("click", runPatching);
+
+      $("#heatmap").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-cell]");
+        if (!button || !currentResult) return;
+        const [layer, position] = button.dataset.cell.split(":").map(Number);
+        const cell = currentResult.cells.find(
+          (candidate) => candidate.layer === layer && candidate.position === position
+        );
+        renderCellDetail(cell);
+      });
+
+      $("#download-json").addEventListener("click", () => {
+        if (!currentResult) return;
+        download(
+          `activation-patching-${new Date().toISOString().replaceAll(":", "-")}.json`,
+          JSON.stringify(currentResult, null, 2),
+          "application/json;charset=utf-8"
+        );
+      });
+
+      $("#download-csv").addEventListener("click", () => {
+        if (!currentResult) return;
+        download(
+          `activation-patching-${new Date().toISOString().replaceAll(":", "-")}.csv`,
+          resultCsv(),
+          "text/csv;charset=utf-8"
+        );
+      });
+
+      [
+        sourceText,
+        targetText,
+        tokenA,
+        tokenB
+      ].forEach((input) => input.addEventListener("input", () => {
+        alignmentData = null;
+        selectedPositions.clear();
+        alignmentPanel.hidden = true;
+        results.hidden = true;
+        setMessage("Vstup se změnil; znovu zkontroluj tokeny.");
+      }));
+
+      window.addEventListener(
+        "probability-garden:model-change-requested",
+        () => {
+          alignmentData = null;
+          currentResult = null;
+        }
+      );
+
+      loadHealth();
+    })();
+  </script>
+</body>
+</html>

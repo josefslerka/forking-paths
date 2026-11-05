@@ -1,0 +1,3250 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Výzkumný AI detektor českých textů: Apertus rozhoduje, stylometrie běží paralelně a EuroLLM nabízí volitelné měření překvapení."
+  >
+  <title>AI detektor · Apertus</title>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--pg-sans);
+      line-height: 1.55;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(116, 224, 166, 0.56);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 130;
+      top: 8px;
+      left: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-weight: 800;
+      transform: translateY(-160%);
+      transition: transform 140ms ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .shell {
+      width: min(1280px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 34px 0 86px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 330px);
+      gap: clamp(28px, 6vw, 90px);
+      align-items: end;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow {
+      margin: 0 0 11px;
+      color: var(--leaf);
+      font-size: 0.68rem;
+      font-weight: 760;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 0;
+      font-family: var(--pg-serif);
+      font-size: clamp(3rem, 5vw, 5.35rem);
+      font-weight: 400;
+      letter-spacing: -0.055em;
+      line-height: 0.94;
+    }
+
+    .lede {
+      max-width: 720px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: clamp(0.94rem, 1.15vw, 1.04rem);
+      line-height: 1.65;
+    }
+
+    .hero-note {
+      padding: 18px 0 2px 20px;
+      border-left: 1px solid var(--line);
+      color: #8ea397;
+      font-size: 0.76rem;
+      line-height: 1.62;
+    }
+
+    .hero-note strong {
+      display: block;
+      margin-bottom: 7px;
+      color: #dce9e0;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .input-panel,
+    .result-panel,
+    .metric-card,
+    .profile-card,
+    .validation-card,
+    .prior-card,
+    .confusion-card,
+    .technical-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(10, 16, 12, 0.82);
+    }
+
+    .input-panel {
+      padding: clamp(18px, 2.6vw, 30px);
+    }
+
+    .input-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: start;
+      margin-bottom: 14px;
+    }
+
+    .input-header h2 {
+      margin-bottom: 5px;
+      font-family: var(--pg-serif);
+      font-size: 1.45rem;
+      font-weight: 500;
+    }
+
+    .input-header p {
+      margin: 0;
+      color: #82978b;
+      font-size: 0.77rem;
+    }
+
+    .runtime-state {
+      display: inline-flex;
+      align-items: center;
+      flex: 0 0 auto;
+      gap: 8px;
+      min-height: 30px;
+      padding: 5px 10px;
+      border: 1px solid #263b30;
+      border-radius: 999px;
+      color: #aacbb7;
+      font-size: 0.7rem;
+      font-weight: 680;
+      white-space: nowrap;
+    }
+
+    .runtime-state::before {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--warning);
+      content: "";
+    }
+
+    .runtime-state[data-state="ready"]::before {
+      background: var(--leaf);
+      box-shadow: 0 0 9px rgba(116, 224, 166, 0.52);
+    }
+
+    .runtime-state[data-state="error"] {
+      color: #e8aaa0;
+    }
+
+    .runtime-state[data-state="error"]::before {
+      background: var(--danger);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #d8e6dd;
+      font-size: 0.75rem;
+      font-weight: 720;
+      letter-spacing: 0.04em;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: clamp(250px, 34vh, 430px);
+      resize: vertical;
+      padding: 18px;
+      border: 1px solid #2a4034;
+      border-radius: 9px;
+      outline: 0;
+      background: #080e0a;
+      color: #e8f2eb;
+      font-family: var(--pg-serif);
+      font-size: 1.02rem;
+      line-height: 1.62;
+      caret-color: var(--leaf);
+    }
+
+    textarea::placeholder {
+      color: #53665b;
+    }
+
+    textarea:focus {
+      border-color: #4e8b68;
+      box-shadow: 0 0 0 3px rgba(116, 224, 166, 0.09);
+    }
+
+    .input-footer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .input-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      color: #789084;
+      font-family: var(--pg-mono);
+      font-size: 0.68rem;
+    }
+
+    .input-meta strong {
+      color: #b9cdc1;
+      font-weight: 540;
+    }
+
+    .analyze-button {
+      min-height: 44px;
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .analyze-button:hover:not(:disabled) {
+      background: var(--leaf-bright);
+    }
+
+    .analyze-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.44;
+    }
+
+    .form-message {
+      min-height: 22px;
+      margin: 11px 0 0;
+      color: #91aa9c;
+      font-size: 0.75rem;
+    }
+
+    .form-message.error {
+      color: #eea297;
+    }
+
+    .busy-panel {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 15px;
+      align-items: center;
+      margin-top: 18px;
+      padding: 15px 17px;
+      border: 1px solid #2a4034;
+      border-radius: 9px;
+      background: #0b1510;
+    }
+
+    .busy-panel[hidden] {
+      display: none;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #304a3a;
+      border-top-color: var(--leaf);
+      border-radius: 50%;
+      animation: spin 800ms linear infinite;
+    }
+
+    .busy-panel strong {
+      display: block;
+      color: #dce9e0;
+      font-size: 0.76rem;
+    }
+
+    .busy-panel p {
+      margin: 2px 0 0;
+      color: #71887a;
+      font-size: 0.7rem;
+    }
+
+    .busy-time {
+      color: var(--leaf);
+      font-family: var(--pg-mono);
+      font-size: 0.76rem;
+    }
+
+    .results {
+      margin-top: 38px;
+      scroll-margin-top: 78px;
+    }
+
+    .results[hidden] {
+      display: none;
+    }
+
+    .result-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    .result-heading h2 {
+      margin-bottom: 0;
+      font-family: var(--pg-serif);
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      font-weight: 400;
+      letter-spacing: -0.035em;
+    }
+
+    .result-heading p {
+      max-width: 440px;
+      margin-bottom: 5px;
+      color: #7f9488;
+      font-size: 0.73rem;
+      text-align: right;
+    }
+
+    .quality-banner {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 13px;
+      align-items: start;
+      margin-bottom: 14px;
+      padding: 14px 16px;
+      border: 1px solid #274032;
+      border-radius: 9px;
+      background: rgba(17, 33, 23, 0.78);
+    }
+
+    .quality-banner[data-state="abstain"] {
+      border-color: #59472e;
+      background: rgba(48, 34, 18, 0.68);
+    }
+
+    .quality-icon {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(116, 224, 166, 0.16);
+      color: var(--leaf);
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .quality-banner[data-state="abstain"] .quality-icon {
+      background: rgba(214, 163, 92, 0.16);
+      color: var(--warning);
+    }
+
+    .quality-banner strong {
+      display: block;
+      margin-bottom: 2px;
+      color: #dce9e0;
+      font-size: 0.78rem;
+    }
+
+    .quality-banner p {
+      margin: 0;
+      color: #8da195;
+      font-size: 0.72rem;
+    }
+
+    .overview {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.8fr);
+      gap: 14px;
+    }
+
+    .result-panel,
+    .prior-card,
+    .challenger-card,
+    .metric-card,
+    .profile-card,
+    .validation-card,
+    .confusion-card,
+    .technical-card {
+      padding: clamp(18px, 2.4vw, 27px);
+    }
+
+    .result-kicker,
+    .card-kicker {
+      display: block;
+      margin-bottom: 9px;
+      color: #789084;
+      font-size: 0.64rem;
+      font-weight: 760;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .verdict {
+      margin: 0 0 18px;
+      color: #e9f3ec;
+      font-family: var(--pg-serif);
+      font-size: clamp(1.65rem, 3.1vw, 2.8rem);
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      line-height: 1.04;
+    }
+
+    .verdict[data-state="ai_signal"] {
+      color: #f0c686;
+    }
+
+    .verdict[data-state="ai_signal"][data-strength="borderline"] {
+      color: #d8b875;
+    }
+
+    .verdict[data-state="screening_signal"],
+    .verdict[data-state="elevated_below_strict_threshold"] {
+      color: #d8b875;
+    }
+
+    .verdict[data-state="ai_signal_not_detected"] {
+      color: #b9ddc7;
+    }
+
+    .verdict[data-state="abstain"] {
+      color: #e0aa6b;
+    }
+
+    .fusion-score-line {
+      display: flex;
+      align-items: baseline;
+      gap: 11px;
+    }
+
+    .fusion-score {
+      color: var(--leaf-bright);
+      font-family: var(--pg-serif);
+      font-size: clamp(4.2rem, 9vw, 7.5rem);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.075em;
+      line-height: 0.86;
+    }
+
+    .fusion-unit {
+      color: #6e8377;
+      font-family: var(--pg-mono);
+      font-size: 0.78rem;
+    }
+
+    .score-track {
+      position: relative;
+      height: 8px;
+      margin: 23px 0 10px;
+      overflow: visible;
+      border-radius: 99px;
+      background: #1a2921;
+    }
+
+    .score-fill {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #477a5b, var(--leaf));
+      transition: width 500ms ease;
+    }
+
+    .threshold-marker {
+      position: absolute;
+      top: -5px;
+      width: 1px;
+      height: 18px;
+      background: #e4bb79;
+    }
+
+    .threshold-marker::after {
+      position: absolute;
+      top: -19px;
+      left: 50%;
+      color: #bea36f;
+      font-family: var(--pg-mono);
+      font-size: 0.58rem;
+      content: "přísný práh";
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    html[data-language="en"] .threshold-marker::after {
+      content: "strict threshold";
+    }
+
+    .score-caption {
+      margin: 0;
+      color: #82988b;
+      font-size: 0.72rem;
+    }
+
+    .score-caption strong {
+      color: #c7d8ce;
+    }
+
+    .decision-margin {
+      margin: 11px 0 0;
+      color: #a8bcb0;
+      font-family: var(--pg-mono);
+      font-size: 0.66rem;
+      line-height: 1.55;
+    }
+
+    .decision-margin strong {
+      color: #d9e8de;
+    }
+
+    .prior-card h3,
+    .metric-card h3,
+    .profile-card h3,
+    .validation-card h3 {
+      margin-bottom: 8px;
+      color: #e5efe8;
+      font-family: var(--pg-serif);
+      font-size: 1.27rem;
+      font-weight: 500;
+    }
+
+    .prior-card p,
+    .metric-card p,
+    .profile-card > p,
+    .validation-card > p {
+      color: #82978b;
+      font-size: 0.72rem;
+    }
+
+    .role-list {
+      display: grid;
+      gap: 9px;
+      margin: 17px 0 0;
+    }
+
+    .role-row {
+      display: grid;
+      grid-template-columns: minmax(88px, 0.72fr) minmax(0, 1.28fr);
+      gap: 12px;
+      align-items: start;
+      padding: 11px 12px;
+      border: 1px solid #26372e;
+      border-radius: 7px;
+      background: #0b130e;
+    }
+
+    .role-row strong {
+      color: #d9e7de;
+      font-size: 0.7rem;
+    }
+
+    .role-row span {
+      color: #7f9588;
+      font-size: 0.67rem;
+    }
+
+    .advisory-box {
+      margin-top: 12px;
+      padding: 12px;
+      border-left: 2px solid #527c62;
+      background: rgba(30, 53, 39, 0.32);
+      color: #9fb5a8;
+      font-size: 0.69rem;
+    }
+
+    .advisory-box[data-state="supports"] {
+      border-left-color: var(--gold);
+      color: #c9b98f;
+    }
+
+    .advisory-box[data-state="caution"] {
+      border-left-color: var(--warning);
+      color: #d2bd95;
+    }
+
+    .challenger-card {
+      margin-top: 14px;
+      border-color: #665331;
+      background:
+        linear-gradient(
+          118deg,
+          rgba(49, 38, 19, 0.58),
+          rgba(10, 18, 13, 0.92) 56%
+        );
+    }
+
+    .challenger-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .challenger-header h3 {
+      margin: 0;
+      color: #f0dfbd;
+      font-family: var(--pg-serif);
+      font-size: clamp(1.35rem, 2.5vw, 2rem);
+      font-weight: 500;
+    }
+
+    .challenger-header p {
+      max-width: 750px;
+      margin: 7px 0 0;
+      color: #a79678;
+      font-size: 0.7rem;
+    }
+
+    .challenger-header .role-badge {
+      flex: 0 0 auto;
+      border-color: #7b653c;
+      color: #d9ba7e;
+    }
+
+    .challenger-layout {
+      display: grid;
+      grid-template-columns:
+        minmax(280px, 1.15fr)
+        minmax(230px, 0.82fr)
+        minmax(220px, 0.72fr);
+      gap: 16px;
+      margin-top: 21px;
+    }
+
+    .challenger-score-line {
+      display: flex;
+      gap: 10px;
+      align-items: baseline;
+    }
+
+    .challenger-score-line strong {
+      color: #e9c886;
+      font-family: var(--pg-serif);
+      font-size: clamp(3.1rem, 6vw, 5.2rem);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.065em;
+      line-height: 0.86;
+    }
+
+    .challenger-score-line span {
+      color: #917e5e;
+      font-family: var(--pg-mono);
+      font-size: 0.65rem;
+    }
+
+    .challenger-track {
+      margin-top: 20px;
+      background: #292319;
+    }
+
+    .challenger-track .score-fill {
+      background: linear-gradient(90deg, #77603a, #dbb36b);
+    }
+
+    .challenger-marker {
+      position: absolute;
+      top: -4px;
+      width: 1px;
+      height: 16px;
+      background: #d9cba9;
+    }
+
+    .challenger-marker::after {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      color: #a99877;
+      font-family: var(--pg-mono);
+      font-size: 0.53rem;
+      content: attr(data-label);
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    .challenger-marker[data-kind="screening"] {
+      height: 13px;
+      background: #8c7a58;
+    }
+
+    .challenger-marker[data-kind="screening"]::after {
+      top: 15px;
+    }
+
+    .challenger-track + .score-caption {
+      margin-top: 24px;
+    }
+
+    .challenger-comparison {
+      min-height: 100%;
+      padding: 15px;
+      border: 1px solid #554729;
+      border-radius: 8px;
+      background: rgba(22, 19, 13, 0.72);
+    }
+
+    .challenger-comparison > span {
+      display: block;
+      margin-bottom: 8px;
+      color: #8e8066;
+      font-size: 0.58rem;
+      font-weight: 760;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .challenger-comparison strong {
+      display: block;
+      color: #e4d5b8;
+      font-family: var(--pg-serif);
+      font-size: 1.23rem;
+      font-weight: 500;
+      line-height: 1.15;
+    }
+
+    .challenger-comparison p {
+      margin: 9px 0 0;
+      color: #9f9278;
+      font-size: 0.67rem;
+    }
+
+    .challenger-comparison[data-state^="agreement"] {
+      border-color: #3f654b;
+      background: rgba(19, 42, 27, 0.48);
+    }
+
+    .challenger-comparison[data-state$="higher"] {
+      border-color: #7c5a30;
+      background: rgba(54, 35, 15, 0.5);
+    }
+
+    .challenger-stats-panel {
+      padding: 15px;
+      border: 1px solid #443a28;
+      border-radius: 8px;
+      background: rgba(11, 18, 13, 0.62);
+    }
+
+    .challenger-stats {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px 14px;
+      align-content: start;
+      margin: 0;
+      color: #8d8068;
+      font-size: 0.63rem;
+    }
+
+    .challenger-stats dt,
+    .challenger-stats dd {
+      margin: 0;
+    }
+
+    .challenger-stats dd {
+      color: #d7c5a1;
+      font-family: var(--pg-mono);
+      text-align: right;
+    }
+
+    .challenger-warning {
+      margin: 7px 0 0;
+      padding-top: 9px;
+      border-top: 1px solid #443a28;
+      color: #a18d69;
+      font-size: 0.62rem;
+      line-height: 1.5;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .metric-score {
+      margin: 15px 0 13px;
+      color: #dceae1;
+      font-family: var(--pg-serif);
+      font-size: clamp(2.3rem, 4vw, 3.7rem);
+      letter-spacing: -0.055em;
+      line-height: 0.92;
+    }
+
+    .metric-card[data-model="fusion"] .metric-score {
+      color: #aabbb1;
+    }
+
+    .metric-card[data-model="apertus"] {
+      border-color: #3c654d;
+      background: rgba(11, 24, 16, 0.9);
+    }
+
+    .metric-card[data-model="stylometry"],
+    .metric-card[data-model="fusion"] {
+      background: rgba(10, 16, 12, 0.66);
+    }
+
+    .role-badge {
+      display: inline-flex;
+      width: fit-content;
+      margin: 0 0 2px;
+      padding: 3px 7px;
+      border: 1px solid #2b4636;
+      border-radius: 999px;
+      color: #94ad9e;
+      font-size: 0.57rem;
+      font-weight: 760;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .metric-card[data-model="apertus"] .role-badge {
+      border-color: #4b765b;
+      color: var(--leaf);
+    }
+
+    .mini-track {
+      height: 5px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: #1a2921;
+    }
+
+    .mini-track span {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: #79b991;
+    }
+
+    .metric-card dl {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 12px;
+      margin: 17px 0 0;
+      color: #71877a;
+      font-size: 0.66rem;
+    }
+
+    .metric-card dt,
+    .metric-card dd {
+      margin: 0;
+    }
+
+    .metric-card dd {
+      color: #afc4b7;
+      font-family: var(--pg-mono);
+    }
+
+    .lower-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .profile-index {
+      display: flex;
+      gap: 13px;
+      align-items: baseline;
+      margin: 15px 0 18px;
+    }
+
+    .profile-index strong {
+      color: #d8e8de;
+      font-family: var(--pg-serif);
+      font-size: 3.2rem;
+      font-weight: 500;
+      letter-spacing: -0.05em;
+      line-height: 1;
+    }
+
+    .profile-index span {
+      max-width: 270px;
+      color: #758a7e;
+      font-size: 0.67rem;
+    }
+
+    .profile-rows {
+      display: grid;
+      gap: 12px;
+    }
+
+    .profile-row {
+      display: grid;
+      grid-template-columns: minmax(170px, 1fr) minmax(130px, 0.85fr) auto;
+      gap: 13px;
+      align-items: center;
+    }
+
+    .profile-row-label {
+      color: #b9cbc0;
+      font-size: 0.7rem;
+    }
+
+    .profile-row-label small {
+      display: block;
+      margin-top: 2px;
+      color: #64796d;
+      font-family: var(--pg-mono);
+      font-size: 0.58rem;
+    }
+
+    .percentile-track {
+      position: relative;
+      height: 4px;
+      border-radius: 99px;
+      background: #1b2a22;
+    }
+
+    .percentile-track span {
+      position: absolute;
+      top: 50%;
+      width: 8px;
+      height: 8px;
+      border: 1px solid #0b110d;
+      border-radius: 50%;
+      background: var(--gold);
+      transform: translate(-50%, -50%);
+    }
+
+    .profile-row-value {
+      min-width: 80px;
+      color: #a9bdb1;
+      font-family: var(--pg-mono);
+      font-size: 0.63rem;
+      text-align: right;
+    }
+
+    .validation-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      margin: 20px 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--line);
+    }
+
+    .validation-stat {
+      padding: 13px;
+      background: #0b130e;
+    }
+
+    .validation-stat span {
+      display: block;
+      margin-bottom: 4px;
+      color: #6f8478;
+      font-size: 0.59rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .validation-stat strong {
+      color: #d7e5dc;
+      font-family: var(--pg-mono);
+      font-size: 0.87rem;
+      font-weight: 520;
+    }
+
+    .timing-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 18px;
+    }
+
+    .timing-line span {
+      padding: 5px 8px;
+      border: 1px solid #26372e;
+      border-radius: 5px;
+      color: #8ca195;
+      font-family: var(--pg-mono);
+      font-size: 0.61rem;
+    }
+
+    .confusion-card {
+      margin-top: 14px;
+    }
+
+    .confusion-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: end;
+    }
+
+    .confusion-header h3 {
+      margin-bottom: 7px;
+      color: #e5efe8;
+      font-family: var(--pg-serif);
+      font-size: 1.5rem;
+      font-weight: 500;
+    }
+
+    .confusion-header p {
+      max-width: 700px;
+      margin-bottom: 0;
+      color: #82978b;
+      font-size: 0.72rem;
+    }
+
+    .confusion-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    .confusion-filter {
+      padding: 5px 9px;
+      border: 1px solid #2b4034;
+      border-radius: 999px;
+      background: #0b130e;
+      color: #84998d;
+      font-size: 0.62rem;
+      cursor: pointer;
+    }
+
+    .confusion-filter[aria-pressed="true"] {
+      border-color: #4b765b;
+      background: rgba(39, 75, 52, 0.5);
+      color: var(--leaf);
+    }
+
+    .confusion-table-wrap {
+      margin-top: 18px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+    }
+
+    .confusion-table {
+      width: 100%;
+      min-width: 780px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .confusion-table th,
+    .confusion-table td {
+      padding: 14px 13px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .confusion-table th:last-child,
+    .confusion-table td:last-child {
+      border-right: 0;
+    }
+
+    .confusion-table tbody tr:last-child th,
+    .confusion-table tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .confusion-table thead th {
+      background: #0b130e;
+      color: #71877a;
+      font-size: 0.59rem;
+      font-weight: 720;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .confusion-table tbody th {
+      background: rgba(14, 24, 17, 0.82);
+      color: #d4e1d8;
+      font-size: 0.72rem;
+    }
+
+    .confusion-cell {
+      background: rgba(10, 17, 12, 0.64);
+    }
+
+    .confusion-cell[data-kind="false-positive"] {
+      background: rgba(96, 50, 31, 0.28);
+    }
+
+    .confusion-cell[data-kind="uncertain"] {
+      background: rgba(90, 70, 34, 0.24);
+    }
+
+    .confusion-cell[data-kind="true-negative"] {
+      background: rgba(29, 66, 43, 0.24);
+    }
+
+    .confusion-cell[data-kind="true-positive"] {
+      background: rgba(35, 92, 57, 0.34);
+    }
+
+    .confusion-cell[data-kind="false-negative"] {
+      background: rgba(111, 43, 40, 0.3);
+    }
+
+    .confusion-cell[data-kind="abstain"] {
+      background: rgba(60, 55, 72, 0.3);
+    }
+
+    .confusion-cell[data-kind="unknown"] {
+      background:
+        repeating-linear-gradient(
+          -45deg,
+          rgba(18, 28, 21, 0.72),
+          rgba(18, 28, 21, 0.72) 9px,
+          rgba(13, 21, 16, 0.72) 9px,
+          rgba(13, 21, 16, 0.72) 18px
+        );
+    }
+
+    .confusion-cell strong {
+      display: block;
+      color: #dce9e0;
+      font-family: var(--pg-serif);
+      font-size: 1.75rem;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .confusion-cell small {
+      display: block;
+      margin-top: 5px;
+      color: #708579;
+      font-size: 0.61rem;
+      line-height: 1.4;
+    }
+
+    .confusion-summary {
+      margin: 13px 0 0;
+      color: #91a69a;
+      font-size: 0.69rem;
+    }
+
+    .confusion-summary strong {
+      color: #d5e3da;
+    }
+
+    .technical-card {
+      margin-top: 14px;
+    }
+
+    .technical-card summary {
+      color: #cad9d0;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 720;
+    }
+
+    .technical-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+      margin-top: 20px;
+    }
+
+    .technical-grid h3 {
+      margin-bottom: 9px;
+      color: #bcd0c4;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .technical-table {
+      width: 100%;
+      border-collapse: collapse;
+      color: #81978a;
+      font-family: var(--pg-mono);
+      font-size: 0.62rem;
+    }
+
+    .technical-table th,
+    .technical-table td {
+      padding: 7px 5px;
+      border-bottom: 1px solid #1e2c25;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .technical-table th:last-child,
+    .technical-table td:last-child {
+      text-align: right;
+    }
+
+    .warnings {
+      margin: 18px 0 0;
+      padding: 15px 18px 15px 34px;
+      border-left: 2px solid #7c6239;
+      background: rgba(53, 38, 20, 0.34);
+      color: #a99b82;
+      font-size: 0.68rem;
+    }
+
+    .warnings li + li {
+      margin-top: 5px;
+    }
+
+    .research-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: #62766a;
+      font-size: 0.65rem;
+    }
+
+    .reader-option {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-soft);
+    }
+
+    .reader-option label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .reader-option input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--leaf);
+    }
+
+    .reader-option p,
+    .reader-card p {
+      color: var(--muted);
+      font-size: .8rem;
+    }
+
+    .reader-option p { margin: 8px 0 0 28px; }
+    .reader-card {
+      padding: clamp(18px, 2.4vw, 27px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .reader-card h3 { margin: 0; font-family: var(--pg-serif); font-size: 1.7rem; font-weight: 500; }
+    .reader-header { display: flex; justify-content: space-between; gap: 18px; align-items: start; }
+    .reader-action {
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font-size: .78rem;
+      cursor: pointer;
+    }
+    .reader-action:disabled { opacity: .45; cursor: default; }
+    .reader-summary { display: flex; flex-wrap: wrap; gap: 28px; margin: 22px 0; }
+    .reader-summary div { display: grid; gap: 4px; }
+    .reader-summary span { color: var(--muted); font-size: .75rem; }
+    .reader-summary strong { font-size: 1.6rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .reader-summary small { color: var(--muted); font-size: .72rem; }
+    .reader-chart { width: 100%; max-width: 780px; display: block; }
+    .reader-chart text { fill: var(--muted); font-family: var(--pg-sans); font-size: 12px; }
+    .reader-chart .bar-apertus { fill: #287755; }
+    .reader-chart .bar-eurollm { fill: #6a53a1; }
+    .reader-card details { margin-top: 18px; font-size: .78rem; }
+    .reader-card summary { cursor: pointer; font-weight: 650; }
+    .reader-card pre { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); font-size: .68rem; }
+    #cancel-analysis { margin-top: 14px; }
+    @media (max-width: 620px) { .reader-header { flex-direction: column; } }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      .overview,
+      .challenger-layout,
+      .lower-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-note {
+        max-width: 680px;
+      }
+
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .shell {
+        width: min(100% - 28px, 1280px);
+        padding-top: 25px;
+      }
+
+      .input-header,
+      .input-footer,
+      .result-heading,
+      .challenger-header,
+      .confusion-header,
+      .research-footer {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .confusion-filters {
+        justify-content: flex-start;
+      }
+
+      .runtime-state {
+        justify-self: start;
+      }
+
+      .analyze-button {
+        width: 100%;
+      }
+
+      .result-heading p {
+        text-align: left;
+      }
+
+      .profile-row {
+        grid-template-columns: 1fr auto;
+      }
+
+      .percentile-track {
+        grid-column: 1 / -1;
+        grid-row: 2;
+      }
+
+      .technical-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body data-workbench-page="detector">
+  <a class="skip-link" href="#main-content">Přejít k obsahu</a>
+  <main class="shell" id="main-content">
+    <section class="hero" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">Champion–challenger · výzkumný provoz</p>
+        <h1 id="page-title">AI detektor</h1>
+        <p class="lede">
+          Vlož český text. Přísný verdikt řídí pět rysů překvapení
+          Apertusu. Párová stylometrie v5 běží vedle něj jako výzkumný
+          challenger. Volitelně přidej EuroLLM a porovnej překvapení
+          obou modelů nad stejnými úseky textu.
+        </p>
+      </div>
+      <aside class="hero-note">
+        <strong>Kalibrovaný verdikt Apertusu</strong>
+        Apertus je současný champion. Párová stylometrie v5 a volitelné
+        měření EuroLLM nabízejí další výzkumné pohledy. Promotion gate
+        stylometrie zatím neprošla.
+        Výsledek je vodítko, ne důkaz autorství.
+      </aside>
+    </section>
+
+    <form class="input-panel" id="detector-form">
+      <div class="input-header">
+        <div>
+          <h2>Text k analýze</h2>
+          <p>
+            Minimum 2 100 normalizovaných znaků; optimálně souvislý
+            český text bez tabulek a vloženého kódu.
+          </p>
+        </div>
+        <div class="runtime-state" id="runtime-state" data-state="loading">
+          Ověřuji Hybrid
+        </div>
+      </div>
+
+      <label for="source-text">Analyzovaný text</label>
+      <textarea
+        id="source-text"
+        name="text"
+        minlength="2100"
+        maxlength="100000"
+        spellcheck="true"
+        autocomplete="off"
+        placeholder="Sem vlož celý český text…"
+        aria-describedby="input-guidance form-message"
+        required
+      ></textarea>
+      <p id="input-guidance" hidden>
+        Text zůstane v tomto lokálním workbenchi a endpoint jej neukládá.
+      </p>
+
+      <div class="reader-option">
+        <label for="include-eurollm">
+          <input type="checkbox" id="include-eurollm" aria-describedby="reader-option-copy" disabled>
+          Přidat měření EuroLLM 9B
+        </label>
+        <p id="reader-option-copy">
+          Stejné tři úseky, druhý modelový čtenář. Přepnutí modelů prodlouží
+          analýzu; poté se vrátí Hybrid. EuroLLM zatím nemá vlastní kalibraci
+          pro AI detekci a verdikt nemění. Text ani toto měření se neukládají.
+        </p>
+        <p id="reader-availability" role="status" aria-live="polite">Ověřuji dostupnost EuroLLM.</p>
+      </div>
+
+      <div class="input-footer">
+        <div class="input-meta" aria-live="polite">
+          <span><strong id="character-count">0</strong> znaků</span>
+          <span><strong id="word-count">0</strong> slov</span>
+          <span>minimum <strong>2 100</strong> znaků</span>
+          <span>3 × 700 znaků · 3 × 128 Apertus tokenů</span>
+        </div>
+        <button
+          class="analyze-button"
+          id="analyze-button"
+          type="submit"
+          disabled
+        >
+          Analyzovat text
+        </button>
+      </div>
+      <p class="form-message" id="form-message" role="status" aria-live="polite"></p>
+
+      <div class="busy-panel" id="busy-panel" role="status" aria-live="polite" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <div>
+          <strong id="busy-title">Měřím tři části textu</strong>
+          <p id="busy-detail">
+            Stylometrie se počítá lokálně; Apertus provede tři
+            teacher-forced průchody.
+          </p>
+        </div>
+        <span class="busy-time" id="busy-time">0,0 s</span>
+      </div>
+      <button type="button" class="reader-action" id="cancel-analysis" hidden>Přerušit měření</button>
+    </form>
+
+    <section class="results" id="results" aria-labelledby="results-title" hidden>
+      <div class="result-heading">
+        <h2 id="results-title" tabindex="-1">Výsledek</h2>
+        <p>
+          Přísný verdikt používá předem uzamčený práh Apertusu.
+          Párový challenger ani archivní modely jej nemohou změnit.
+        </p>
+      </div>
+
+      <div class="quality-banner" id="quality-banner" data-state="pass">
+        <span class="quality-icon" id="quality-icon" aria-hidden="true">✓</span>
+        <div>
+          <strong id="quality-title">Kontrola vstupu prošla</strong>
+          <p id="quality-copy">
+            Text odpovídá jazykovým a technickým podmínkám modelu.
+          </p>
+        </div>
+      </div>
+
+      <div class="overview">
+        <article class="result-panel">
+          <span class="result-kicker">Primární výsledek · Apertus · 5 rysů</span>
+          <h3 class="verdict" id="verdict" data-state="neutral">—</h3>
+          <div class="fusion-score-line">
+            <strong class="fusion-score" id="fusion-score">—</strong>
+            <span class="fusion-unit">/ 100 skóre Apertusu</span>
+          </div>
+          <div
+            class="score-track"
+            role="img"
+            id="fusion-track"
+            aria-label="Skóre Apertusu a jeho přísný rozhodovací práh"
+          >
+            <div class="score-fill" id="fusion-fill"></div>
+            <span class="threshold-marker" id="threshold-marker"></span>
+          </div>
+          <p class="decision-margin" id="decision-margin">—</p>
+          <p class="score-caption" id="score-caption">—</p>
+        </article>
+
+        <aside class="prior-card">
+          <span class="card-kicker">Podmíněná interpretace</span>
+          <h3>Kdo má jakou roli</h3>
+          <p>
+            Rozhodnutí je záměrně asymetrické. Povrchová pravidelnost
+            může podezření podpořit, ale nemůže je sama založit.
+          </p>
+          <div class="role-list">
+            <div class="role-row">
+              <strong>Apertus</strong>
+              <span>Primární detekční signál; rozhoduje podle svých uzamčených prahů.</span>
+            </div>
+            <div class="role-row">
+              <strong>Párová stylometrie v5</strong>
+              <span>Učila se i z rozdílu mezi lidským originálem a jeho AI přepisem; běží paralelně a nerozhoduje.</span>
+            </div>
+            <div class="role-row">
+              <strong>Modely v2</strong>
+              <span>Archivní diagnostika pro srovnání; na této obrazovce nerozhoduje.</span>
+            </div>
+          </div>
+          <div class="advisory-box" id="style-advisory" data-state="neutral">
+            Komentář párové stylometrie se zobrazí po analýze.
+          </div>
+        </aside>
+      </div>
+
+      <article
+        class="challenger-card"
+        id="challenger-card"
+        aria-labelledby="challenger-title"
+      >
+        <div class="challenger-header">
+          <div>
+            <span class="card-kicker">
+              Výzkumný challenger · v5 · 120 rysů · párový loss
+            </span>
+            <h3 id="challenger-title">
+              Párová stylometrie v5
+            </h3>
+            <p>
+              Model kombinuje běžnou klasifikační chybu s tlakem, aby AI
+              přepis skóroval výš než odpovídající lidský originál.
+              Při analýze nového textu už originál nepotřebuje.
+            </p>
+          </div>
+          <span class="role-badge">Nerozhoduje · gate neprošla</span>
+        </div>
+        <div class="challenger-layout">
+          <div>
+            <div class="challenger-score-line">
+              <strong id="challenger-score">—</strong>
+              <span>/ 100 výzkumného skóre</span>
+            </div>
+            <div
+              class="score-track challenger-track"
+              id="challenger-track"
+              role="img"
+              aria-label="Skóre párové stylometrie v5 a její výzkumné prahy"
+            >
+              <div class="score-fill" id="challenger-fill"></div>
+              <span
+                class="challenger-marker"
+                id="challenger-strict-marker"
+                data-kind="strict"
+                data-label="přísný"
+              ></span>
+              <span
+                class="challenger-marker"
+                id="challenger-screening-marker"
+                data-kind="screening"
+                data-label="screening"
+              ></span>
+            </div>
+            <p class="score-caption">
+              Vlastní výzkumné prahy:
+              screening <strong id="challenger-screening-threshold">—</strong>,
+              přísný <strong id="challenger-threshold">—</strong>.
+            </p>
+          </div>
+          <div
+            class="challenger-comparison"
+            id="challenger-comparison-panel"
+            data-state="neutral"
+          >
+            <span>Srovnání pásem s Apertusem</span>
+            <strong id="challenger-comparison">—</strong>
+            <p id="challenger-copy">
+              Shoda nebo neshoda se zobrazí po analýze.
+            </p>
+          </div>
+          <div class="challenger-stats-panel">
+            <dl class="challenger-stats">
+              <dt>Vývojové AUC</dt>
+              <dd id="challenger-auc">—</dd>
+              <dt>Runtime práh · falešně AI</dt>
+              <dd id="challenger-fpr">—</dd>
+              <dt>Runtime práh · záchyt AI</dt>
+              <dd id="challenger-recall">—</dd>
+              <dt>Párové pořadí</dt>
+              <dd id="challenger-pair-win">—</dd>
+            </dl>
+            <p class="challenger-warning">
+              Vývojové AUC vzrostlo proti v4, ale recall nikoli; původní
+              promotion gate proto neprošla. Grok: přísný záchyt 1 / 24.
+              Nejhorší publisher FPR v OOF bylo 5,3 %.
+            </p>
+          </div>
+        </div>
+      </article>
+
+      <article class="reader-card" id="reader-comparison" aria-labelledby="reader-title" hidden>
+        <div class="reader-header">
+          <div>
+            <span class="card-kicker">Výzkumné měření · bez kalibrace EuroLLM</span>
+            <h3 id="reader-title">Apertus a EuroLLM nad stejným textem</h3>
+          </div>
+          <button type="button" class="reader-action" id="reader-export">Stáhnout měření (JSON)</button>
+        </div>
+        <p>
+          Porovnáváme součet překvapení na znak bez bílého místa. Oba modely
+          čtou stejný kontext i cílový úsek; počet jejich tokenů se může lišit.
+          Nižší překvapení samo o sobě neznamená vyšší pravděpodobnost AI.
+          Toto měření nepřidává další AI verdikt.
+        </p>
+        <p id="reader-status" role="status" aria-live="polite"></p>
+        <div class="reader-summary">
+          <div><span>Apertus</span><strong id="reader-apertus">—</strong><small>bitů / znak bez bílého místa</small></div>
+          <div><span id="reader-eurollm-label">EuroLLM 9B</span><strong id="reader-eurollm">—</strong><small>bitů / znak bez bílého místa</small></div>
+          <div><span>Rozdíl EuroLLM − Apertus</span><strong id="reader-delta">—</strong><small>na společných cílových úsecích</small></div>
+        </div>
+        <svg class="reader-chart" id="reader-chart" viewBox="0 0 760 234" role="img" aria-label="Překvapení obou modelů ve třech společných úsecích"></svg>
+        <div class="confusion-table-wrap">
+          <table class="confusion-table" id="reader-window-table">
+            <caption>Společné cílové úseky · překvapení v bitech na znak bez bílého místa</caption>
+            <thead><tr><th scope="col">Úsek</th><th scope="col">Znaků bez bílého místa</th><th scope="col">Tokenů Apertus / EuroLLM</th><th scope="col">Apertus</th><th scope="col">EuroLLM</th><th scope="col">Rozdíl</th></tr></thead>
+            <tbody id="reader-windows"></tbody>
+          </table>
+        </div>
+        <p id="reader-alignment"></p>
+        <details>
+          <summary>Pět naměřených rysů a protokol</summary>
+          <p>
+            Tokenové kvantily a entropie závisejí na slovníku modelu.
+            Jsou to popisné hodnoty; pro detekční skóre EuroLLM bude potřeba
+            samostatný trénink a kalibrace. Rysy Apertusu zde patří ke společným
+            úsekům, primární klasifikátor používá původní pevná okna.
+          </p>
+          <div class="confusion-table-wrap">
+            <table class="confusion-table"><thead><tr><th scope="col">Rys</th><th scope="col">Apertus</th><th scope="col">EuroLLM</th></tr></thead><tbody id="reader-features"></tbody></table>
+          </div>
+          <pre id="reader-protocol" data-i18n-ignore></pre>
+        </details>
+      </article>
+
+      <div class="metric-grid" id="metric-grid">
+        <article class="metric-card" data-model="apertus">
+          <span class="card-kicker">5 rysů · primární</span>
+          <span class="role-badge">Rozhoduje</span>
+          <h3>Apertus</h3>
+          <div class="metric-score" id="apertus-score">—</div>
+          <div class="mini-track"><span id="apertus-fill"></span></div>
+          <p>
+            Překvapení, rozptyl a koncentrace ve třech pevných
+            tokenových oknech, bez znalosti skutečného původu textu.
+          </p>
+          <dl>
+            <dt>Přísný práh</dt>
+            <dd id="apertus-threshold">—</dd>
+            <dt>Screening práh</dt>
+            <dd id="apertus-screening-threshold">—</dd>
+            <dt>Kalibrace AUC</dt>
+            <dd id="apertus-auc">—</dd>
+          </dl>
+        </article>
+        <article class="metric-card" data-model="stylometry">
+          <span class="card-kicker">120 rysů · v2 · archivní</span>
+          <span class="role-badge">Archivní diagnostika</span>
+          <h3>Stylometrie v2 · původní skóre</h3>
+          <div class="metric-score" id="style-score">—</div>
+          <div class="mini-track"><span id="style-fill"></span></div>
+          <p>
+            Původní model slovníku, interpunkce a stavby vět. Zůstává
+            viditelný pro srovnání, ale už neslouží jako challenger.
+          </p>
+          <dl>
+            <dt>Archivní přísný práh</dt>
+            <dd id="style-threshold">—</dd>
+            <dt>Archivní screening</dt>
+            <dd id="style-screening-threshold">—</dd>
+            <dt>Kalibrace AUC</dt>
+            <dd id="style-auc">—</dd>
+          </dl>
+        </article>
+        <article class="metric-card" data-model="fusion">
+          <span class="card-kicker">120 + 5 rysů · diagnostické</span>
+          <span class="role-badge">Výzkumné srovnání</span>
+          <h3>Experimentální fúze v2</h3>
+          <div class="metric-score" id="fusion-card-score">—</div>
+          <div class="mini-track"><span id="fusion-card-fill"></span></div>
+          <p>
+            Původní logistické spojení obou pohledů. Zůstává viditelné
+            pro porovnání, ale přísný verdikt už neurčuje.
+          </p>
+          <dl>
+            <dt>Přísný práh</dt>
+            <dd id="fusion-card-threshold">—</dd>
+            <dt>Screening práh</dt>
+            <dd id="fusion-card-screening-threshold">—</dd>
+            <dt>Kalibrace AUC</dt>
+            <dd id="fusion-card-auc">—</dd>
+          </dl>
+        </article>
+      </div>
+
+      <div class="lower-grid">
+        <article class="profile-card">
+          <span class="card-kicker">Bez klasifikátoru</span>
+          <h3>Popisný profil Apertusu</h3>
+          <p>
+            Kde leží pět naměřených hodnot vůči 250 lidským textům
+            z tréninkové sady. Směr je otočen tak, aby 100 znamenalo
+            „více ve směru pozorovaném u AI“, nikoli „100% AI“.
+          </p>
+          <div class="profile-index">
+            <strong id="profile-index">—</strong>
+            <span>
+              souhrnný směrový percentil; není to pravděpodobnost ani
+              samostatný verdikt
+            </span>
+          </div>
+          <div class="profile-rows" id="profile-rows"></div>
+        </article>
+
+        <article class="validation-card">
+          <span class="card-kicker">Kontext výkonu</span>
+          <h3>Audity 790 lidských + 120 AI přiřazení</h3>
+          <p>
+            Apertus měl na lidském auditu nízký podíl falešných
+            verdiktů. Nový obsahově párovaný audit ale ukázal, že
+            současné AI přepisy českých zpráv téměř nezachytí.
+          </p>
+          <div class="validation-stats">
+            <div class="validation-stat">
+              <span>Lidské · falešně AI</span>
+              <strong>2,2 %</strong>
+            </div>
+            <div class="validation-stat">
+              <span>AI · přísně zachyceno</span>
+              <strong>1,8 %</strong>
+            </div>
+            <div class="validation-stat">
+              <span>AI · screeningový záchyt</span>
+              <strong>17,0 %</strong>
+            </div>
+            <div class="validation-stat">
+              <span>Vzniklo / přiřazeno</span>
+              <strong>113 / 120</strong>
+            </div>
+          </div>
+          <p>
+            Předem stanovená hypotéza neprošla. Poradní AUC bylo 0,654
+            pro Apertus, 0,709 pro stylometrii a 0,750 pro původní fúzi;
+            žádný práh se po auditu neposouval.
+          </p>
+          <div class="timing-line" id="timing-line"></div>
+        </article>
+      </div>
+
+      <section class="confusion-card" aria-labelledby="confusion-title">
+        <div class="confusion-header">
+          <div>
+            <span class="card-kicker">Párový audit · Apertus-first</span>
+            <h3 id="confusion-title">Rozšířená confusion matice</h3>
+            <p>
+              Řádky ukazují skutečný původ a sloupce výstup systému.
+              Rozšířená matice záměrně odděluje šedé pásmo a zdržení
+              od binárního verdiktu. U AI zahrnuje zdržení jednu quality
+              abstenci a sedm selhání poskytovatele bez modelového výstupu.
+            </p>
+          </div>
+          <div
+            class="confusion-filters"
+            aria-label="Výběr vydavatele pro confusion matici"
+          >
+            <button
+              class="confusion-filter"
+              type="button"
+              data-confusion-scope="overall"
+              aria-pressed="true"
+            >Celkem</button>
+            <button
+              class="confusion-filter"
+              type="button"
+              data-confusion-scope="echo24.cz"
+              aria-pressed="false"
+            >Echo24</button>
+            <button
+              class="confusion-filter"
+              type="button"
+              data-confusion-scope="irozhlas.cz"
+              aria-pressed="false"
+            >iROZHLAS</button>
+            <button
+              class="confusion-filter"
+              type="button"
+              data-confusion-scope="denikalarm.cz"
+              aria-pressed="false"
+            >Deník Alarm</button>
+            <button
+              class="confusion-filter"
+              type="button"
+              data-confusion-scope="denikreferendum.cz"
+              aria-pressed="false"
+            >Deník Referendum</button>
+          </div>
+        </div>
+
+        <div class="confusion-table-wrap">
+          <table class="confusion-table">
+            <thead>
+              <tr>
+                <th scope="col">Skutečný původ</th>
+                <th scope="col">Přísný AI signál</th>
+                <th scope="col">Nejisté · šedé pásmo</th>
+                <th scope="col">Bez AI signálu</th>
+                <th scope="col">Bez verdiktu · abstence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" id="confusion-human-label">
+                  Lidský text · celkem
+                </th>
+                <td
+                  class="confusion-cell"
+                  data-kind="false-positive"
+                  id="confusion-human-strict"
+                ></td>
+                <td
+                  class="confusion-cell"
+                  data-kind="uncertain"
+                  id="confusion-human-uncertain"
+                ></td>
+                <td
+                  class="confusion-cell"
+                  data-kind="true-negative"
+                  id="confusion-human-no-signal"
+                ></td>
+                <td
+                  class="confusion-cell"
+                  data-kind="abstain"
+                  id="confusion-human-abstain"
+                ></td>
+              </tr>
+              <tr>
+                <th scope="row" id="confusion-ai-label">
+                  AI přepis · celkem
+                </th>
+                <td
+                  class="confusion-cell"
+                  data-kind="true-positive"
+                  id="confusion-ai-strict"
+                ></td>
+                <td
+                  class="confusion-cell"
+                  data-kind="uncertain"
+                  id="confusion-ai-uncertain"
+                ></td>
+                <td
+                  class="confusion-cell"
+                  data-kind="false-negative"
+                  id="confusion-ai-no-signal"
+                ></td>
+                <td
+                  class="confusion-cell"
+                  data-kind="abstain"
+                  id="confusion-ai-abstain"
+                ></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p
+          class="confusion-summary"
+          id="confusion-summary"
+          aria-live="polite"
+        ></p>
+      </section>
+
+      <details class="technical-card">
+        <summary>Technický detail měření a největší příspěvky</summary>
+        <div class="technical-grid">
+          <div>
+            <h3>Největší příspěvky párové stylometrie v5</h3>
+            <table class="technical-table">
+              <thead>
+                <tr>
+                  <th>Rys</th>
+                  <th>Směr</th>
+                </tr>
+              </thead>
+              <tbody id="contribution-rows"></tbody>
+            </table>
+          </div>
+          <div>
+            <h3>Apertus okna</h3>
+            <table class="technical-table">
+              <thead>
+                <tr>
+                  <th>Poloha</th>
+                  <th>Tokeny</th>
+                  <th>Čas</th>
+                </tr>
+              </thead>
+              <tbody id="window-rows"></tbody>
+            </table>
+          </div>
+        </div>
+        <ul class="warnings" id="warning-list"></ul>
+      </details>
+
+      <footer class="research-footer">
+        <span id="privacy-copy">
+          Text byl analyzován lokálně a nebyl uložen.
+        </span>
+        <span id="bundle-copy">Inference bundle —</span>
+      </footer>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const MINIMUM_CHARACTERS = 2100;
+      const HEALTH_TIMEOUT_MS = 4500;
+      const t = window.ProbabilityGardenI18n?.t ?? ((text) => String(text));
+      const form = document.querySelector("#detector-form");
+      const sourceText = document.querySelector("#source-text");
+      const analyzeButton = document.querySelector("#analyze-button");
+      const characterCount = document.querySelector("#character-count");
+      const wordCount = document.querySelector("#word-count");
+      const runtimeState = document.querySelector("#runtime-state");
+      const message = document.querySelector("#form-message");
+      const busyPanel = document.querySelector("#busy-panel");
+      const busyTitle = document.querySelector("#busy-title");
+      const busyDetail = document.querySelector("#busy-detail");
+      const busyTime = document.querySelector("#busy-time");
+      const results = document.querySelector("#results");
+      const resultsTitle = document.querySelector("#results-title");
+      const includeEuroLLM = document.querySelector("#include-eurollm");
+      const cancelAnalysis = document.querySelector("#cancel-analysis");
+
+      const state = {
+        health: null,
+        healthAvailable: false,
+        busy: false,
+        result: null,
+        resultIdentity: null,
+        readerJob: null,
+        readerPhase: null,
+        readerProgress: null,
+        cancelRequested: false,
+        inputRevision: 0,
+        submittedText: null,
+        pollTimer: null,
+        busyTimer: null,
+        busyStartedAt: null
+      };
+
+      const HUMAN_CONFUSION_AUDIT = {
+        overall: {
+          label: "celkem",
+          total: 790,
+          qualityPass: 778,
+          strictAi: 17,
+          uncertain: 42,
+          noSignal: 719,
+          abstain: 12
+        },
+        "echo24.cz": {
+          label: "Echo24",
+          total: 296,
+          qualityPass: 295,
+          strictAi: 6,
+          uncertain: 20,
+          noSignal: 269,
+          abstain: 1
+        },
+        "irozhlas.cz": {
+          label: "iROZHLAS",
+          total: 362,
+          qualityPass: 359,
+          strictAi: 9,
+          uncertain: 9,
+          noSignal: 341,
+          abstain: 3
+        },
+        "denikalarm.cz": {
+          label: "Deník Alarm",
+          total: 48,
+          qualityPass: 48,
+          strictAi: 0,
+          uncertain: 4,
+          noSignal: 44,
+          abstain: 0
+        },
+        "denikreferendum.cz": {
+          label: "Deník Referendum",
+          total: 84,
+          qualityPass: 76,
+          strictAi: 2,
+          uncertain: 9,
+          noSignal: 65,
+          abstain: 8
+        }
+      };
+
+      const AI_CONFUSION_AUDIT = {
+        overall: {
+          label: "celkem",
+          total: 120,
+          qualityPass: 112,
+          strictAi: 2,
+          uncertain: 17,
+          noSignal: 93,
+          abstain: 8
+        },
+        "echo24.cz": {
+          label: "Echo24",
+          total: 30,
+          qualityPass: 29,
+          strictAi: 1,
+          uncertain: 7,
+          noSignal: 21,
+          abstain: 1
+        },
+        "irozhlas.cz": {
+          label: "iROZHLAS",
+          total: 30,
+          qualityPass: 27,
+          strictAi: 0,
+          uncertain: 4,
+          noSignal: 23,
+          abstain: 3
+        },
+        "denikalarm.cz": {
+          label: "Deník Alarm",
+          total: 30,
+          qualityPass: 30,
+          strictAi: 0,
+          uncertain: 3,
+          noSignal: 27,
+          abstain: 0
+        },
+        "denikreferendum.cz": {
+          label: "Deník Referendum",
+          total: 30,
+          qualityPass: 26,
+          strictAi: 1,
+          uncertain: 3,
+          noSignal: 22,
+          abstain: 4
+        }
+      };
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+      const finite = (value, fallback = null) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      };
+
+      const clamp = (value, minimum = 0, maximum = 100) => (
+        Math.min(maximum, Math.max(minimum, finite(value, minimum)))
+      );
+
+      const numberFormat = new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+        maximumFractionDigits: 2
+      });
+
+      const integerFormat = new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+        maximumFractionDigits: 0
+      });
+
+      const formatNumber = (value, digits = 2) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        return new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: digits,
+          minimumFractionDigits: 0
+        }).format(number);
+      };
+
+      const formatScore = (value) => {
+        const number = finite(value);
+        return number === null ? "—" : numberFormat.format(number * 100);
+      };
+
+      const formatPercent = (value, digits = 1) => {
+        const number = finite(value);
+        return number === null
+          ? "—"
+          : `${formatNumber(number * 100, digits)} %`;
+      };
+
+      const formatMilliseconds = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        return number < 1000
+          ? `${formatNumber(number, number < 10 ? 1 : 0)} ms`
+          : `${formatNumber(number / 1000, 2)} s`;
+      };
+
+      const renderConfusionMatrix = (scope = "overall") => {
+        const humanAudit = (
+          HUMAN_CONFUSION_AUDIT[scope] ??
+          HUMAN_CONFUSION_AUDIT.overall
+        );
+        const aiAudit = (
+          AI_CONFUSION_AUDIT[scope] ??
+          AI_CONFUSION_AUDIT.overall
+        );
+        const decisionShare = (audit, count) => (
+          audit.qualityPass > 0 ? count / audit.qualityPass : 0
+        );
+        const overallShare = (audit, count) => (
+          audit.total > 0 ? count / audit.total : 0
+        );
+        const setCell = (selector, count, share, basis) => {
+          document.querySelector(selector).innerHTML = (
+            `<strong>${escapeHtml(integerFormat.format(count))}</strong>` +
+            `<small>${escapeHtml(formatPercent(share, 1))} ${basis}</small>`
+          );
+        };
+
+        document.querySelector("#confusion-human-label").textContent = (
+          `Lidský text · ${humanAudit.label}`
+        );
+        setCell(
+          "#confusion-human-strict",
+          humanAudit.strictAi,
+          decisionShare(humanAudit, humanAudit.strictAi),
+          "z textů po quality gate"
+        );
+        setCell(
+          "#confusion-human-uncertain",
+          humanAudit.uncertain,
+          decisionShare(humanAudit, humanAudit.uncertain),
+          "z textů po quality gate"
+        );
+        setCell(
+          "#confusion-human-no-signal",
+          humanAudit.noSignal,
+          decisionShare(humanAudit, humanAudit.noSignal),
+          "z textů po quality gate"
+        );
+        setCell(
+          "#confusion-human-abstain",
+          humanAudit.abstain,
+          overallShare(humanAudit, humanAudit.abstain),
+          "ze všech textů"
+        );
+
+        document.querySelector("#confusion-ai-label").textContent = (
+          `AI přepis · ${aiAudit.label}`
+        );
+        setCell(
+          "#confusion-ai-strict",
+          aiAudit.strictAi,
+          decisionShare(aiAudit, aiAudit.strictAi),
+          "z měřitelných AI textů"
+        );
+        setCell(
+          "#confusion-ai-uncertain",
+          aiAudit.uncertain,
+          decisionShare(aiAudit, aiAudit.uncertain),
+          "z měřitelných AI textů"
+        );
+        setCell(
+          "#confusion-ai-no-signal",
+          aiAudit.noSignal,
+          decisionShare(aiAudit, aiAudit.noSignal),
+          "z měřitelných AI textů"
+        );
+        setCell(
+          "#confusion-ai-abstain",
+          aiAudit.abstain,
+          overallShare(aiAudit, aiAudit.abstain),
+          "ze všech přiřazení"
+        );
+
+        const strictFpr = decisionShare(
+          humanAudit,
+          humanAudit.strictAi
+        );
+        const strictRecall = decisionShare(aiAudit, aiAudit.strictAi);
+        const screeningCapture = decisionShare(
+          aiAudit,
+          aiAudit.strictAi + aiAudit.uncertain
+        );
+        document.querySelector("#confusion-summary").innerHTML = (
+          `Přísný pohled: <strong>${
+            escapeHtml(formatPercent(strictFpr, 1))
+          } falešně AI</strong> u lidských textů a <strong>${
+            escapeHtml(formatPercent(strictRecall, 1))
+          } recall</strong> u měřitelných AI přepisů. Se šedým pásmem ` +
+          `screening zachytil <strong>${
+            escapeHtml(formatPercent(screeningCapture, 1))
+          }</strong>. Poměr tříd je auditní konstrukce, proto z tabulky ` +
+          "nelze odvozovat populační precision."
+        );
+
+        document.querySelectorAll("[data-confusion-scope]").forEach(
+          (button) => {
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.confusionScope === scope)
+            );
+          }
+        );
+      };
+
+      const identity = () => ({
+        modelId: state.health?.active_model?.id ?? null,
+        modelGeneration: state.health?.model_generation ?? null,
+        serverInstanceId: state.health?.server_instance_id ?? null
+      });
+
+      const setMessage = (text = "", isError = false) => {
+        message.textContent = text;
+        message.classList.toggle("error", isError);
+        message.setAttribute("role", isError ? "alert" : "status");
+      };
+
+      const currentText = () => sourceText.value.trimEnd();
+
+      const wordTotal = (text) => {
+        const trimmed = text.trim();
+        return trimmed ? trimmed.split(/\s+/u).length : 0;
+      };
+
+      const validation = () => {
+        const text = currentText();
+        const currentIdentity = identity();
+        if (state.busy) {
+          return {valid: false, reason: "Analýza právě běží."};
+        }
+        if (!state.healthAvailable) {
+          return {valid: false, reason: "Lokální server není dostupný."};
+        }
+        if (state.health?.status !== "ready") {
+          return {valid: false, reason: "Apertus se ještě načítá."};
+        }
+        if (currentIdentity.modelId !== "hybrid") {
+          return {
+            valid: false,
+            reason: "V horní liště zvol Hybrid · 8bit/BF16."
+          };
+        }
+        if (state.health?.worker?.busy) {
+          return {
+            valid: false,
+            reason: "Apertus právě dokončuje jiný výpočet."
+          };
+        }
+        if (text.length < MINIMUM_CHARACTERS) {
+          return {
+            valid: false,
+            reason: (
+              `Doplň alespoň ${integerFormat.format(
+                MINIMUM_CHARACTERS - text.length
+              )} znaků.`
+            )
+          };
+        }
+        return {
+          valid: true,
+          text,
+          identity: currentIdentity
+        };
+      };
+
+      const syncControls = () => {
+        const text = currentText();
+        characterCount.textContent = integerFormat.format(text.length);
+        wordCount.textContent = integerFormat.format(wordTotal(text));
+        const check = validation();
+        analyzeButton.disabled = !check.valid;
+        analyzeButton.textContent = state.busy
+          ? "Probíhá analýza…"
+          : "Analyzovat text";
+        const euroAvailable = state.health?.available_models?.some(
+          (model) => model.id === "eurollm9" && model.available
+        );
+        includeEuroLLM.disabled = state.busy || !euroAvailable;
+        if (state.healthAvailable && !euroAvailable && !state.busy) includeEuroLLM.checked = false;
+        document.querySelector("#reader-availability").textContent = !state.healthAvailable
+          ? "Ověřuji dostupnost EuroLLM."
+          : euroAvailable
+            ? "EuroLLM 9B je dostupný pro porovnání."
+            : "EuroLLM 9B není dostupný; lze spustit analýzu Apertusu.";
+        cancelAnalysis.hidden = !state.busy || !state.readerPhase;
+        cancelAnalysis.disabled = !state.readerJob || state.cancelRequested || state.readerPhase === "restoring";
+        cancelAnalysis.textContent = state.cancelRequested ? "Dokončuji přerušení…" : "Přerušit měření";
+        if (state.busy && state.readerPhase) {
+          runtimeState.dataset.state = "loading";
+          runtimeState.textContent = "Porovnávám modelové čtenáře";
+        } else if (!state.healthAvailable) {
+          runtimeState.dataset.state = "error";
+          runtimeState.textContent = "Server nedostupný";
+        } else if (state.health?.status !== "ready") {
+          runtimeState.dataset.state = "loading";
+          runtimeState.textContent = "Apertus se načítá";
+        } else if (identity().modelId !== "hybrid") {
+          runtimeState.dataset.state = "error";
+          runtimeState.textContent = "Je nutný Hybrid";
+        } else if (state.health?.worker?.busy && !state.busy) {
+          runtimeState.dataset.state = "loading";
+          runtimeState.textContent = "Hybrid právě počítá";
+        } else {
+          runtimeState.dataset.state = "ready";
+          runtimeState.textContent = state.busy
+            ? "Hybrid analyzuje"
+            : "Hybrid připraven";
+        }
+      };
+
+      const fetchJson = async (url, options = {}, timeoutMs = null) => {
+        const controller = new AbortController();
+        let timeout = null;
+        if (timeoutMs !== null) {
+          timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+        }
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            headers: {
+              Accept: "application/json",
+              ...(options.headers ?? {})
+            }
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            const error = new Error(
+              payload.error || `Server odpověděl HTTP ${response.status}.`
+            );
+            error.status = response.status;
+            error.code = payload.code;
+            error.health = payload.health;
+            throw error;
+          }
+          return payload;
+        } finally {
+          if (timeout !== null) window.clearTimeout(timeout);
+        }
+      };
+
+      const applyHealth = (health) => {
+        state.health = health;
+        state.healthAvailable = true;
+        const currentIdentity = identity();
+        if (
+          state.result &&
+          !(state.busy && state.readerPhase) &&
+          (
+            state.resultIdentity?.model_id !== currentIdentity.modelId ||
+            state.resultIdentity?.model_generation !== currentIdentity.modelGeneration ||
+            state.resultIdentity?.server_instance_id !== currentIdentity.serverInstanceId
+          )
+        ) {
+          state.result = null;
+          state.resultIdentity = null;
+          results.hidden = true;
+          setMessage("Model se změnil; předchozí výsledek byl skryt.");
+        }
+        syncControls();
+      };
+
+      const pollHealth = async () => {
+        window.clearTimeout(state.pollTimer);
+        if (state.busy) {
+          state.pollTimer = window.setTimeout(pollHealth, 1500);
+          return;
+        }
+        try {
+          const health = await fetchJson(
+            "/api/health",
+            {},
+            HEALTH_TIMEOUT_MS
+          );
+          applyHealth(health);
+          state.pollTimer = window.setTimeout(
+            pollHealth,
+            health.status === "ready" ? 6500 : 1400
+          );
+        } catch {
+          state.health = null;
+          state.healthAvailable = false;
+          syncControls();
+          state.pollTimer = window.setTimeout(pollHealth, 2800);
+        }
+      };
+
+      const startBusyClock = () => {
+        state.busyStartedAt = performance.now();
+        busyPanel.hidden = false;
+        const messages = [
+          [
+            "Počítám stylometrické rysy",
+            "Tři úseky po 700 znacích, dohromady 120 rysů."
+          ],
+          [
+            "Měřím překvapení Apertusu",
+            "Tři tokenová okna: začátek, střed a konec textu."
+          ],
+          [
+            "Vyhodnocuji champion–challenger",
+            "Apertus rozhoduje; párová stylometrie v5 běží paralelně."
+          ]
+        ];
+        const update = () => {
+          const elapsed = (performance.now() - state.busyStartedAt) / 1000;
+          busyTime.textContent = `${formatNumber(elapsed, 1)} s`;
+          const readerMessages = {
+            queued: ["Zařazuji měření obou modelů", "Text i měření zůstanou pouze v paměti."],
+            apertus: ["Měřím překvapení Apertusu", "Primární detektor používá svou původní kalibraci."],
+            loading_eurollm: ["Načítám EuroLLM 9B", "Po měření se aplikace vrátí k Hybridu."],
+            eurollm: ["Měřím překvapení EuroLLM", "Oba čtenáři dostávají stejné úseky textu."],
+            restoring: ["Obnovuji původní model", "Dokončuji porovnání a uvolňuji výpočetní část."]
+          };
+          if (state.readerPhase) {
+            const texts = readerMessages[state.readerPhase] ?? readerMessages.queued;
+            busyTitle.textContent = t(texts[0]);
+            busyDetail.textContent = t(texts[1]) + (state.readerProgress ? ` ${state.readerProgress}` : "");
+            return;
+          }
+          const index = Math.min(
+            messages.length - 1,
+            Math.floor(elapsed / 7)
+          );
+          busyTitle.textContent = messages[index][0];
+          busyDetail.textContent = messages[index][1];
+        };
+        update();
+        state.busyTimer = window.setInterval(update, 200);
+      };
+
+      const stopBusyClock = () => {
+        window.clearInterval(state.busyTimer);
+        state.busyTimer = null;
+        busyPanel.hidden = true;
+      };
+
+      const setBar = (elementId, score) => {
+        document.querySelector(elementId).style.width = (
+          `${clamp(finite(score, 0) * 100)}%`
+        );
+      };
+
+      const renderMetric = (name, model) => {
+        document.querySelector(`#${name}-score`).textContent = (
+          formatScore(model?.score)
+        );
+        setBar(`#${name}-fill`, model?.score);
+        document.querySelector(`#${name}-threshold`).textContent = (
+          formatPercent(model?.strict_threshold)
+        );
+        document.querySelector(
+          `#${name}-screening-threshold`
+        ).textContent = (
+          formatPercent(model?.screening_threshold)
+        );
+        document.querySelector(`#${name}-auc`).textContent = (
+          formatNumber(model?.calibration?.roc_auc, 3)
+        );
+      };
+
+      const renderChallenger = (challenger) => {
+        const model = challenger?.model;
+        const comparison = challenger?.comparison;
+        const performance = challenger?.exploratory_performance;
+        if (
+          !model ||
+          !comparison ||
+          challenger?.decision_authority !== false
+        ) {
+          throw new Error(
+            "Server nevrátil bezpečně oddělenou párovou stylometrii."
+          );
+        }
+        document.querySelector("#challenger-score").textContent = (
+          formatScore(model.score)
+        );
+        setBar("#challenger-fill", model.score);
+        document.querySelector(
+          "#challenger-strict-marker"
+        ).style.left = `${clamp(
+          finite(model.strict_threshold, 0) * 100
+        )}%`;
+        document.querySelector(
+          "#challenger-screening-marker"
+        ).style.left = `${clamp(
+          finite(model.screening_threshold, 0) * 100
+        )}%`;
+        document.querySelector("#challenger-threshold").textContent = (
+          formatPercent(model.strict_threshold)
+        );
+        document.querySelector(
+          "#challenger-screening-threshold"
+        ).textContent = formatPercent(model.screening_threshold);
+        document.querySelector("#challenger-auc").textContent = (
+          formatNumber(performance?.roc_auc, 3)
+        );
+        document.querySelector("#challenger-fpr").textContent = (
+          formatPercent(performance?.runtime_strict_fpr)
+        );
+        document.querySelector("#challenger-recall").textContent = (
+          formatPercent(performance?.runtime_strict_ai_recall)
+        );
+        document.querySelector("#challenger-pair-win").textContent = (
+          formatPercent(performance?.source_balanced_pair_win_rate)
+        );
+        const comparisonPanel = document.querySelector(
+          "#challenger-comparison-panel"
+        );
+        comparisonPanel.dataset.state = String(
+          comparison.status ?? "neutral"
+        );
+        document.querySelector("#challenger-comparison").textContent = (
+          comparison.label_cs ?? "—"
+        );
+        document.querySelector("#challenger-copy").textContent = (
+          comparison.interpretation_cs ??
+          "Párová stylometrie hlavní verdikt nemění."
+        );
+        document.querySelector("#challenger-track").setAttribute(
+          "aria-label",
+          (
+            `Skóre párové stylometrie v5 ${
+              formatScore(model.score)
+            } ze 100; ` +
+            `screening ${formatPercent(model.screening_threshold)}, ` +
+            `přísný práh ${formatPercent(model.strict_threshold)}.`
+          )
+        );
+        return model;
+      };
+
+      const apertusFirstDecision = (
+        quality,
+        apertus,
+        challenger
+      ) => {
+        const abstain = quality?.status === "abstain";
+        const apertusScore = finite(apertus?.score, 0);
+        const strictThreshold = finite(
+          apertus?.strict_threshold,
+          1
+        );
+        const screeningThreshold = finite(
+          apertus?.screening_threshold,
+          strictThreshold
+        );
+        const apertusStrict = apertusScore >= strictThreshold;
+        const apertusScreening = apertusScore >= screeningThreshold;
+        const styleStrict = Boolean(challenger?.strict_ai_signal);
+        const styleScreening = Boolean(
+          challenger?.screening_ai_signal
+        );
+
+        if (abstain) {
+          return {
+            state: "abstain",
+            copy: "Bez verdiktu — vstup neprošel quality gate",
+            advisoryState: "caution",
+            advisory: (
+              "Párová stylometrie je pouze diagnostická, protože " +
+              "vstup neprošel kontrolou kvality."
+            )
+          };
+        }
+        if (apertusStrict) {
+          return {
+            state: "ai_signal",
+            copy: "Apertus zachytil přísný AI signál",
+            advisoryState: styleStrict ? "supports" : "neutral",
+            advisory: styleStrict
+              ? (
+                  "Párová stylometrie je také nad přísným prahem; " +
+                  "výzkumně tedy signál Apertusu podporuje."
+                )
+              : (
+                  "Párová stylometrie není nad svým přísným prahem; " +
+                  "verdikt stojí na Apertusu."
+                )
+          };
+        }
+        if (apertusScreening) {
+          return {
+            state: "screening_signal",
+            copy: "Nejisté: Apertus je v šedém pásmu",
+            advisoryState: (
+              styleStrict || styleScreening ? "supports" : "neutral"
+            ),
+            advisory: styleStrict || styleScreening
+              ? (
+                  "Párová stylometrie podezření podporuje, ale Apertus " +
+                  "nedosáhl přísného prahu. Výsledek zůstává nejistý."
+                )
+              : (
+                  "Párová stylometrie signál Apertusu nepodporuje. " +
+                  "Výsledek zůstává nejistý."
+                )
+          };
+        }
+        return {
+          state: "ai_signal_not_detected",
+          copy: "Přísný AI signál nezachycen",
+          advisoryState: styleStrict ? "caution" : "neutral",
+          advisory: styleStrict
+            ? (
+                "Párová stylometrie vidí vysokou jazykovou pravidelnost, " +
+                "ale při nízkém Apertusu sama AI verdikt nevyvolá."
+              )
+            : (
+                "Ani párová stylometrie nevykazuje přísný stylometrický " +
+                "signál."
+              )
+        };
+      };
+
+      const renderQuality = (quality) => {
+        const banner = document.querySelector("#quality-banner");
+        const icon = document.querySelector("#quality-icon");
+        const title = document.querySelector("#quality-title");
+        const copy = document.querySelector("#quality-copy");
+        const flags = Array.isArray(quality?.flags) ? quality.flags : [];
+        const abstain = quality?.status === "abstain";
+        banner.dataset.state = abstain ? "abstain" : "pass";
+        icon.textContent = abstain ? "!" : "✓";
+        title.textContent = abstain
+          ? "Quality gate se zdržel verdiktu"
+          : "Kontrola vstupu prošla";
+        copy.textContent = abstain
+          ? (
+              flags.map((flag) => flag.message_cs).join(" ") ||
+              "Vstup nesplňuje jazykové nebo technické podmínky modelu."
+            )
+          : (
+              "Text odpovídá jazykovým a technickým podmínkám modelu; " +
+              "primární je quality-gated skóre Apertusu."
+            );
+      };
+
+      const renderProfile = (profile) => {
+        document.querySelector("#profile-index").textContent = (
+          `${formatNumber(profile?.ai_direction_index, 1)} / 100`
+        );
+        const rows = Array.isArray(profile?.features)
+          ? profile.features
+          : [];
+        document.querySelector("#profile-rows").innerHTML = rows.map((row) => {
+          const percentile = clamp(row.ai_direction_percentile);
+          const direction = row.ai_direction === "lower"
+            ? "AI směr: nižší"
+            : "AI směr: vyšší";
+          return `
+            <div class="profile-row">
+              <div class="profile-row-label">
+                ${escapeHtml(row.label_cs)}
+                <small>${escapeHtml(direction)}</small>
+              </div>
+              <div
+                class="percentile-track"
+                title="${escapeHtml(
+                  `Směrový percentil ${formatNumber(percentile, 1)}`
+                )}"
+              >
+                <span style="left: ${percentile}%"></span>
+              </div>
+              <div class="profile-row-value">
+                ${escapeHtml(formatNumber(row.value, 3))}
+                · p${escapeHtml(formatNumber(row.human_percentile, 0))}
+              </div>
+            </div>
+          `;
+        }).join("");
+      };
+
+      const featureName = (value) => String(value ?? "")
+        .replace(/^stylo__/, "")
+        .replaceAll("_", " ");
+
+      const renderTechnical = (data, challengerModel) => {
+        const contributions = Array.isArray(
+          challengerModel?.top_feature_contributions
+        ) ? challengerModel.top_feature_contributions : [];
+        document.querySelector("#contribution-rows").innerHTML = (
+          contributions.map((row) => {
+            const value = finite(row.logit_contribution, 0);
+            return `
+              <tr>
+                <td>${escapeHtml(featureName(row.feature))}</td>
+                <td>${escapeHtml(
+                  `${value >= 0 ? "k AI" : "k lidskému"} ${formatNumber(
+                    Math.abs(value),
+                    3
+                  )}`
+                )}</td>
+              </tr>
+            `;
+          }).join("")
+        );
+
+        const windows = Array.isArray(data?.sampling?.apertus?.windows)
+          ? data.sampling.apertus.windows
+          : [];
+        document.querySelector("#window-rows").innerHTML = windows.map(
+          (windowRow) => `
+            <tr>
+              <td>${escapeHtml(windowRow.position)}</td>
+              <td>${escapeHtml(
+                integerFormat.format(windowRow.target_token_count)
+              )}</td>
+              <td>${escapeHtml(
+                formatMilliseconds(windowRow.server_total_ms)
+              )}</td>
+            </tr>
+          `
+        ).join("");
+
+        const warnings = Array.isArray(data?.warnings) ? data.warnings : [];
+        document.querySelector("#warning-list").innerHTML = warnings.map(
+          (warning) => `<li>${escapeHtml(warning)}</li>`
+        ).join("");
+      };
+
+      const renderResult = (data) => {
+        const models = data?.scores?.primary?.models ?? {};
+        const fusion = models.fusion;
+        if (!fusion || !models.stylometry || !models.apertus) {
+          throw new Error("Server nevrátil všechna tři modelová skóre.");
+        }
+
+        renderQuality(data.quality);
+        const challengerModel = renderChallenger(data.challenger);
+        const primaryModel = models.apertus;
+        const decision = apertusFirstDecision(
+          data.quality,
+          primaryModel,
+          challengerModel
+        );
+        const primaryScore = finite(primaryModel.score, 0);
+        const strictThreshold = finite(
+          primaryModel.strict_threshold,
+          0
+        );
+        const screeningThreshold = finite(
+          primaryModel.screening_threshold,
+          strictThreshold
+        );
+        const strictMargin = primaryScore - strictThreshold;
+        const verdict = document.querySelector("#verdict");
+        verdict.dataset.state = decision.state;
+        verdict.dataset.strength = "neutral";
+        verdict.textContent = decision.copy;
+        const styleAdvisory = document.querySelector("#style-advisory");
+        styleAdvisory.dataset.state = decision.advisoryState;
+        styleAdvisory.textContent = decision.advisory;
+
+        document.querySelector("#fusion-score").textContent = (
+          formatScore(primaryModel.score)
+        );
+        setBar("#fusion-fill", primaryModel.score);
+        const thresholdPercent = clamp(strictThreshold * 100);
+        document.querySelector("#threshold-marker").style.left = (
+          `${thresholdPercent}%`
+        );
+        document.querySelector("#fusion-track").setAttribute(
+          "aria-label",
+          (
+            `Skóre Apertusu ${formatScore(primaryModel.score)} ze 100; ` +
+            `přísný práh ${formatPercent(
+              primaryModel.strict_threshold
+            )}.`
+          )
+        );
+        const decisionMargin = document.querySelector("#decision-margin");
+        if (decision.state === "abstain") {
+          decisionMargin.textContent = (
+            "Rozhodovací rezerva se kvůli quality gate nevykládá."
+          );
+        } else if (strictMargin >= 0) {
+          decisionMargin.innerHTML = (
+            `Rozhodovací rezerva <strong>+${
+              escapeHtml(formatNumber(strictMargin * 100, 1))
+            } bodu</strong> nad přísným prahem Apertusu.`
+          );
+        } else if (primaryScore >= screeningThreshold) {
+          decisionMargin.innerHTML = (
+            `Do přísného prahu Apertusu chybí <strong>${
+              escapeHtml(formatNumber(-strictMargin * 100, 1))
+            } bodu</strong>. Text je v šedém pásmu.`
+          );
+        } else {
+          decisionMargin.innerHTML = (
+            `Skóre je <strong>${
+              escapeHtml(
+                formatNumber(
+                  (screeningThreshold - primaryScore) * 100,
+                  1
+                )
+              )
+            } bodu</strong> pod screeningovým prahem Apertusu.`
+          );
+        }
+        const sameThreshold = Math.abs(
+          strictThreshold - screeningThreshold
+        ) < 1e-12;
+        const trainingPairs = (
+          data?.scores?.primary?.training_pair_count ?? 244
+        );
+        document.querySelector("#score-caption").innerHTML = (
+          `Přísný práh Apertusu je <strong>${
+            escapeHtml(formatPercent(primaryModel.strict_threshold))
+          }</strong>; screeningový práh ${
+            sameThreshold
+              ? "vyšel na kalibraci shodně"
+              : `je <strong>${
+                  escapeHtml(
+                    formatPercent(primaryModel.screening_threshold)
+                  )
+                }</strong>`
+          }. Apertus byl fitován na <strong>${
+            escapeHtml(integerFormat.format(trainingPairs))
+          } párech 1 : 1</strong>. Párová stylometrie v5 ani modely v2 ` +
+          `tento verdikt nemění.`
+        );
+
+        renderMetric("style", models.stylometry);
+        renderMetric("apertus", models.apertus);
+        renderMetric("fusion-card", fusion);
+        renderProfile(data.predictive_profile);
+
+        const timing = data.timing_ms ?? {};
+        const sampling = data.sampling ?? {};
+        document.querySelector("#timing-line").innerHTML = [
+          `celkem ${formatMilliseconds(timing.total)}`,
+          `stylometrie ${formatMilliseconds(timing.stylometry)}`,
+          `párový model ${formatMilliseconds(timing.challenger_model)}`,
+          `Apertus ${formatMilliseconds(timing.apertus)}`,
+          `${
+            integerFormat.format(
+              sampling.apertus?.scored_token_count ?? 0
+            )
+          } hodnocených tokenů`
+        ].map((text) => `<span>${escapeHtml(text)}</span>`).join("");
+
+        renderTechnical(data, challengerModel);
+        document.querySelector("#privacy-copy").textContent = (
+          data.privacy?.message_cs ||
+          "Text byl analyzován lokálně a nebyl uložen."
+        );
+        document.querySelector("#bundle-copy").textContent = (
+          `Inference bundle v2 ${
+            String(data.bundle?.sha256 ?? "—").slice(0, 12)
+          } · párová v5 ${
+            String(
+              data.challenger?.bundle?.sha256 ?? "—"
+            ).slice(0, 12)
+          }`
+        );
+        results.hidden = false;
+      };
+
+      const assertResponse = (data, request) => {
+        if (data?.analysis_kind !== "predictive_stylometry") {
+          throw new Error("Server vrátil jiný druh analýzy.");
+        }
+        if (data?.schema_version !== 2) {
+          throw new Error("Server nevrátil deployment detektoru v2.");
+        }
+        if (
+          data?.primary_decision?.model !== "apertus" ||
+          data?.primary_decision?.challenger_changes_verdict !== false ||
+          data?.challenger?.decision_authority !== false
+        ) {
+          throw new Error(
+            "Server nezachoval oddělení championa a challengera."
+          );
+        }
+        if (
+          data?.reader?.model_id !== request.model_id ||
+          data?.reader?.model_generation !== request.model_generation ||
+          data?.reader?.server_instance_id !== request.server_instance_id
+        ) {
+          const error = new Error(
+            "Během analýzy se změnila identita modelu."
+          );
+          error.code = "model_changed";
+          throw error;
+        }
+      };
+
+      const readerNumber = (value, digits = 3) => value === null || value === undefined ? "—" : formatNumber(value, digits);
+      const readerPosition = (window) => t(window.position === "early" ? "Začátek"
+        : window.position === "late" ? "Konec" : "Střed");
+      const readerReason = (reason) => t(({
+        unreliable_apertus_offsets: "Neověřené hranice tokenů Apertusu",
+        unreliable_eurollm_offsets: "Neověřené hranice tokenů EuroLLM",
+        measurement_incomplete: "Měření úseku nebylo dokončeno",
+        no_shared_canonical_boundary: "Chybí společná tokenová hranice nebo dostatečně dlouhý cíl"
+      })[reason] ?? "Úsek nelze spolehlivě porovnat");
+      const readerFeature = "surprisal_bits_per_non_whitespace_character";
+      const renderReaders = (comparison) => {
+        const card = document.querySelector("#reader-comparison");
+        card.hidden = !comparison;
+        if (!comparison) return;
+        if (comparison.decision_authority !== false || comparison.research_only !== true) {
+          throw new Error("EuroLLM měření nemá správně označenou výzkumnou roli.");
+        }
+        const summary = comparison.summary ?? {};
+        const measurements = summary.measurements ?? {};
+        document.querySelector("#reader-apertus").textContent = readerNumber(measurements.apertus?.features?.[readerFeature]);
+        document.querySelector("#reader-eurollm").textContent = readerNumber(measurements.eurollm?.features?.[readerFeature]);
+        document.querySelector("#reader-delta").textContent = readerNumber(summary.delta_bits_per_character);
+        document.querySelector("#reader-eurollm-label").textContent = comparison.models?.eurollm?.label ?? "EuroLLM 9B";
+        const statusCopy = comparison.status === "completed" ? "Měření dokončeno."
+          : comparison.status === "cancelled" ? "Měření přerušeno; zobrazené úseky jsou dokončená měření."
+          : "Měření EuroLLM selhalo; výsledek Apertusu zůstává samostatný.";
+        document.querySelector("#reader-status").textContent = `${t(statusCopy)} ${summary.paired_windows ?? 0} / 3`;
+        const windows = comparison.windows ?? [];
+        const paired = windows.filter((window) => window.status === "paired");
+        const trim = paired.reduce((count, window) => count + window.trimmed_apertus_target_tokens, 0);
+        document.querySelector("#reader-alignment").textContent =
+          t("Začátek cíle se případně posune na první společnou hranici, nejvýše o 16 Apertus tokenů.") + " " +
+          t("Neporovnatelné úseky se do souhrnu nezahrnují.") + " " +
+          t(`Posun hranic celkem: ${trim} tokenů Apertusu. Porovnáno znaků bez bílého místa: ${summary.target_non_whitespace_character_count ?? 0}.`);
+        document.querySelector("#reader-windows").innerHTML = windows.map((window) => {
+          if (window.status !== "paired") return `<tr><th scope="row">${escapeHtml(readerPosition(window))}</th><td colspan="5">${escapeHtml(readerReason(window.reason))}</td></tr>`;
+          const a = window.measurements.apertus, b = window.measurements.eurollm;
+          return `<tr><th scope="row">${escapeHtml(readerPosition(window))}</th><td>${integerFormat.format(window.target_non_whitespace_character_count)}</td><td>${a.token_count} / ${b.token_count}</td><td>${readerNumber(a.features[readerFeature])}</td><td>${readerNumber(b.features[readerFeature])}</td><td>${readerNumber(window.delta_bits_per_character)}</td></tr>`;
+        }).join("");
+        const graph = document.querySelector("#reader-chart");
+        graph.hidden = paired.length === 0;
+        const maximum = Math.max(.1, ...paired.flatMap((window) => [window.measurements.apertus.features[readerFeature], window.measurements.eurollm.features[readerFeature]])) * 1.15;
+        graph.innerHTML = `<text x="18" y="30">${readerNumber(maximum, 2)}</text><text x="28" y="196">0</text><line x1="65" y1="196" x2="744" y2="196" stroke="currentColor" opacity=".2"/><rect x="500" y="14" width="12" height="12" class="bar-apertus"/><text x="518" y="25">Apertus</text><rect x="600" y="14" width="12" height="12" class="bar-eurollm"/><text x="618" y="25">EuroLLM</text>` + windows.map((window) => {
+          const x = 135 + (window.index - 1) * 215;
+          if (window.status !== "paired") return `<text x="${x}" y="215" text-anchor="middle">${escapeHtml(readerPosition(window))} · —</text>`;
+          return ["apertus", "eurollm"].map((model, index) => {
+            const value = window.measurements[model].features[readerFeature];
+            const height = 155 * value / maximum;
+            const left = x - 44 + index * 48;
+            return `<rect class="bar-${model}" x="${left}" y="${196 - height}" width="38" height="${height}" rx="3"/><text x="${left + 19}" y="${188 - height}" text-anchor="middle">${readerNumber(value, 2)}</text>`;
+          }).join("") + `<text x="${x}" y="215" text-anchor="middle">${escapeHtml(readerPosition(window))}</text>`;
+        }).join("");
+        const featureLabels = {
+          surprisal_bits_per_non_whitespace_character: "Překvapení / znak bez bílého místa",
+          token_surprisal_iqr: "Tokenové překvapení · IQR",
+          token_surprisal_p95: "Tokenové překvapení · 95. percentil",
+          top_5pct_surprisal_share: "Podíl překvapení v nejvyšších 5 % tokenů",
+          mean_surprisal_minus_entropy_bits: "Průměrné tokenové překvapení − entropie"
+        };
+        document.querySelector("#reader-features").innerHTML = Object.entries(featureLabels).map(([key, label]) =>
+          `<tr><th scope="row">${escapeHtml(label)}</th><td>${readerNumber(measurements.apertus?.features?.[key])}</td><td>${readerNumber(measurements.eurollm?.features?.[key])}</td></tr>`).join("");
+        document.querySelector("#reader-protocol").textContent = JSON.stringify({
+          protocol: comparison.protocol, protocol_sha256: comparison.protocol_sha256,
+          input_sha256: comparison.input_sha256, implementation_sha256: comparison.implementation_sha256,
+          models: Object.fromEntries(Object.entries(comparison.models ?? {}).map(([key, model]) => [key, {
+            label: model.label, checkpoint: model.checkpoint, quantization: model.quantization,
+            tokenizer_sha256: model.tokenizer?.tokenizer_json_sha256
+          }])), timing_ms: comparison.timing_ms, errors: comparison.errors
+        }, null, 2);
+      };
+
+      const textHash = async (text) => Array.from(new Uint8Array(await crypto.subtle.digest(
+        "SHA-256", new TextEncoder().encode(text)
+      )), (byte) => byte.toString(16).padStart(2, "0")).join("");
+
+      const analyzeWithReaders = async (request) => {
+        const hash = await textHash(request.text);
+        const accepted = await fetchJson("/api/detector-readers", {
+          method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(request)
+        });
+        state.readerJob = accepted.id;
+        syncControls();
+        let job = accepted, failures = 0;
+        while (job.phase !== "done") {
+          state.readerPhase = job.phase;
+          state.readerProgress = `${job.completed_measurements} / ${job.total_measurements}`;
+          syncControls();
+          await new Promise((resolve) => window.setTimeout(resolve, 650));
+          try {
+            job = await fetchJson(`/api/detector-readers/jobs/${encodeURIComponent(accepted.id)}`, {}, HEALTH_TIMEOUT_MS);
+            failures = 0;
+          } catch (error) {
+            failures += 1;
+            if (error.status === 404 || failures >= 3) throw error;
+          }
+        }
+        if (job.id !== accepted.id || job.input_sha256 !== hash ||
+            job.request_identity?.server_instance_id !== request.server_instance_id ||
+            job.request_identity?.model_id !== request.model_id ||
+            job.request_identity?.model_generation !== request.model_generation) {
+          throw new Error("Měření nepatří k tomuto textu a běhu modelu.");
+        }
+        if (!job.result) {
+          const error = new Error(job.status === "cancelled" ? "Měření bylo přerušeno." : job.errors?.join("; ") || "Měření se nepodařilo dokončit.");
+          if (job.status === "cancelled") error.code = "request_cancelled";
+          throw error;
+        }
+        assertResponse(job.result, request);
+        const comparison = job.result.reader_comparison;
+        if (job.result.input?.sha256 !== hash || comparison?.input_sha256 !== hash ||
+            comparison?.analysis_kind !== "detector_reader_comparison" || comparison?.schema_version !== 1 ||
+            comparison?.decision_authority !== false || comparison?.research_only !== true ||
+            job.restored_identity?.model_id !== request.model_id ||
+            job.restored_identity?.server_instance_id !== request.server_instance_id ||
+            !Number.isInteger(job.restored_identity?.model_generation) ||
+            job.restored_identity.model_generation < request.model_generation) {
+          throw new Error(job.restoration_error || "Výsledek měření nebo obnova modelu neprošla kontrolou.");
+        }
+        const health = await fetchJson("/api/health", {}, HEALTH_TIMEOUT_MS);
+        if (health.active_model?.id !== job.restored_identity.model_id ||
+            health.model_generation !== job.restored_identity.model_generation ||
+            health.server_instance_id !== job.restored_identity.server_instance_id) {
+          throw new Error("Po měření se změnil model; výsledek byl skryt.");
+        }
+        applyHealth(health);
+        return {data: job.result, binding: job.restored_identity};
+      };
+
+      const analyze = async () => {
+        const check = validation();
+        if (!check.valid) {
+          setMessage(check.reason, true);
+          return;
+        }
+        const request = {
+          text: check.text,
+          model_id: check.identity.modelId,
+          model_generation: check.identity.modelGeneration,
+          server_instance_id: check.identity.serverInstanceId
+        };
+        const revision = state.inputRevision;
+        const withReaders = includeEuroLLM.checked;
+        state.busy = true;
+        state.readerPhase = withReaders ? "queued" : null;
+        state.readerJob = null;
+        state.readerProgress = null;
+        state.cancelRequested = false;
+        state.result = null;
+        state.resultIdentity = null;
+        results.hidden = true;
+        renderReaders(null);
+        state.submittedText = check.text;
+        setMessage("");
+        syncControls();
+        startBusyClock();
+        try {
+          const measured = withReaders ? await analyzeWithReaders(request) : {
+            data: await fetchJson("/api/predictive-stylometry", {
+              method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(request)
+            }), binding: {model_id: request.model_id, model_generation: request.model_generation, server_instance_id: request.server_instance_id}
+          };
+          const data = measured.data;
+          assertResponse(data, request);
+          if (revision !== state.inputRevision || request.text !== currentText()) {
+            setMessage("Text se během měření změnil; výsledek byl skryt.");
+            return;
+          }
+          state.result = data;
+          state.resultIdentity = measured.binding;
+          renderResult(data);
+          renderReaders(data.reader_comparison);
+          const readerStatus = data.reader_comparison?.status;
+          setMessage(
+            readerStatus === "failed" ? "Analýza Apertusu je hotová; měření EuroLLM selhalo."
+              : readerStatus === "cancelled" ? "Analýza Apertusu je hotová; měření EuroLLM bylo přerušeno."
+              : data.quality?.status === "abstain"
+              ? "Analýza hotova; quality gate správně nevydal verdikt."
+              : "Analýza hotova. Skóre patří přesně tomuto vloženému textu."
+          );
+          window.requestAnimationFrame(() => {
+            const reducedMotion = window.matchMedia(
+              "(prefers-reduced-motion: reduce)"
+            ).matches;
+            results.scrollIntoView({
+              behavior: reducedMotion ? "auto" : "smooth",
+              block: "start"
+            });
+            resultsTitle.focus({preventScroll: true});
+          });
+        } catch (error) {
+          if (error.health) applyHealth(error.health);
+          setMessage(
+            error.message || "Text se nepodařilo analyzovat.",
+            error.code !== "request_cancelled"
+          );
+          if (error.code === "model_changed" || error.status === 409) {
+            state.result = null;
+            results.hidden = true;
+          }
+        } finally {
+          state.busy = false;
+          state.readerPhase = null;
+          state.readerJob = null;
+          stopBusyClock();
+          syncControls();
+          state.pollTimer = window.setTimeout(pollHealth, 600);
+        }
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        analyze();
+      });
+
+      form.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          if (!analyzeButton.disabled) analyze();
+        }
+      });
+
+      sourceText.addEventListener("input", () => {
+        state.inputRevision += 1;
+        if (
+          state.result &&
+          state.submittedText !== currentText()
+        ) {
+          state.result = null;
+          state.resultIdentity = null;
+          results.hidden = true;
+          setMessage(
+            "Text se změnil; předchozí výsledek byl skryt, aby se nepomíchal."
+          );
+        }
+        syncControls();
+      });
+
+      cancelAnalysis.addEventListener("click", async () => {
+        if (!state.readerJob || state.cancelRequested) return;
+        state.cancelRequested = true;
+        syncControls();
+        try {
+          await fetchJson("/api/detector-readers/cancel", {
+            method: "POST", headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({job_id: state.readerJob})
+          }, HEALTH_TIMEOUT_MS);
+        } catch (error) {
+          state.cancelRequested = false;
+          setMessage(error.message || "Měření se nepodařilo přerušit.", true);
+          syncControls();
+        }
+      });
+
+      document.querySelector("#reader-export").addEventListener("click", () => {
+        const data = state.result;
+        if (!data?.reader_comparison) return;
+        const exported = {schema: "apertus.detector-reader-measurement", schema_version: 1,
+          analysis_id: data.analysis_id, input: data.input, primary_decision: data.primary_decision,
+          apertus_detector: {reader: data.reader, bundle: data.bundle, features: data.apertus_features,
+            scores: data.scores.primary}, comparison: data.reader_comparison};
+        const url = URL.createObjectURL(new Blob([JSON.stringify(exported, null, 2)], {type: "application/json"}));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `detector-readers-${data.analysis_id}.json`;
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+
+      document.querySelectorAll("[data-confusion-scope]").forEach(
+        (button) => {
+          button.addEventListener("click", () => {
+            renderConfusionMatrix(button.dataset.confusionScope);
+          });
+        }
+      );
+      window.addEventListener("pagehide", () => {
+        window.clearTimeout(state.pollTimer);
+        window.clearInterval(state.busyTimer);
+        if (state.readerJob) fetch("/api/detector-readers/cancel", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({job_id: state.readerJob}), keepalive: true
+        }).catch(() => {});
+      });
+
+      renderConfusionMatrix();
+      syncControls();
+      pollHealth();
+    })();
+  </script>
+</body>
+</html>

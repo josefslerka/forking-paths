@@ -1,0 +1,3238 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Výchozí embeddingový řádek tokenu, jeho sousedé ve slovníku a rozchod kontextových stavů v Apertusu a EuroLLM."
+  >
+  <title>Embeddingy · Apertus</title>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--pg-sans);
+      line-height: 1.5;
+    }
+    body.is-computing { overflow: hidden; }
+    button, textarea, select { font: inherit; }
+    button { color: inherit; }
+    :focus-visible {
+      outline: 3px solid rgba(116, 224, 166, 0.52);
+      outline-offset: 3px;
+    }
+    .skip-link {
+      position: fixed;
+      z-index: 160;
+      top: 8px;
+      left: 10px;
+      padding: 8px 11px;
+      border-radius: 7px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-weight: 800;
+      text-decoration: none;
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .shell {
+      width: min(1440px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 28px 0 84px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: flex-end;
+      min-height: 34px;
+      margin-bottom: 22px;
+    }
+    #model-state {
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    #model-state[data-state="ready"] { color: var(--leaf-bright); }
+    #model-state[data-state="error"] { color: var(--danger); }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+      gap: 44px;
+      align-items: end;
+      margin-bottom: 28px;
+    }
+    .eyebrow,
+    .section-kicker,
+    .card-kicker {
+      margin: 0 0 9px;
+      color: var(--leaf);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    .hero h1,
+    .result-heading h2,
+    .panel-heading h2,
+    .row-title {
+      margin: 0;
+      color: #f1f7f2;
+      font-family: var(--pg-serif);
+      font-weight: 500;
+      letter-spacing: -0.045em;
+      line-height: 1;
+    }
+    .hero h1 { font-size: clamp(3.2rem, 5.35vw, 5.65rem); }
+    .hero blockquote {
+      margin: 0;
+      color: #a9baaf;
+      font-family: var(--pg-serif);
+      font-size: clamp(1.35rem, 2.1vw, 2rem);
+      line-height: 1.28;
+    }
+    .hero blockquote strong { color: #eef6ef; font-weight: 500; }
+    .lede {
+      max-width: 820px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    .method-note,
+    .panel,
+    .metric,
+    .chart-card,
+    .context-card,
+    .row-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(10, 16, 12, 0.78);
+    }
+    .method-note {
+      display: grid;
+      grid-template-columns: 180px repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      padding: 22px 24px;
+      margin-bottom: 26px;
+    }
+    .method-note > strong {
+      color: #dfeae2;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .method-note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+    .method-note p strong { color: var(--text); }
+    .panel { padding: 24px; }
+    .panel-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 20px;
+    }
+    .panel-heading h2 { font-size: clamp(2rem, 3.4vw, 3.2rem); }
+    .panel-heading > p {
+      max-width: 520px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .context-inputs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .context-inputs.is-single { grid-template-columns: 1fr; }
+    .context-inputs [hidden] { display: none; }
+    .context-label-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .context-label-line small {
+      color: #607468;
+      font-weight: 650;
+    }
+    .mode-switch {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 20px;
+      padding: 0;
+      border: 0;
+    }
+    .mode-switch legend {
+      width: 100%;
+      margin-bottom: 2px;
+      color: #73897c;
+      font-size: 0.67rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .mode-switch label {
+      position: relative;
+      display: block;
+      cursor: pointer;
+    }
+    .mode-switch input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .mode-switch span {
+      display: block;
+      padding: 9px 13px;
+      border: 1px solid #294035;
+      border-radius: 999px;
+      background: #09110c;
+      color: #94aa9c;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+    .mode-switch input:checked + span {
+      border-color: var(--leaf);
+      background: #12251a;
+      color: var(--leaf-bright);
+    }
+    .mode-switch input:focus-visible + span {
+      outline: 3px solid rgba(116, 224, 166, 0.52);
+      outline-offset: 3px;
+    }
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 750;
+    }
+    textarea, select {
+      width: 100%;
+      border: 1px solid #294035;
+      border-radius: 10px;
+      background: #09110c;
+      color: var(--text);
+    }
+    textarea {
+      min-height: 98px;
+      padding: 13px 14px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+    select {
+      min-height: 44px;
+      padding: 9px 12px;
+    }
+    textarea:disabled, select:disabled, button:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+    .form-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .form-status {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+    .form-status.error { color: var(--danger); }
+    .button-row { display: flex; gap: 10px; align-items: end; }
+    .primary-button,
+    .secondary-button {
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 9px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .primary-button {
+      border: 1px solid #65d498;
+      background: var(--leaf);
+      color: var(--ink);
+    }
+    .primary-button:hover:not(:disabled) { background: var(--leaf-bright); }
+    .secondary-button {
+      border: 1px solid #315040;
+      background: #0b1510;
+      color: #d8e5dc;
+    }
+    .secondary-button:hover:not(:disabled) {
+      border-color: #4f7b63;
+      background: #102018;
+    }
+    .selection-panel { margin-top: 18px; }
+    .token-streams {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .token-streams[data-count="1"],
+    .context-cards[data-count="1"] {
+      grid-template-columns: 1fr;
+    }
+    .token-stream {
+      padding: 17px;
+      border: 1px solid #233a2e;
+      border-radius: 12px;
+      background: #08100b;
+    }
+    .stream-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 0.77rem;
+    }
+    .stream-heading strong { color: #dce8df; }
+    .token-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .token-chip {
+      display: grid;
+      gap: 2px;
+      min-width: 70px;
+      padding: 8px 10px;
+      border: 1px solid #294437;
+      border-radius: 8px;
+      background: #0c1711;
+      text-align: left;
+      cursor: pointer;
+    }
+    .token-chip strong {
+      color: #e7f0e9;
+      font-family: var(--pg-mono);
+      font-size: 0.88rem;
+    }
+    .token-chip small {
+      color: #72887b;
+      font-family: var(--pg-mono);
+      font-size: 0.66rem;
+    }
+    .token-chip.is-future { opacity: 0.38; }
+    .token-chip.is-selected {
+      border-color: var(--leaf);
+      background: #12251a;
+      box-shadow: inset 0 0 0 1px rgba(116, 224, 166, 0.28);
+    }
+    .token-chip.is-word-part {
+      border-color: #5ec98f;
+      background: #102118;
+    }
+    .token-chip.is-word-closing {
+      box-shadow:
+        inset 0 -3px 0 var(--leaf),
+        inset 0 0 0 1px rgba(116, 224, 166, 0.25);
+    }
+    .token-chip.is-matching:not(.is-selected) {
+      border-color: #54715f;
+    }
+    .selection-summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 15px;
+      border-top: 1px solid var(--line);
+    }
+    .selection-summary p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+    .selection-summary strong { color: var(--leaf-bright); }
+    #results {
+      margin-top: 42px;
+      scroll-margin-top: 28px;
+    }
+    .result-heading {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: end;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    .result-heading h2 { font-size: clamp(2.6rem, 4.4vw, 4.5rem); }
+    .result-heading p:last-child {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+    .runtime-badge {
+      padding: 8px 12px;
+      border: 1px solid #2b4c3a;
+      border-radius: 999px;
+      color: var(--leaf-bright);
+      font-family: var(--pg-mono);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin: 0 0 28px;
+    }
+    .metric {
+      min-height: 128px;
+      padding: 18px;
+      border-radius: 0;
+      border-left-width: 0;
+    }
+    .metric:first-child {
+      border-left-width: 1px;
+      border-radius: var(--radius) 0 0 var(--radius);
+    }
+    .metric:last-child {
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+    .metric span {
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .metric strong {
+      display: block;
+      margin-top: 8px;
+      color: #f1f7f2;
+      font-family: var(--pg-serif);
+      font-size: clamp(1.65rem, 2.8vw, 2.7rem);
+      font-weight: 500;
+      line-height: 1;
+    }
+    .metric small {
+      display: block;
+      margin-top: 9px;
+      color: #73897c;
+    }
+    .row-card {
+      display: grid;
+      grid-template-columns: minmax(240px, 0.65fr) minmax(0, 1.35fr);
+      gap: 26px;
+      padding: 24px;
+      margin-top: 28px;
+    }
+    .row-title { font-size: clamp(2.3rem, 4vw, 4rem); }
+    .row-id {
+      margin: 8px 0 0;
+      color: var(--leaf-bright);
+      font-family: var(--pg-mono);
+    }
+    .row-copy {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .row-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      margin: 0;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .row-stats > div {
+      min-width: 0;
+      padding: 13px;
+      background: #0a130e;
+    }
+    .row-stats dt {
+      color: #73897c;
+      font-size: 0.64rem;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+    .row-stats dd {
+      margin: 5px 0 0;
+      color: #e3ede6;
+      font-family: var(--pg-mono);
+      font-size: 0.8rem;
+      overflow-wrap: anywhere;
+    }
+    .coordinate-strip {
+      display: grid;
+      grid-template-columns: repeat(16, minmax(8px, 1fr));
+      gap: 3px;
+      height: 42px;
+      margin-top: 14px;
+      align-items: center;
+    }
+    .coordinate-strip i {
+      display: block;
+      min-height: 2px;
+      border-radius: 2px;
+      background: var(--leaf);
+      opacity: 0.82;
+    }
+    .fragment-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 14px;
+    }
+    .fragment-card {
+      min-width: 132px;
+      padding: 12px;
+      border: 1px solid #294437;
+      border-radius: 9px;
+      background: #0a140e;
+    }
+    .fragment-card.is-closing {
+      border-color: var(--leaf);
+      background: #102118;
+    }
+    .fragment-card strong,
+    .fragment-card code,
+    .fragment-card small {
+      display: block;
+    }
+    .fragment-card strong {
+      color: #edf5ef;
+      font-family: var(--pg-mono);
+    }
+    .fragment-card code {
+      margin-top: 4px;
+      color: var(--leaf-bright);
+      font-family: var(--pg-mono);
+      font-size: 0.72rem;
+    }
+    .fragment-card small {
+      margin-top: 7px;
+      color: #73897c;
+    }
+    .word-contract {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: 24px;
+      padding: 20px 24px;
+      margin-top: 16px;
+      border: 1px solid #4c4828;
+      border-radius: var(--radius);
+      background: rgba(25, 24, 12, 0.55);
+    }
+    .word-contract strong { color: #edd77f; }
+    .word-contract p { margin: 0; color: var(--muted); }
+    .section-block { margin-top: 42px; }
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      color: #edf5ef;
+      font-family: var(--pg-serif);
+      font-size: clamp(2rem, 3.5vw, 3.4rem);
+      font-weight: 500;
+      letter-spacing: -0.035em;
+      line-height: 1;
+    }
+    .section-heading p {
+      max-width: 560px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+    .two-column {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+    }
+    .chart-card { padding: 18px; }
+    .chart-card h3 {
+      margin: 0 0 3px;
+      color: #e9f2eb;
+      font-size: 0.95rem;
+    }
+    .chart-card > p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 330px;
+      border: 1px solid #1d3328;
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at 50% 50%, #102017 0, #09110c 68%);
+    }
+    #trajectory-chart {
+      height: 290px;
+      background: #09110c;
+    }
+    .neighbor-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .neighbor-list li {
+      min-width: 0;
+    }
+    .neighbor-list button {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      width: 100%;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid #21372b;
+      border-radius: 8px;
+      background: #0a130e;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .neighbor-list button:hover:not(:disabled) {
+      border-color: #4f7b63;
+      background: #102018;
+    }
+    .neighbor-list b {
+      color: #708679;
+      font-family: var(--pg-mono);
+      font-size: 0.7rem;
+    }
+    .neighbor-list code {
+      color: #e5eee7;
+      font-family: var(--pg-mono);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .neighbor-list span {
+      color: var(--leaf-bright);
+      font-family: var(--pg-mono);
+      font-size: 0.72rem;
+    }
+    .network-card {
+      margin-top: 16px;
+      padding: 18px;
+    }
+    .network-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: start;
+    }
+    .network-heading h3 {
+      margin: 0 0 3px;
+      color: #e9f2eb;
+      font-size: 0.95rem;
+    }
+    .network-heading p,
+    .network-method {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .network-status {
+      min-height: 24px;
+      margin: 12px 0 8px;
+      color: #9eb1a5;
+      font-size: 0.78rem;
+    }
+    .network-status[data-state="loading"] { color: #f0d57a; }
+    .network-status[data-state="error"] { color: var(--danger); }
+    #neighbor-network-chart {
+      height: 420px;
+      cursor: crosshair;
+      background:
+        radial-gradient(circle at 50% 50%, #122219 0, #09110c 72%);
+    }
+    .network-node-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 12px 0;
+    }
+    .network-node-list button {
+      min-height: 34px;
+      padding: 6px 10px;
+      border: 1px solid #294035;
+      border-radius: 999px;
+      background: #09110c;
+      color: #b8c9be;
+      font-family: var(--pg-mono);
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .network-node-list button:hover:not(:disabled) {
+      border-color: var(--leaf);
+      color: #eef6ef;
+    }
+    .network-node-list button[data-expanded="true"] {
+      border-color: #47775d;
+      background: #102018;
+      color: var(--leaf-bright);
+    }
+    .network-method {
+      padding-top: 12px;
+      border-top: 1px solid #1d3328;
+    }
+    .context-cards {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .context-card { padding: 20px; }
+    .context-card h3 { margin: 0; color: #edf5ef; }
+    .context-prefix {
+      margin: 10px 0 0;
+      color: #bdccc2;
+      font-family: var(--pg-serif);
+      font-size: 1.25rem;
+    }
+    .context-prefix mark {
+      padding: 1px 3px;
+      border-radius: 4px;
+      background: rgba(116, 224, 166, 0.17);
+      color: var(--leaf-bright);
+    }
+    .context-future {
+      color: #53665a;
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+    .milestones {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 15px;
+    }
+    .milestones div {
+      padding: 9px;
+      border: 1px solid #20352a;
+      border-radius: 7px;
+    }
+    .milestones span {
+      display: block;
+      color: #718679;
+      font-size: 0.62rem;
+      text-transform: uppercase;
+    }
+    .milestones strong {
+      color: #dfeae2;
+      font-family: var(--pg-mono);
+      font-size: 0.75rem;
+    }
+    .interpretation {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      padding: 24px 0 0;
+      margin-top: 36px;
+      border-top: 1px solid var(--line);
+    }
+    .interpretation h3 { margin: 0 0 6px; color: #dfe9e1; }
+    .interpretation p { margin: 0; color: var(--muted); font-size: 0.84rem; }
+    .busy-overlay {
+      position: fixed;
+      z-index: 140;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(3, 8, 5, 0.8);
+      backdrop-filter: blur(7px);
+    }
+    .busy-overlay[hidden] { display: none; }
+    .busy-card {
+      width: min(480px, 100%);
+      padding: 26px;
+      border: 1px solid #315441;
+      border-radius: 16px;
+      background: #09120c;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.44);
+    }
+    .busy-card strong {
+      display: block;
+      color: #edf6ef;
+      font-family: var(--pg-serif);
+      font-size: 1.8rem;
+      font-weight: 500;
+    }
+    .busy-card p { margin: 8px 0 0; color: var(--muted); }
+    .busy-line {
+      height: 3px;
+      margin-top: 20px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #1c3025;
+    }
+    .busy-line::after {
+      content: "";
+      display: block;
+      width: 38%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--leaf);
+      animation: travel 1.25s ease-in-out infinite alternate;
+    }
+    @keyframes travel { to { transform: translateX(164%); } }
+    @media (max-width: 980px) {
+      .hero,
+      .row-card,
+      .two-column,
+      .word-contract { grid-template-columns: 1fr; }
+      .method-note { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metric:nth-child(2) { border-radius: 0 var(--radius) 0 0; }
+      .metric:nth-child(3) {
+        border-left-width: 1px;
+        border-radius: 0 0 0 var(--radius);
+      }
+      .metric:last-child { border-radius: 0 0 var(--radius) 0; }
+    }
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 24px, 1440px); }
+      .context-inputs,
+      .token-streams,
+      .context-cards,
+      .interpretation { grid-template-columns: 1fr; }
+      .panel-heading,
+      .section-heading,
+      .selection-summary,
+      .form-actions,
+      .network-heading { align-items: stretch; flex-direction: column; }
+      .button-row { width: 100%; }
+      .button-row button { flex: 1; }
+      .row-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .neighbor-list { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .busy-line::after { animation: none; width: 100%; }
+    }
+  </style>
+</head>
+<body data-workbench-page="embeddings">
+  <a class="skip-link" href="#analysis">Přeskočit k analýze</a>
+  <main class="shell" id="analysis">
+    <div class="topbar">
+      <span id="model-state" data-state="loading">Čekám na model…</span>
+    </div>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Apertus / EuroLLM · od tabulky ke kontextu</p>
+        <h1>Od identity k hodnotě</h1>
+        <p class="lede">
+          Začni jedním slovem nebo větou. Vyber token či celé tokenizované
+          slovo a sleduj, jak se jeho vstupní řádky mění v kontextový stav.
+          Druhý kontext přidej teprve tehdy, když chceš porovnat dvě cesty.
+        </p>
+      </div>
+      <blockquote>
+        <strong>Stejné ID vybírá stejný začátek,</strong> nikoli stejnou
+        kontextovou reprezentaci.
+      </blockquote>
+    </header>
+
+    <aside class="method-note">
+      <strong>Jeden text stačí</strong>
+      <p>
+        <strong>Řádek.</strong> Deterministický lookup podle tokenového ID.
+        Pro oba výskyty je při stejném aktivním modelu bitově tentýž.
+      </p>
+      <p>
+        <strong>Slovo.</strong> Nemá jeden vstupní řádek. Ukážeme všechny
+        jeho tokenové střepy a jako čtecí hranici vezmeme poslední z nich.
+      </p>
+      <p>
+        <strong>Kontext.</strong> Po každé vrstvě porovnáváme stav na pozici
+        vybraného tokenu nebo posledního střepu. Model vidí jen text nalevo
+        včetně této pozice.
+      </p>
+    </aside>
+
+    <form id="embedding-form" class="panel">
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">01 · Kontexty</p>
+          <h2>Vyber jednotku v textu</h2>
+        </div>
+        <p>
+          Text nejdřív pouze rozdělíme tokenizerem. „Celé slovo“ zde
+          znamená maximální ortografický úsek z Unicode písmen, číslic a
+          diakritických značek; uvnitř může mít apostrof nebo spojovník.
+          Není to lemma ani morfologická analýza.
+        </p>
+      </div>
+      <fieldset id="analysis-mode" class="mode-switch">
+        <legend>Jednotka řezu</legend>
+        <label>
+          <input
+            type="radio"
+            name="analysis-mode"
+            value="word_span"
+            checked
+          >
+          <span>Celé slovo · ortograficky</span>
+        </label>
+        <label>
+          <input type="radio" name="analysis-mode" value="token">
+          <span>Tokenový řádek</span>
+        </label>
+      </fieldset>
+      <div id="context-inputs" class="context-inputs is-single">
+        <label for="text-a">
+          <span class="context-label-line">
+            <span id="text-a-label">Text</span>
+            <small>slovo, věta nebo delší úsek</small>
+          </span>
+          <textarea id="text-a" maxlength="4000" spellcheck="false">Na kopci stojí zámek.</textarea>
+        </label>
+        <label id="context-b-wrap" for="text-b" hidden>
+          <span class="context-label-line">
+            <span>Kontext B</span>
+            <small>volitelné porovnání</small>
+          </span>
+          <textarea id="text-b" maxlength="4000" spellcheck="false">Na dveřích je rozbitý zámek.</textarea>
+        </label>
+      </div>
+      <div class="form-actions">
+        <div id="form-status" class="form-status" role="status">
+          Čekám na tokenizer…
+        </div>
+        <div class="button-row">
+          <button
+            id="toggle-context-b"
+            class="secondary-button"
+            type="button"
+          >
+            + Přidat druhý kontext
+          </button>
+          <button id="tokenize" class="secondary-button" type="submit" disabled>
+            Rozdělit na tokeny
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <section id="selection" class="panel selection-panel" hidden>
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">02 · Výskyt</p>
+          <h2>Který výskyt sledujeme?</h2>
+        </div>
+        <p>
+          Za vybraným tokenem je budoucnost šedá: kauzální transformer ji při
+          výpočtu tohoto stavu ještě nemohl použít.
+        </p>
+      </div>
+      <div id="token-streams" class="token-streams"></div>
+      <div class="selection-summary">
+        <p id="selection-copy">Vyber slovo nebo token v textu.</p>
+        <div class="button-row">
+          <label id="neighbor-control" for="neighbor-count" hidden>
+            Sousedů
+            <select id="neighbor-count">
+              <option value="8">8</option>
+              <option value="12" selected>12</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+            </select>
+          </label>
+          <button id="measure" class="primary-button" type="button" disabled>
+            Sledovat vrstvami
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="results" hidden aria-live="polite">
+      <header class="result-heading">
+        <div>
+          <p class="section-kicker">03 · Měření</p>
+          <h2 id="result-title" tabindex="-1">Jeden začátek, jedna cesta</h2>
+          <p id="result-subtitle"></p>
+        </div>
+        <span id="runtime-badge" class="runtime-badge">—</span>
+      </header>
+
+      <section id="row-card" class="row-card" aria-labelledby="row-heading">
+        <div>
+          <p id="row-kicker" class="card-kicker">Výchozí embeddingový řádek</p>
+          <h2 id="row-heading" class="row-title">—</h2>
+          <p id="row-id" class="row-id">—</p>
+          <p id="row-copy" class="row-copy">
+            Toto je výchozí podmínka zvoleného výskytu. Jednotlivé osy
+            nemají samostatně pojmenovaný lidský význam.
+          </p>
+        </div>
+        <div>
+          <div id="fragment-strip" class="fragment-strip" hidden></div>
+          <p id="input-map-copy" class="row-copy"></p>
+        </div>
+        <details id="input-technical-details" class="embedding-details input-details">
+          <summary>Technické detaily vstupních embeddingů</summary>
+          <div id="fragment-technical-stats"></div>
+          <dl id="row-stats" class="row-stats"></dl>
+          <p class="technical-caption">Kontrolní náhled prvních 16 souřadnic posledního tokenu; nejde o významové rysy.</p>
+          <div
+            id="coordinate-strip"
+            class="coordinate-strip"
+            aria-label="Kontrolní náhled prvních šestnácti souřadnic"
+          ></div>
+          <aside id="word-contract" class="word-contract" hidden>
+            <strong>Slovo není nový řádek</strong>
+            <p>
+              Každý token má vlastní vstupní embedding. L0 zde ukazuje
+              pouze embedding posledního střepu, ne průměr za celé slovo.
+              Od L1 sledujeme stav na konci slova, který už může využívat
+              jeho předchozí střepy i text nalevo.
+            </p>
+          </aside>
+        </details>
+      </section>
+
+      <section id="context-state-section" class="section-block" aria-labelledby="context-state-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">04 · Kontextové stavy</p>
+            <h2 id="context-state-heading">Stejný začátek, dva kontextové stavy</h2>
+          </div>
+          <p id="context-state-copy">
+            Oba panely ukazují stejnou vrstvu a používají stejné osy i měřítko.
+            Změnou vrstvy sleduješ, jak se společný vstup proměňuje v každém kontextu.
+          </p>
+        </div>
+        <div class="state-controls">
+          <label for="state-layer">Vrstva modelu</label>
+          <select id="state-layer" aria-describedby="state-layer-help"></select>
+          <button id="state-show-input" type="button" class="secondary-button">Společný vstup · L0</button>
+          <button id="state-show-max" type="button" class="secondary-button">Největší rozdíl</button>
+        </div>
+        <p id="state-layer-help" class="state-help">L0 je vstup před první vrstvou. Další vrstvy už mohou využívat předchozí text.</p>
+        <p id="state-comparison" class="state-comparison" aria-live="polite"></p>
+        <div id="context-cards" class="context-cards"></div>
+        <p id="context-projection-copy" class="state-help"></p>
+        <p class="state-help">Body jsou zjednodušený pohled na číselné stavy, nikoli mapa významů. Jejich vzdálenost na obrázku může klamat; uvedená kosinová vzdálenost se počítá ze všech rozměrů.</p>
+      </section>
+
+      <section
+        id="neighbors-section"
+        class="section-block"
+        aria-labelledby="neighbors-heading"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">05 · Geometrie vstupu</p>
+            <h2 id="neighbors-heading">Společná vstupní mapa</h2>
+          </div>
+          <p>
+            Tato mapa ukazuje vstupní embeddingy tokenů, ještě bez vlivu
+            okolní věty. Proto je pro stejné tokeny v obou kontextech jen jedna.
+            U vícetokenového slova jsou to jeho jednotlivé části, ne jeden vektor celého slova.
+          </p>
+        </div>
+        <div class="two-column">
+          <article class="chart-card">
+            <h3 id="geometry-card-title">Lokální konstelace</h3>
+            <p id="pca-copy">—</p>
+            <canvas
+              id="neighbor-chart"
+              role="img"
+              aria-label="Lokální PCA embeddingového řádku a jeho sousedů"
+            ></canvas>
+          </article>
+          <article class="chart-card">
+            <h3 id="neighbor-list-title">Nejbližší řádky</h3>
+            <p id="neighbor-list-copy">
+              Kosinová podobnost v celé vstupní embeddingové tabulce.
+            </p>
+            <ol id="neighbor-list" class="neighbor-list"></ol>
+          </article>
+        </div>
+        <article class="chart-card network-card">
+          <div class="network-heading">
+            <div>
+              <h3>Rozbalovací síť tokenových řádků</h3>
+              <p>
+                Klikni na bod v PCA, položku sousedů nebo uzel níže. Jeho
+                vlastní nejbližší tokenové řádky se přidají do trvalé sítě.
+              </p>
+            </div>
+            <button
+              id="neighbor-network-reset"
+              class="secondary-button"
+              type="button"
+            >
+              Obnovit první hvězdu
+            </button>
+          </div>
+          <p
+            id="neighbor-network-status"
+            class="network-status"
+            role="status"
+          >
+            Kliknutím rozbalíš další tokenový řádek.
+          </p>
+          <canvas
+            id="neighbor-network-chart"
+            role="img"
+            tabindex="0"
+            aria-label="Schematická rozbalovací síť kosinových sousedů tokenových řádků"
+            aria-describedby="neighbor-network-method"
+          ></canvas>
+          <div
+            id="neighbor-network-nodes"
+            class="network-node-list"
+            aria-label="Uzel lze rozbalit také tímto tlačítkem"
+          ></div>
+          <p id="neighbor-network-method" class="network-method">
+            Rozložení je schematické: polohy uzlů nejsou souřadnice
+            embeddingu. Autoritativní je pouze hrana a její kosinová
+            podobnost. Uzly jsou tokeny slovníku, nikoli celá slova,
+            synonyma nebo významy. Každý uzel se počítá jen po kliknutí,
+            bez modelového forwardu.
+          </p>
+        </article>
+      </section>
+
+      <section class="section-block" aria-labelledby="trajectory-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">06 · Průběh změny</p>
+            <h2 id="trajectory-heading">Jak se stav promění?</h2>
+          </div>
+          <p id="trajectory-copy">
+            U jediného textu měříme vzdálenost stavu od jeho vlastního L0.
+            Po přidání druhého kontextu měříme rozchod obou stavů.
+          </p>
+        </div>
+        <div class="metrics">
+          <article class="metric">
+            <span id="metric-input-label">L0 · vstupní řádek</span>
+            <strong id="metric-input">—</strong>
+            <small id="metric-input-small">kosinová vzdálenost</small>
+          </article>
+          <article class="metric">
+            <span id="metric-max-label">Největší proměna</span>
+            <strong id="metric-max">—</strong>
+            <small id="metric-max-layer">—</small>
+          </article>
+          <article class="metric">
+            <span id="metric-final-label">Finální vrstva · od vstupu</span>
+            <strong id="metric-final">—</strong>
+            <small>kosinová vzdálenost</small>
+          </article>
+          <article class="metric">
+            <span id="metric-token-label">Společná identita</span>
+            <strong id="metric-token">—</strong>
+            <small id="metric-token-small">tentýž token_id v obou větách</small>
+          </article>
+        </div>
+        <article class="chart-card">
+          <h3 id="trajectory-card-title">Proměna kontextového stavu</h3>
+          <p id="trajectory-card-copy">
+            1 − cosine(h<sub>L0</sub>, h<sub>L</sub>) od L0 po finální vrstvu.
+          </p>
+          <canvas
+            id="trajectory-chart"
+            role="img"
+            aria-label="Kosinová vzdálenost dvou kontextových stavů po vrstvách"
+          ></canvas>
+        </article>
+      </section>
+
+      <footer class="interpretation">
+        <div>
+          <h3 id="interpretation-heading">Ne word2vec</h3>
+          <p id="interpretation-copy">
+            Řádek je materiál na vstupu. Kontextová reprezentace se teprve
+            vyrábí opakovanými transformacemi nad celým dosavadním prefixem.
+          </p>
+        </div>
+        <div>
+          <h3>Soused není synonymum</h3>
+          <p>
+            Blízkost může zachycovat formu, frekvenci, morfologii i užití.
+            Seznam není lexikografické ani ontologické tvrzení.
+          </p>
+        </div>
+        <div>
+          <h3>Rozchod není význam sám</h3>
+          <p>
+            Křivka měří geometrickou odlišnost stavů. Je to stopa
+            kontextualizace, nikoli přímý důkaz lidsky míněného obsahu.
+          </p>
+        </div>
+      </footer>
+    </section>
+  </main>
+
+  <div id="busy-overlay" class="busy-overlay" hidden>
+    <div class="busy-card" role="status" aria-live="polite">
+      <strong id="busy-heading">Od střepů ke dvěma stavům</strong>
+      <p id="busy-copy">
+        Procházím slovník a počítám dvě trajektorie bez KV cache.
+      </p>
+      <div class="busy-line" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const form = document.querySelector("#embedding-form");
+      const textA = document.querySelector("#text-a");
+      const textB = document.querySelector("#text-b");
+      const textALabel = document.querySelector("#text-a-label");
+      const contextInputs = document.querySelector("#context-inputs");
+      const contextBWrap = document.querySelector("#context-b-wrap");
+      const toggleContextB = document.querySelector("#toggle-context-b");
+      const tokenizeButton = document.querySelector("#tokenize");
+      const formStatus = document.querySelector("#form-status");
+      const modeInputs = [
+        ...document.querySelectorAll('input[name="analysis-mode"]')
+      ];
+      const selection = document.querySelector("#selection");
+      const tokenStreams = document.querySelector("#token-streams");
+      const selectionCopy = document.querySelector("#selection-copy");
+      const neighborControl = document.querySelector("#neighbor-control");
+      const neighborCount = document.querySelector("#neighbor-count");
+      const measureButton = document.querySelector("#measure");
+      const results = document.querySelector("#results");
+      const resultTitle = document.querySelector("#result-title");
+      const resultSubtitle = document.querySelector("#result-subtitle");
+      const runtimeBadge = document.querySelector("#runtime-badge");
+      const rowHeading = document.querySelector("#row-heading");
+      const rowId = document.querySelector("#row-id");
+      const rowKicker = document.querySelector("#row-kicker");
+      const rowCopy = document.querySelector("#row-copy");
+      const rowStats = document.querySelector("#row-stats");
+      const inputMapCopy = document.querySelector("#input-map-copy");
+      const inputTechnicalDetails = document.querySelector("#input-technical-details");
+      const fragmentTechnicalStats = document.querySelector("#fragment-technical-stats");
+      const coordinateStrip = document.querySelector("#coordinate-strip");
+      const fragmentStrip = document.querySelector("#fragment-strip");
+      const wordContract = document.querySelector("#word-contract");
+      const neighborsSection = document.querySelector("#neighbors-section");
+      const geometryCardTitle = document.querySelector(
+        "#geometry-card-title"
+      );
+      const neighborListTitle = document.querySelector(
+        "#neighbor-list-title"
+      );
+      const neighborListCopy = document.querySelector(
+        "#neighbor-list-copy"
+      );
+      const pcaCopy = document.querySelector("#pca-copy");
+      const neighborChart = document.querySelector("#neighbor-chart");
+      const neighborList = document.querySelector("#neighbor-list");
+      const neighborNetworkChart = document.querySelector(
+        "#neighbor-network-chart"
+      );
+      const neighborNetworkNodes = document.querySelector(
+        "#neighbor-network-nodes"
+      );
+      const neighborNetworkStatus = document.querySelector(
+        "#neighbor-network-status"
+      );
+      const neighborNetworkReset = document.querySelector(
+        "#neighbor-network-reset"
+      );
+      const trajectoryChart = document.querySelector("#trajectory-chart");
+      const metricInput = document.querySelector("#metric-input");
+      const metricInputLabel = document.querySelector("#metric-input-label");
+      const metricInputSmall = document.querySelector("#metric-input-small");
+      const metricMax = document.querySelector("#metric-max");
+      const metricMaxLabel = document.querySelector("#metric-max-label");
+      const metricMaxLayer = document.querySelector("#metric-max-layer");
+      const metricFinal = document.querySelector("#metric-final");
+      const metricFinalLabel = document.querySelector("#metric-final-label");
+      const metricToken = document.querySelector("#metric-token");
+      const metricTokenLabel = document.querySelector("#metric-token-label");
+      const metricTokenSmall = document.querySelector("#metric-token-small");
+      const trajectoryCopy = document.querySelector("#trajectory-copy");
+      const trajectoryHeading = document.querySelector("#trajectory-heading");
+      const trajectoryCardTitle = document.querySelector(
+        "#trajectory-card-title"
+      );
+      const trajectoryCardCopy = document.querySelector(
+        "#trajectory-card-copy"
+      );
+      const contextCards = document.querySelector("#context-cards");
+      const contextStateHeading = document.querySelector("#context-state-heading");
+      const contextStateCopy = document.querySelector("#context-state-copy");
+      const contextProjectionCopy = document.querySelector("#context-projection-copy");
+      const stateLayer = document.querySelector("#state-layer");
+      const stateShowInput = document.querySelector("#state-show-input");
+      const stateShowMax = document.querySelector("#state-show-max");
+      const stateComparison = document.querySelector("#state-comparison");
+      const interpretationHeading = document.querySelector(
+        "#interpretation-heading"
+      );
+      const interpretationCopy = document.querySelector(
+        "#interpretation-copy"
+      );
+      const modelState = document.querySelector("#model-state");
+      const busyOverlay = document.querySelector("#busy-overlay");
+      const busyHeading = document.querySelector("#busy-heading");
+      const busyCopy = document.querySelector("#busy-copy");
+      const EMBEDDING_HANDOFF_STORAGE_PREFIX =
+        "apertus-embedding-handoff-v1:";
+
+      const state = {
+        health: null,
+        ready: false,
+        busy: false,
+        mode: "word_span",
+        comparisonEnabled: false,
+        tokenization: null,
+        selected: [null, null],
+        wordSpans: [[], []],
+        selectedSpans: [null, null],
+        result: null,
+        selectedLayer: 0,
+        neighborGraph: null,
+        graphBusy: false,
+        pcaHitRegions: [],
+        networkHitRegions: [],
+        pollTimer: null,
+        autoRan: false,
+        initialSelection: null
+      };
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+      const asArray = (value) => Array.isArray(value) ? value : [];
+      const formatNumber = (value, digits = 3) => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "—";
+        return new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: digits
+        }).format(number);
+      };
+      const formatMs = (value) => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "—";
+        return number >= 1000
+          ? `${formatNumber(number / 1000, 2)} s`
+          : `${formatNumber(number, number < 10 ? 2 : 0)} ms`;
+      };
+      const activeModel = () => (
+        state.health?.active_model?.label ??
+        state.health?.active_model?.id ??
+        "Apertus"
+      );
+      const consumeHandoff = () => {
+        const handoffId = new URL(
+          window.location.href
+        ).searchParams.get("handoff");
+        if (!handoffId) return;
+        try {
+          const key = `${EMBEDDING_HANDOFF_STORAGE_PREFIX}${handoffId}`;
+          const raw = window.localStorage.getItem(key);
+          window.localStorage.removeItem(key);
+          if (!raw) return;
+          const payload = JSON.parse(raw);
+          if (
+            payload?.schema !== "apertus.embedding-handoff" ||
+            payload?.version !== 1 ||
+            typeof payload.text_a !== "string"
+          ) return;
+          textA.value = payload.text_a;
+          if (typeof payload.text_b === "string" && payload.text_b) {
+            textB.value = payload.text_b;
+            state.comparisonEnabled = true;
+          }
+          if (
+            Number.isInteger(payload.index_a) &&
+            Number.isInteger(payload.index_b)
+          ) {
+            state.initialSelection = [
+              payload.index_a,
+              payload.index_b,
+              Number(payload.token_id)
+            ];
+            state.mode = "token";
+            modeInputs.forEach((input) => {
+              input.checked = input.value === "token";
+            });
+          }
+        } catch {
+          // Neplatný nebo expirovaný handoff jen ponechá výchozí příklad.
+        }
+      };
+      const fetchJson = (...arguments_) => (
+        window.ProbabilityGardenApi.fetchJson(...arguments_)
+      );
+      const workbenchState = () => ({
+        model: activeModel(),
+        run: state.health?.model_generation === undefined
+          ? "lokální"
+          : `generace ${state.health.model_generation}`,
+        status: !state.ready
+          ? "Čekám na model"
+          : state.busy
+            ? "Počítám embeddingové trajektorie"
+            : state.result
+              ? "Embeddingový řez je připraven"
+              : state.tokenization
+                ? (
+                  state.comparisonEnabled
+                    ? (
+                      state.mode === "word_span"
+                        ? "Vyber stejné slovo"
+                        : "Vyber společný token"
+                    )
+                    : (
+                      state.mode === "word_span"
+                        ? "Vyber slovo"
+                        : "Vyber token"
+                    )
+                )
+                : "Model je připraven",
+        statusKind: !state.ready || state.busy ? "running" : "ready"
+      });
+      const dispatchWorkbenchState = () => window.dispatchEvent(
+        new CustomEvent("probability-garden:workbench-state", {
+          detail: {context: workbenchState()}
+        })
+      );
+      const setStatus = (message, error = false) => {
+        formStatus.textContent = message;
+        formStatus.classList.toggle("error", error);
+        formStatus.setAttribute("role", error ? "alert" : "status");
+      };
+      const setBusy = (busy) => {
+        state.busy = busy;
+        document.body.classList.toggle("is-computing", busy);
+        busyOverlay.hidden = !busy;
+        tokenizeButton.disabled = busy || !state.ready;
+        toggleContextB.disabled = busy;
+        modeInputs.forEach((input) => {
+          input.disabled = busy;
+        });
+        measureButton.disabled = (
+          busy || !state.ready || !hasUsableSelection()
+        );
+        neighborCount.disabled = busy;
+        dispatchWorkbenchState();
+      };
+
+      const wordSpansForTrace = (trace) => asArray(trace?.word_spans)
+        .map((span) => ({
+          text: String(span?.text ?? ""),
+          characterStart: Number(span?.character_start),
+          characterEnd: Number(span?.character_end),
+          byteStart: Number(span?.utf8_byte_start),
+          byteEnd: Number(span?.utf8_byte_end),
+          tokenIndices: asArray(span?.token_indices).map(Number),
+          tokenStart: Number(span?.token_start_index),
+          tokenEnd: Number(span?.token_end_index),
+          tokenIds: asArray(span?.token_ids).map(Number)
+        }))
+        .filter((span) => (
+          span.text &&
+          Number.isInteger(span.characterStart) &&
+          Number.isInteger(span.characterEnd) &&
+          span.characterStart < span.characterEnd &&
+          span.tokenIndices.length > 0 &&
+          span.tokenIndices.every(Number.isInteger) &&
+          span.tokenIds.length === span.tokenIndices.length
+        ));
+      const spanSignature = (span) => asArray(span?.tokenIds).join(",");
+      const spansMatch = (left, right) => Boolean(
+        left &&
+        right &&
+        left.text === right.text &&
+        spanSignature(left) === spanSignature(right)
+      );
+      const activeTraces = () => [
+        state.tokenization?.a,
+        ...(state.comparisonEnabled && state.tokenization?.b
+          ? [state.tokenization.b]
+          : [])
+      ].filter(Boolean);
+      const hasWordsOnSide = (side) => (
+        asArray(state.wordSpans?.[side]).length > 0
+      );
+      const noWholeWordMessage = () => (
+        "Text neobsahuje žádné celé ortografické slovo. " +
+        "Emoji, samostatnou interpunkci a jiné tokenové jednotky můžeš " +
+        "zkoumat v režimu Tokenový řádek."
+      );
+      const hasUsableSelection = () => {
+        if (!state.tokenization?.a) return false;
+        if (state.mode === "word_span") {
+          if (!state.selectedSpans[0]) return false;
+          return !state.comparisonEnabled ||
+            spansMatch(state.selectedSpans[0], state.selectedSpans[1]);
+        }
+        if (state.selected[0] === null) return false;
+        if (!state.comparisonEnabled) return true;
+        if (state.selected[1] === null || !state.tokenization.b) return false;
+        const a = state.tokenization.a.tokens[state.selected[0]];
+        const b = state.tokenization.b.tokens[state.selected[1]];
+        return Number(a?.token_id) === Number(b?.token_id);
+      };
+
+      const syncComparisonUI = () => {
+        contextInputs.classList.toggle(
+          "is-single",
+          !state.comparisonEnabled
+        );
+        contextBWrap.hidden = !state.comparisonEnabled;
+        textB.setAttribute(
+          "aria-required",
+          state.comparisonEnabled ? "true" : "false"
+        );
+        textALabel.textContent = state.comparisonEnabled
+          ? "Kontext A"
+          : "Text";
+        toggleContextB.textContent = state.comparisonEnabled
+          ? "− Odebrat druhý kontext"
+          : "+ Přidat druhý kontext";
+      };
+
+      const defaultSingleWordSelection = (data) => {
+        state.wordSpans = [wordSpansForTrace(data?.a), []];
+        return [state.wordSpans[0].at(-1) ?? null, null];
+      };
+
+      const defaultSingleTokenSelection = (data) => {
+        const tokens = asArray(data?.a?.tokens);
+        for (let index = tokens.length - 1; index >= 0; index -= 1) {
+          const token = tokens[index];
+          const humanText = (
+            token.source_text ?? token.decoded_text ?? token.display ?? ""
+          );
+          if (/[\p{L}\p{N}]/u.test(humanText)) return [index, null];
+        }
+        return [tokens.length ? tokens.length - 1 : null, null];
+      };
+
+      const nearestRelative = (candidates, sourceIndex, sourceLength, targetLength) => {
+        const relative = sourceIndex / Math.max(1, sourceLength - 1);
+        return candidates.reduce((best, current) => {
+          if (!best) return current;
+          const bestDistance = Math.abs(
+            best.tokenEnd / Math.max(1, targetLength - 1) - relative
+          );
+          const currentDistance = Math.abs(
+            current.tokenEnd / Math.max(1, targetLength - 1) - relative
+          );
+          return currentDistance < bestDistance ? current : best;
+        }, null);
+      };
+
+      const defaultSharedWordSelection = (data) => {
+        state.wordSpans = [
+          wordSpansForTrace(data?.a),
+          wordSpansForTrace(data?.b)
+        ];
+        for (let index = state.wordSpans[0].length - 1; index >= 0; index -= 1) {
+          const left = state.wordSpans[0][index];
+          const right = state.wordSpans[1].findLast(
+            (candidate) => spansMatch(left, candidate)
+          );
+          if (right) return [left, right];
+        }
+        return [null, null];
+      };
+
+      const defaultSharedSelection = (data) => {
+        const aTokens = asArray(data?.a?.tokens);
+        const bTokens = asArray(data?.b?.tokens);
+        if (state.initialSelection) {
+          const [aIndex, bIndex, expectedId] = state.initialSelection;
+          state.initialSelection = null;
+          if (
+            aTokens[aIndex] &&
+            bTokens[bIndex] &&
+            Number(aTokens[aIndex].token_id) === Number(expectedId) &&
+            Number(bTokens[bIndex].token_id) === Number(expectedId)
+          ) {
+            return [aIndex, bIndex];
+          }
+        }
+        for (let aIndex = aTokens.length - 1; aIndex >= 0; aIndex -= 1) {
+          const token = aTokens[aIndex];
+          const humanText = (
+            token.source_text ?? token.decoded_text ?? token.display ?? ""
+          );
+          if (!/[\p{L}\p{N}]/u.test(humanText)) continue;
+          for (let bIndex = bTokens.length - 1; bIndex >= 0; bIndex -= 1) {
+            if (Number(bTokens[bIndex].token_id) === Number(token.token_id)) {
+              return [aIndex, bIndex];
+            }
+          }
+        }
+        for (let aIndex = aTokens.length - 1; aIndex >= 0; aIndex -= 1) {
+          const bIndex = bTokens.findLastIndex(
+            (token) => Number(token.token_id) === Number(aTokens[aIndex].token_id)
+          );
+          if (bIndex >= 0) return [aIndex, bIndex];
+        }
+        return [null, null];
+      };
+
+      const renderTokenStreams = () => {
+        const traces = activeTraces();
+        tokenStreams.dataset.count = String(traces.length);
+        tokenStreams.innerHTML = traces.map((trace, side) => {
+          const selectedIndex = state.selected[side];
+          const selectedSpan = state.selectedSpans[side];
+          const boundaryIndex = state.mode === "word_span"
+            ? selectedSpan?.tokenEnd ?? null
+            : selectedIndex;
+          const selectedId = selectedIndex === null
+            ? null
+            : Number(trace.tokens[selectedIndex]?.token_id);
+          const otherSide = side === 0 ? 1 : 0;
+          const otherIndex = state.selected[otherSide];
+          const otherTrace = traces[otherSide];
+          const otherId = otherIndex === null
+            ? null
+            : Number(otherTrace?.tokens?.[otherIndex]?.token_id);
+          const otherSpan = state.selectedSpans[otherSide];
+          const matchingWordSpans = (
+            state.comparisonEnabled &&
+            state.mode === "word_span" &&
+            otherSpan
+          )
+            ? state.wordSpans[side].filter(
+              (candidate) => spansMatch(candidate, otherSpan)
+            )
+            : [];
+          return `
+            <article class="token-stream">
+              <header class="stream-heading">
+                <strong>${escapeHtml(trace.label)}</strong>
+                <span>${formatNumber(trace.token_count, 0)} tokenů</span>
+              </header>
+              <ol class="token-list">
+                ${asArray(trace.tokens).map((token) => {
+                  const index = Number(token.index);
+                  const isSelected = state.mode === "token" &&
+                    index === selectedIndex;
+                  const isWordPart = state.mode === "word_span" &&
+                    asArray(selectedSpan?.tokenIndices).includes(index);
+                  const isWordClosing = isWordPart &&
+                    index === selectedSpan?.tokenEnd;
+                  const isFuture = boundaryIndex !== null &&
+                    index > boundaryIndex;
+                  const isMatching = !state.comparisonEnabled
+                    ? false
+                    : state.mode === "token"
+                    ? (
+                      otherId !== null &&
+                      Number(token.token_id) === otherId
+                    )
+                    : matchingWordSpans.some(
+                      (span) => asArray(span.tokenIndices).includes(index)
+                    );
+                  return `
+                    <li>
+                      <button
+                        type="button"
+                        class="token-chip${
+                          isSelected ? " is-selected" : ""
+                        }${isWordPart ? " is-word-part" : ""}${
+                          isWordClosing ? " is-word-closing" : ""
+                        }${isFuture ? " is-future" : ""}${
+                          isMatching ? " is-matching" : ""
+                        }"
+                        data-side="${side}"
+                        data-index="${index}"
+                        aria-pressed="${isSelected}"
+                        title="token #${escapeHtml(token.token_id)}"
+                      >
+                        <strong class="observed-token">${escapeHtml(token.display)}</strong>
+                        <small>#${escapeHtml(token.token_id)}</small>
+                      </button>
+                    </li>
+                  `;
+                }).join("")}
+              </ol>
+            </article>
+          `;
+        }).join("");
+
+        tokenStreams.querySelectorAll(".token-chip").forEach((button) => {
+          button.addEventListener("click", () => {
+            const side = Number(button.dataset.side);
+            const index = Number(button.dataset.index);
+            const otherSide = side === 0 ? 1 : 0;
+            const tracesNow = activeTraces();
+            if (state.mode === "word_span") {
+              const span = state.wordSpans[side].find(
+                (candidate) => asArray(candidate.tokenIndices).includes(index)
+              );
+              state.selectedSpans[side] = span ?? null;
+              state.selected[side] = span?.tokenEnd ?? null;
+              if (!state.comparisonEnabled) {
+                state.selectedSpans[1] = null;
+                state.selected[1] = null;
+              } else {
+              const candidates = span
+                ? state.wordSpans[otherSide].filter(
+                  (candidate) => spansMatch(span, candidate)
+                )
+                : [];
+              const target = nearestRelative(
+                candidates,
+                span?.tokenEnd ?? index,
+                tracesNow[side].tokens.length,
+                tracesNow[otherSide].tokens.length
+              );
+              state.selectedSpans[otherSide] = target;
+              state.selected[otherSide] = target?.tokenEnd ?? null;
+              }
+            } else {
+              const tokenId = Number(tracesNow[side].tokens[index].token_id);
+              state.selected[side] = index;
+              if (!state.comparisonEnabled) {
+                state.selected[1] = null;
+              } else {
+              const candidates = tracesNow[otherSide].tokens
+                .map((token, tokenIndex) => ({
+                  token,
+                  tokenIndex,
+                  tokenEnd: tokenIndex
+                }))
+                .filter(({token}) => Number(token.token_id) === tokenId);
+              const target = nearestRelative(
+                candidates,
+                index,
+                tracesNow[side].tokens.length,
+                tracesNow[otherSide].tokens.length
+              );
+              state.selected[otherSide] = target?.tokenIndex ?? null;
+              }
+              state.selectedSpans = [null, null];
+            }
+            state.result = null;
+            state.neighborGraph = null;
+            results.hidden = true;
+            renderTokenStreams();
+            syncSelection();
+          });
+        });
+      };
+
+      const syncSelection = () => {
+        if (hasUsableSelection()) {
+          if (state.mode === "word_span") {
+            const span = state.selectedSpans[0];
+            const tokenFragmentCount = span.tokenIds.length;
+            const tokenFragmentLabel = tokenFragmentCount === 1
+              ? "tokenový střep"
+              : tokenFragmentCount >= 2 && tokenFragmentCount <= 4
+                ? "tokenové střepy"
+                : "tokenových střepů";
+            selectionCopy.innerHTML = `
+              ${state.comparisonEnabled ? "Společné slovo" : "Vybrané slovo"}:
+              <strong class="observed-token">${escapeHtml(span.text)}</strong>
+              · ${formatNumber(tokenFragmentCount, 0)} ${tokenFragmentLabel}
+              · čtecí hranice #${escapeHtml(span.tokenIds.at(-1))}.
+              Jde o celé ortografické slovo, ne lemma. Šedé pokračování
+              model nepoužije.
+            `;
+          } else {
+            const token = state.tokenization.a.tokens[state.selected[0]];
+            selectionCopy.innerHTML = `
+              ${state.comparisonEnabled ? "Společný token" : "Vybraný token"}:
+              <strong class="observed-token">${escapeHtml(token.display)}</strong>
+              · token #${escapeHtml(token.token_id)}. Za zvoleným
+              ${state.comparisonEnabled ? "výskytem ani jeho protějškem" : "výskytem"}
+              model nic z šedého pokračování nepoužije.
+            `;
+          }
+        } else {
+          selectionCopy.textContent = state.comparisonEnabled
+            ? (
+              state.mode === "word_span"
+                ? (
+                  "Zvol stejné viditelné slovo se shodnou tokenovou " +
+                  "posloupností v obou textech. Pokud se kvůli mezeře či " +
+                  "Unicode zápisu tokenizuje jinak, změř oba tvary odděleně."
+                )
+                : (
+                  "Vybraný token v druhém textu chybí. Zvol jednotku, která " +
+                  "má na obou stranách stejné tokenové ID."
+                )
+            )
+            : (
+              state.mode === "word_span"
+                ? (
+                  hasWordsOnSide(0)
+                    ? "Vyber jedno slovo v textu."
+                    : noWholeWordMessage()
+                )
+                : "Vyber jeden token v textu."
+            );
+        }
+        neighborControl.hidden = false;
+        measureButton.textContent = state.mode === "word_span"
+          ? "Sledovat celé slovo"
+          : "Sledovat vrstvami";
+        measureButton.disabled = state.busy || !state.ready ||
+          !hasUsableSelection();
+        dispatchWorkbenchState();
+      };
+
+      const tokenize = async ({focus = true} = {}) => {
+        if (!state.ready || state.busy) return;
+        if (!textA.value) {
+          setStatus("První text nesmí být prázdný.", true);
+          return;
+        }
+        if (state.comparisonEnabled && !textB.value) {
+          setStatus(
+            "Doplň druhý kontext, nebo porovnání zase odeber.",
+            true
+          );
+          return;
+        }
+        setBusy(true);
+        setStatus(
+          state.comparisonEnabled
+            ? "Deterministicky dělím oba texty…"
+            : "Deterministicky dělím text…"
+        );
+        try {
+          const body = {text_a: textA.value};
+          if (state.comparisonEnabled) body.text_b = textB.value;
+          const data = await fetchJson("/api/tokenization", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body)
+          });
+          state.tokenization = data;
+          if (state.mode === "word_span") {
+            state.selectedSpans = state.comparisonEnabled
+              ? defaultSharedWordSelection(data)
+              : defaultSingleWordSelection(data);
+            state.selected = state.selectedSpans.map(
+              (span) => span?.tokenEnd ?? null
+            );
+          } else {
+            state.wordSpans = [[], []];
+            state.selected = state.comparisonEnabled
+              ? defaultSharedSelection(data)
+              : defaultSingleTokenSelection(data);
+            state.selectedSpans = [null, null];
+          }
+          state.result = null;
+          state.neighborGraph = null;
+          results.hidden = true;
+          selection.hidden = false;
+          renderTokenStreams();
+          syncSelection();
+          setStatus(
+            hasUsableSelection()
+              ? (
+                state.comparisonEnabled
+                  ? (
+                    state.mode === "word_span"
+                      ? "Tokenizace hotová — stejné slovo je předvybrané."
+                      : "Tokenizace hotová — společný token je předvybraný."
+                  )
+                  : (
+                    state.mode === "word_span"
+                      ? "Tokenizace hotová — poslední slovo je předvybrané."
+                      : "Tokenizace hotová — poslední textový token je předvybraný."
+                  )
+              )
+              : (
+                state.comparisonEnabled
+                  ? (
+                    state.mode === "word_span"
+                      ? (
+                        "Tokenizace hotová, ale texty nemají stejné slovo " +
+                        "se shodnou tokenovou posloupností."
+                      )
+                      : (
+                        "Tokenizace hotová, ale texty nemají společné " +
+                        "tokenové ID."
+                      )
+                  )
+                  : (
+                    state.mode === "word_span" && !hasWordsOnSide(0)
+                      ? noWholeWordMessage()
+                      : "Tokenizace hotová — vyber jednotku ručně."
+                  )
+              ),
+            !hasUsableSelection()
+          );
+          if (focus) selection.scrollIntoView({behavior: "smooth", block: "start"});
+        } catch (error) {
+          setStatus(error.message || String(error), true);
+          selection.hidden = true;
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const stat = (label, value) => `
+        <div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>
+      `;
+
+      const setupCanvas = (canvas, height) => {
+        const rect = canvas.getBoundingClientRect();
+        const ratio = Math.max(1, window.devicePixelRatio || 1);
+        const width = Math.max(320, rect.width);
+        canvas.width = Math.round(width * ratio);
+        canvas.height = Math.round(height * ratio);
+        const context = canvas.getContext("2d");
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        return {context, width, height};
+      };
+
+      const drawNeighborChart = (projection) => {
+        const {context, width, height} = setupCanvas(neighborChart, 330);
+        const points = asArray(projection?.points);
+        state.pcaHitRegions = [];
+        context.clearRect(0, 0, width, height);
+        if (!points.length) return;
+        const xs = points.map((point) => Number(point.x));
+        const ys = points.map((point) => Number(point.y));
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        const pad = 42;
+        const scaleX = (value) => pad + (
+          (value - minX) / Math.max(maxX - minX, 1e-9)
+        ) * (width - 2 * pad);
+        const scaleY = (value) => height - pad - (
+          (value - minY) / Math.max(maxY - minY, 1e-9)
+        ) * (height - 2 * pad);
+
+        const selected = points.find((point) => point.selected);
+        if (selected) {
+          const sx = scaleX(selected.x);
+          const sy = scaleY(selected.y);
+          context.strokeStyle = "rgba(43, 119, 83, 0.2)";
+          context.lineWidth = 1;
+          points.filter((point) => !point.selected).forEach((point) => {
+            context.beginPath();
+            context.moveTo(sx, sy);
+            context.lineTo(scaleX(point.x), scaleY(point.y));
+            context.stroke();
+          });
+        }
+        points.forEach((point) => {
+          const x = scaleX(point.x);
+          const y = scaleY(point.y);
+          const isFragment = point.point_role === "word_fragment";
+          const radius = point.selected ? 8 : isFragment ? 7 : 5;
+          context.beginPath();
+          context.arc(
+            x,
+            y,
+            radius,
+            0,
+            Math.PI * 2
+          );
+          context.fillStyle = point.selected
+            ? "#2b7753"
+            : isFragment
+              ? "#a87318"
+              : "#718378";
+          context.fill();
+          context.font = point.selected || isFragment
+            ? "700 12px ui-monospace, monospace"
+            : "11px ui-monospace, monospace";
+          context.fillStyle = point.selected
+            ? "#1f5e40"
+            : isFragment
+              ? "#765312"
+              : "#34443b";
+          context.textAlign = x > width - 130 ? "right" : "left";
+          context.fillText(
+            String(point.display ?? point.text ?? `#${point.token_id}`),
+            x + (context.textAlign === "right" ? -10 : 10),
+            y + 4
+          );
+          state.pcaHitRegions.push({
+            tokenId: Number(point.token_id),
+            display: String(
+              point.display ?? point.text ?? `#${point.token_id}`
+            ),
+            x,
+            y,
+            radius: Math.max(13, radius + 6)
+          });
+        });
+      };
+
+      const GRAPH_NEIGHBOR_COUNT = 6;
+      const MAX_EXPANDED_GRAPH_ROOTS = 8;
+
+      const graphEdgeKey = (left, right, kind = "neighbor") => {
+        const a = Number(left);
+        const b = Number(right);
+        return `${kind}:${Math.min(a, b)}:${Math.max(a, b)}`;
+      };
+
+      const graphTokenLabel = (token) => String(
+        token?.display ?? token?.text ?? `#${token?.token_id}`
+      );
+
+      const initializeNeighborGraph = (data) => {
+        const nodes = new Map();
+        const edges = new Map();
+        const points = asArray(data?.projection?.points);
+        const rootId = Number(data?.selected_token?.token_id);
+        const addNode = (token, role = "vocabulary_neighbor") => {
+          const tokenId = Number(token?.token_id);
+          if (!Number.isInteger(tokenId)) return;
+          const previous = nodes.get(tokenId);
+          const preferredRole = previous?.role === "main_root" ||
+            previous?.role === "word_fragment"
+            ? previous.role
+            : role;
+          nodes.set(tokenId, {
+            ...previous,
+            token_id: tokenId,
+            display: graphTokenLabel(token),
+            text: String(token?.text ?? previous?.text ?? ""),
+            role: tokenId === rootId ? "main_root" : preferredRole,
+            fragmentPosition: Number.isFinite(
+              Number(token?.fragment_position)
+            )
+              ? Number(token.fragment_position)
+              : previous?.fragmentPosition ?? null
+          });
+        };
+
+        points.forEach((point) => {
+          addNode(
+            point,
+            point.point_role === "word_fragment"
+              ? "word_fragment"
+              : point.selected
+                ? "main_root"
+                : "vocabulary_neighbor"
+          );
+        });
+        addNode(data?.selected_token, "main_root");
+        asArray(data?.neighbors).forEach((neighbor) => {
+          addNode(neighbor, "vocabulary_neighbor");
+          edges.set(
+            graphEdgeKey(rootId, neighbor.token_id),
+            {
+              source: rootId,
+              target: Number(neighbor.token_id),
+              kind: "neighbor",
+              cosine: Number(neighbor.cosine_similarity),
+              sourceRank: Number(neighbor.rank)
+            }
+          );
+        });
+
+        const fragments = points
+          .filter((point) => (
+            point.point_role === "word_fragment" ||
+            point.point_role === "closing_fragment"
+          ))
+          .sort(
+            (left, right) => (
+              Number(left.fragment_position) -
+              Number(right.fragment_position)
+            )
+          );
+        for (let index = 1; index < fragments.length; index += 1) {
+          const source = Number(fragments[index - 1].token_id);
+          const target = Number(fragments[index].token_id);
+          if (source === target) continue;
+          edges.set(
+            graphEdgeKey(source, target, "fragment"),
+            {
+              source,
+              target,
+              kind: "fragment",
+              cosine: null,
+              sourceRank: null
+            }
+          );
+        }
+
+        state.neighborGraph = {
+          nodes,
+          edges,
+          expanded: new Set([rootId]),
+          rootId,
+          version: `${data?.model_generation}:${rootId}`
+        };
+        state.graphBusy = false;
+      };
+
+      const deterministicAngle = (tokenId, index) => {
+        const mixed = (
+          (Number(tokenId) * 2654435761 + index * 2246822519) >>> 0
+        );
+        return mixed / 0xffffffff * Math.PI * 2;
+      };
+
+      const graphLayout = (width, height) => {
+        const graph = state.neighborGraph;
+        const nodes = [...(graph?.nodes?.values() ?? [])];
+        const edges = [...(graph?.edges?.values() ?? [])];
+        const positions = new Map();
+        if (!graph || !nodes.length) return positions;
+        const center = {x: width / 2, y: height / 2};
+        const radiusBase = Math.min(width, height) * 0.29;
+        nodes.forEach((node, index) => {
+          if (node.token_id === graph.rootId) {
+            positions.set(node.token_id, {...center});
+            return;
+          }
+          const angle = deterministicAngle(node.token_id, index);
+          const ring = 0.58 + (index % 5) * 0.105;
+          positions.set(node.token_id, {
+            x: center.x + Math.cos(angle) * radiusBase * ring,
+            y: center.y + Math.sin(angle) * radiusBase * ring
+          });
+        });
+
+        const pad = 34;
+        for (let iteration = 0; iteration < 110; iteration += 1) {
+          const forces = new Map(
+            nodes.map((node) => [node.token_id, {x: 0, y: 0}])
+          );
+          for (let left = 0; left < nodes.length; left += 1) {
+            const a = nodes[left];
+            const pa = positions.get(a.token_id);
+            for (let right = left + 1; right < nodes.length; right += 1) {
+              const b = nodes[right];
+              const pb = positions.get(b.token_id);
+              let dx = pa.x - pb.x;
+              let dy = pa.y - pb.y;
+              let distanceSquared = dx * dx + dy * dy;
+              if (distanceSquared < 1) {
+                const angle = deterministicAngle(
+                  a.token_id + b.token_id,
+                  left + right
+                );
+                dx = Math.cos(angle);
+                dy = Math.sin(angle);
+                distanceSquared = 1;
+              }
+              const force = Math.min(5.5, 1450 / distanceSquared);
+              const distance = Math.sqrt(distanceSquared);
+              const fx = dx / distance * force;
+              const fy = dy / distance * force;
+              forces.get(a.token_id).x += fx;
+              forces.get(a.token_id).y += fy;
+              forces.get(b.token_id).x -= fx;
+              forces.get(b.token_id).y -= fy;
+            }
+          }
+          edges.forEach((edge) => {
+            const source = positions.get(edge.source);
+            const target = positions.get(edge.target);
+            if (!source || !target) return;
+            const dx = target.x - source.x;
+            const dy = target.y - source.y;
+            const distance = Math.max(1, Math.hypot(dx, dy));
+            const desired = edge.kind === "fragment" ? 58 : 88;
+            const force = (distance - desired) * 0.035;
+            const fx = dx / distance * force;
+            const fy = dy / distance * force;
+            forces.get(edge.source).x += fx;
+            forces.get(edge.source).y += fy;
+            forces.get(edge.target).x -= fx;
+            forces.get(edge.target).y -= fy;
+          });
+          nodes.forEach((node) => {
+            if (node.token_id === graph.rootId) return;
+            const point = positions.get(node.token_id);
+            const force = forces.get(node.token_id);
+            force.x += (center.x - point.x) * 0.004;
+            force.y += (center.y - point.y) * 0.004;
+            point.x = Math.max(
+              pad,
+              Math.min(width - pad, point.x + force.x * 0.72)
+            );
+            point.y = Math.max(
+              pad,
+              Math.min(height - pad, point.y + force.y * 0.72)
+            );
+          });
+          positions.set(graph.rootId, {...center});
+        }
+        return positions;
+      };
+
+      const setNeighborNetworkStatus = (
+        message,
+        status = "ready"
+      ) => {
+        neighborNetworkStatus.textContent = message;
+        neighborNetworkStatus.dataset.state = status;
+      };
+
+      const drawNeighborNetwork = () => {
+        const {context, width, height} = setupCanvas(
+          neighborNetworkChart,
+          420
+        );
+        const graph = state.neighborGraph;
+        state.networkHitRegions = [];
+        context.clearRect(0, 0, width, height);
+        if (!graph?.nodes?.size) {
+          neighborNetworkNodes.innerHTML = "";
+          return;
+        }
+        const positions = graphLayout(width, height);
+        const edges = [...graph.edges.values()];
+        edges.forEach((edge) => {
+          const source = positions.get(edge.source);
+          const target = positions.get(edge.target);
+          if (!source || !target) return;
+          const cosine = Number(edge.cosine);
+          context.save();
+          if (edge.kind === "fragment") {
+            context.setLineDash([5, 5]);
+            context.strokeStyle = "rgba(168, 115, 24, 0.62)";
+            context.lineWidth = 1.5;
+          } else {
+            const strength = Number.isFinite(cosine)
+              ? Math.max(0.12, Math.min(1, cosine))
+              : 0.25;
+            context.strokeStyle = `rgba(43, 119, 83, ${
+              0.11 + strength * 0.38
+            })`;
+            context.lineWidth = 0.8 + strength * 1.7;
+          }
+          context.beginPath();
+          context.moveTo(source.x, source.y);
+          context.lineTo(target.x, target.y);
+          context.stroke();
+          context.restore();
+        });
+
+        const nodes = [...graph.nodes.values()];
+        nodes.forEach((node) => {
+          const point = positions.get(node.token_id);
+          const isRoot = node.token_id === graph.rootId;
+          const isExpanded = graph.expanded.has(node.token_id);
+          const isFragment = node.role === "word_fragment";
+          const radius = isRoot ? 9 : isExpanded ? 8 : isFragment ? 7 : 5;
+          if (isExpanded && !isRoot) {
+            context.beginPath();
+            context.arc(point.x, point.y, radius + 4, 0, Math.PI * 2);
+            context.strokeStyle = "rgba(47, 125, 120, 0.68)";
+            context.lineWidth = 1.5;
+            context.stroke();
+          }
+          context.beginPath();
+          context.arc(point.x, point.y, radius, 0, Math.PI * 2);
+          context.fillStyle = isRoot
+            ? "#2b7753"
+            : isFragment
+              ? "#a87318"
+              : isExpanded
+                ? "#2f7d78"
+                : "#718378";
+          context.fill();
+          context.font = (
+            isRoot || isExpanded || isFragment
+              ? "700 11px ui-monospace, monospace"
+              : "10px ui-monospace, monospace"
+          );
+          context.fillStyle = isFragment ? "#765312" : "#34443b";
+          context.textAlign = point.x > width - 120 ? "right" : "left";
+          context.fillText(
+            node.display,
+            point.x + (context.textAlign === "right" ? -10 : 10),
+            point.y + 4
+          );
+          state.networkHitRegions.push({
+            tokenId: node.token_id,
+            display: node.display,
+            x: point.x,
+            y: point.y,
+            radius: Math.max(14, radius + 6)
+          });
+        });
+
+        neighborNetworkNodes.innerHTML = nodes.map((node) => `
+          <button
+            type="button"
+            data-token-id="${node.token_id}"
+            data-expanded="${graph.expanded.has(node.token_id)}"
+            ${state.graphBusy ? "disabled" : ""}
+            title="Rozbalit kosinové sousedy tokenu #${node.token_id}"
+          ><span class="observed-token">${escapeHtml(node.display)}</span> · #${node.token_id}</button>
+        `).join("");
+      };
+
+      const resetNeighborGraph = () => {
+        if (!state.result) return;
+        initializeNeighborGraph(state.result);
+        drawNeighborNetwork();
+        setNeighborNetworkStatus(
+          "První hvězda obnovena. Klikni na libovolný uzel; " +
+          "rozbaleno 1 z 8."
+        );
+      };
+
+      const expandNeighborGraphToken = async (tokenId) => {
+        const graph = state.neighborGraph;
+        const data = state.result;
+        const numericId = Number(tokenId);
+        if (
+          !graph ||
+          !data ||
+          state.graphBusy ||
+          !Number.isInteger(numericId) ||
+          !graph.nodes.has(numericId)
+        ) return;
+        const node = graph.nodes.get(numericId);
+        if (graph.expanded.has(numericId)) {
+          setNeighborNetworkStatus(
+            `${node.display} · #${numericId} už je rozbalený.`
+          );
+          return;
+        }
+        if (graph.expanded.size >= MAX_EXPANDED_GRAPH_ROOTS) {
+          setNeighborNetworkStatus(
+            "Síť už má osm rozbalených kořenů. Obnov první hvězdu, " +
+            "nebo pokračuj v jiné jednotce.",
+            "error"
+          );
+          return;
+        }
+
+        state.graphBusy = true;
+        drawNeighborNetwork();
+        setNeighborNetworkStatus(
+          `Hledám ${GRAPH_NEIGHBOR_COUNT} sousedů pro ${
+            node.display
+          } · #${numericId}…`,
+          "loading"
+        );
+        const graphVersion = graph.version;
+        try {
+          const response = await fetchJson(
+            "/api/embedding-neighborhood",
+            {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({
+                token_id: numericId,
+                neighbor_count: GRAPH_NEIGHBOR_COUNT,
+                model_id: data.model_id,
+                model_generation: data.model_generation,
+                server_instance_id: data.server_instance_id
+              })
+            }
+          );
+          if (
+            state.neighborGraph !== graph ||
+            state.neighborGraph?.version !== graphVersion
+          ) return;
+          const root = response.root;
+          graph.nodes.set(numericId, {
+            ...node,
+            display: graphTokenLabel(root)
+          });
+          let added = 0;
+          asArray(response.neighbors).forEach((neighbor) => {
+            const neighborId = Number(neighbor.token_id);
+            if (!graph.nodes.has(neighborId)) {
+              graph.nodes.set(neighborId, {
+                token_id: neighborId,
+                display: graphTokenLabel(neighbor),
+                text: String(neighbor.text ?? ""),
+                role: "vocabulary_neighbor",
+                fragmentPosition: null
+              });
+              added += 1;
+            }
+            graph.edges.set(
+              graphEdgeKey(numericId, neighborId),
+              {
+                source: numericId,
+                target: neighborId,
+                kind: "neighbor",
+                cosine: Number(neighbor.cosine_similarity),
+                sourceRank: Number(neighbor.rank)
+              }
+            );
+          });
+          graph.expanded.add(numericId);
+          setNeighborNetworkStatus(
+            `${node.display} · #${numericId}: přidáno ${added} nových ` +
+            `uzlů, rozbaleno ${graph.expanded.size} z 8 · ${
+              response.cached
+                ? "z cache"
+                : formatMs(response.timing_ms?.total)
+            }.`
+          );
+        } catch (error) {
+          setNeighborNetworkStatus(
+            error.message || String(error),
+            "error"
+          );
+        } finally {
+          state.graphBusy = false;
+          if (state.neighborGraph === graph) drawNeighborNetwork();
+        }
+      };
+
+      const canvasHit = (event, regions) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        return regions
+          .map((region) => ({
+            ...region,
+            distance: Math.hypot(x - region.x, y - region.y)
+          }))
+          .filter((region) => region.distance <= region.radius)
+          .sort((left, right) => left.distance - right.distance)[0] ?? null;
+      };
+
+      const drawTrajectoryChart = (pair) => {
+        const {context, width, height} = setupCanvas(trajectoryChart, 290);
+        const points = asArray(pair?.points);
+        context.clearRect(0, 0, width, height);
+        if (!points.length) return;
+        const layerCount = Math.max(1, Number(points.at(-1).layer));
+        const margin = {left: 54, right: 22, top: 22, bottom: 38};
+        const maxY = Math.max(
+          0.05,
+          ...points.map((point) => Number(point.cosine_distance))
+        ) * 1.08;
+        const x = (layer) => margin.left + (
+          Number(layer) / layerCount
+        ) * (width - margin.left - margin.right);
+        const y = (value) => height - margin.bottom - (
+          Number(value) / maxY
+        ) * (height - margin.top - margin.bottom);
+
+        context.font = "11px ui-monospace, monospace";
+        context.fillStyle = "#65736b";
+        context.strokeStyle = "#d6ddd7";
+        context.lineWidth = 1;
+        context.textAlign = "right";
+        for (let tick = 0; tick <= 4; tick += 1) {
+          const value = maxY * tick / 4;
+          const py = y(value);
+          context.beginPath();
+          context.moveTo(margin.left, py);
+          context.lineTo(width - margin.right, py);
+          context.stroke();
+          context.fillText(formatNumber(value, 3), margin.left - 8, py + 4);
+        }
+        context.textAlign = "center";
+        [...new Set(Array.from({length: 9}, (_, tick) => Math.round(layerCount * tick / 8)))].forEach((layer) => {
+          context.fillText(`L${layer}`, x(layer), height - 13);
+        });
+        const gradient = context.createLinearGradient(
+          margin.left, 0, width - margin.right, 0
+        );
+        gradient.addColorStop(0, "#668f76");
+        gradient.addColorStop(1, "#2b7753");
+        context.beginPath();
+        points.forEach((point, index) => {
+          const px = x(point.layer);
+          const py = y(point.cosine_distance);
+          if (index === 0) context.moveTo(px, py);
+          else context.lineTo(px, py);
+        });
+        context.strokeStyle = gradient;
+        context.lineWidth = 3;
+        context.lineJoin = "round";
+        context.stroke();
+        const maxPoint = points.reduce((best, point) => (
+          Number(point.cosine_distance) > Number(best.cosine_distance)
+            ? point
+            : best
+        ), points[0]);
+        context.beginPath();
+        context.arc(
+          x(maxPoint.layer),
+          y(maxPoint.cosine_distance),
+          5,
+          0,
+          Math.PI * 2
+        );
+        context.fillStyle = "#a87318";
+        context.fill();
+      };
+
+      const trajectorySeries = (data) => {
+        const pair = data?.pairs?.[0];
+        if (pair) return pair;
+        const context = data?.contexts?.[0];
+        if (!context) return null;
+        const points = asArray(context.layers).map((point) => ({
+          layer: point.layer,
+          cosine_similarity: point.cosine_to_input,
+          cosine_distance: point.cosine_distance_to_input
+        }));
+        if (!points.length) return null;
+        const maxPoint = points.reduce((best, point) => (
+          Number(point.cosine_distance) > Number(best.cosine_distance)
+            ? point
+            : best
+        ), points[0]);
+        return {
+          points,
+          input_cosine_similarity: points[0].cosine_similarity,
+          input_cosine_distance: points[0].cosine_distance,
+          final_cosine_similarity: points.at(-1).cosine_similarity,
+          final_cosine_distance: points.at(-1).cosine_distance,
+          max_distance: maxPoint.cosine_distance,
+          max_distance_layer: maxPoint.layer,
+          single_context: true
+        };
+      };
+
+      const contextPrefixHtml = (context) => {
+        const tokens = asArray(context.tokens);
+        return tokens.map((token) => {
+          const content = escapeHtml(
+            token.source_text ?? token.display ?? ""
+          );
+          if (token.selected) return `<mark>${content}</mark>`;
+          if (!token.seen_by_selected_state) {
+            return `<span class="context-future">${content}</span>`;
+          }
+          return content;
+        }).join("");
+      };
+
+      const drawContextStates = () => {
+        const projection = state.result?.context_projection;
+        const projectedContexts = asArray(projection?.contexts);
+        const allPoints = projectedContexts.flatMap((item) => asArray(item.points));
+        if (!allPoints.length) return;
+        const xs = allPoints.map((point) => Number(point.x));
+        const ys = allPoints.map((point) => Number(point.y));
+        const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+        const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+        const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1e-6);
+        contextCards.querySelectorAll("canvas[data-context-index]").forEach((canvas) => {
+          const selectedIndex = Number(canvas.dataset.contextIndex);
+          const {context, width, height} = setupCanvas(canvas, 230);
+          // Every card and every selected layer use the same fit and scale.
+          const scale = Math.min(width - 76, height - 66) / span;
+          const x = (value) => width / 2 + (Number(value) - centerX) * scale;
+          const y = (value) => height / 2 - (Number(value) - centerY) * scale;
+          context.clearRect(0, 0, width, height);
+          context.lineWidth = 1;
+          context.strokeStyle = "#dbe2dc";
+          context.beginPath();
+          context.moveTo(20, y(0)); context.lineTo(width - 20, y(0));
+          context.moveTo(x(0), 18); context.lineTo(x(0), height - 18);
+          context.stroke();
+          context.font = "11px ui-monospace, monospace";
+          context.fillStyle = "#59685f";
+          context.fillText("PC1", width - 38, Math.min(height - 8, Math.max(14, y(0) - 7)));
+          context.fillText("PC2", Math.min(width - 38, Math.max(8, x(0) + 6)), 16);
+          projectedContexts.forEach((item) => {
+            context.beginPath();
+            asArray(item.points).forEach((point, index) => {
+              if (index === 0) context.moveTo(x(point.x), y(point.y));
+              else context.lineTo(x(point.x), y(point.y));
+            });
+            context.strokeStyle = "#d1d9d2";
+            context.lineWidth = 1;
+            context.stroke();
+          });
+          const ownPoints = asArray(projectedContexts[selectedIndex]?.points);
+          const selectedPoint = ownPoints.find((point) => Number(point.layer) === state.selectedLayer);
+          const start = ownPoints[0];
+          if (!selectedPoint || !start) return;
+          const color = selectedIndex % 2 === 0 ? "#236b49" : "#906013";
+          context.beginPath();
+          ownPoints.filter((point) => Number(point.layer) <= state.selectedLayer).forEach((point, index) => {
+            if (index === 0) context.moveTo(x(point.x), y(point.y));
+            else context.lineTo(x(point.x), y(point.y));
+          });
+          context.strokeStyle = color;
+          context.lineWidth = 2.5;
+          context.stroke();
+          context.beginPath(); context.arc(x(start.x), y(start.y), 4, 0, Math.PI * 2);
+          context.fillStyle = "#fffdfa"; context.fill();
+          context.strokeStyle = "#59685f"; context.lineWidth = 1.5; context.stroke();
+          context.fillStyle = "#59685f";
+          context.fillText("L0", x(start.x) + 9, y(start.y) + 17);
+          context.beginPath(); context.arc(x(selectedPoint.x), y(selectedPoint.y), 8, 0, Math.PI * 2);
+          context.fillStyle = color; context.fill();
+          context.strokeStyle = "#fffdfa"; context.lineWidth = 2; context.stroke();
+          context.fillStyle = color;
+          context.fillText(`${String.fromCharCode(65 + selectedIndex)} · L${state.selectedLayer}`,
+            Math.max(8, Math.min(width - 82, x(selectedPoint.x) + 13)),
+            Math.max(16, y(selectedPoint.y) - 12));
+          canvas.dataset.layer = String(state.selectedLayer);
+          canvas.dataset.projectionX = String(selectedPoint.x);
+          canvas.dataset.projectionY = String(selectedPoint.y);
+          canvas.dataset.projectionScale = String(scale);
+        });
+      };
+
+      const renderContextStates = () => {
+        const data = state.result;
+        if (!data) return;
+        const contexts = asArray(data.contexts);
+        const layer = state.selectedLayer;
+        const openDetails = [...contextCards.querySelectorAll("details")].map((detail) => detail.open);
+        contextCards.dataset.count = String(contexts.length);
+        contextCards.innerHTML = contexts.map((item, index) => {
+          const point = asArray(item.layers).find((candidate) => Number(candidate.layer) === layer);
+          const summary = point?.state_summary;
+          const milestones = [...new Set([0, ...[.25, .5, .75, 1].map((depth) => Math.round(depth * (item.layers.length - 1)))])]
+            .map((depth) => `<div><span>L${depth} · od L0</span><strong>${formatNumber(item.layers[depth].cosine_distance_to_input, 3)}</strong></div>`).join("");
+          const coordinates = asArray(summary?.coordinate_preview);
+          const maxAbs = Math.max(1e-9, ...coordinates.map((coordinate) => Math.abs(Number(coordinate.value))));
+          const preview = coordinates.map((coordinate) => `<i style="height:${Math.max(2, Math.abs(Number(coordinate.value)) / maxAbs * 40)}px;background:${Number(coordinate.value) >= 0 ? "#2b7753" : "#a87318"}" title="[${coordinate.index}] ${coordinate.value}"></i>`).join("");
+          return `<article class="context-card" data-context-index="${index}" data-layer="${layer}">
+            <p class="card-kicker">${escapeHtml(item.label)}</p>
+            <h3><span>Kontextový stav</span> <span class="state-letter">${String.fromCharCode(65 + index)}</span> · L${layer}</h3>
+            <p class="context-prefix">${contextPrefixHtml(item)}</p>
+            <p class="state-help"><span>${data.analysis_mode === "word_span" ? "Sledujeme stav na konci slova:" : "Sledujeme stav na pozici tokenu:"}</span> <strong class="observed-token">${escapeHtml(data.analysis_mode === "word_span" ? data.word_span.text : item.selected_token.display)}</strong></p>
+            <canvas class="context-state-chart" data-context-index="${index}" role="img" aria-label="Společná projekce kontextového stavu"></canvas>
+            <p class="state-help">${contexts.length > 1 ? "Barevný bod je stav v právě zvolené vrstvě; šedé čáry jsou obě cesty zpracování." : "Barevný bod je stav v právě zvolené vrstvě; šedá čára je celá cesta zpracování."}</p>
+            <details class="embedding-details state-details"${openDetails[index] ? " open" : ""}>
+              <summary>Technické detaily kontextového stavu</summary>
+              <dl class="row-stats">
+                ${stat("Vrstva", `L${layer}`)}
+                ${stat("Rozměr stavu", formatNumber(summary?.dimension ?? data.embedding.dimension, 0))}
+                ${stat("Norma L2", formatNumber(summary?.norm ?? point?.norm, 4))}
+                ${stat("Otisk float32", summary?.float32_sha256 ?? "—")}
+              </dl>
+              <p class="technical-caption">Kontrolní náhled prvních 16 souřadnic; nejde o významové rysy.</p>
+              <div class="coordinate-strip" aria-label="Kontrolní náhled souřadnic kontextového stavu">${preview}</div>
+              <div class="milestones">${milestones}</div>
+            </details>
+          </article>`;
+        }).join("");
+        const pairPoint = asArray(data.pairs?.[0]?.points).find((point) => Number(point.layer) === layer);
+        const distance = contexts.length > 1
+          ? pairPoint?.cosine_distance
+          : contexts[0]?.layers?.[layer]?.cosine_distance_to_input;
+        stateComparison.innerHTML = (
+          contexts.length > 1 && layer === 0
+            ? "<span>Na vstupu jsou oba stavy totožné.</span> "
+            : ""
+        ) + `<span>${contexts.length > 1 ? "Rozdíl obou stavů v této vrstvě:" : "Proměna oproti vlastnímu vstupu:"}</span> <strong data-state-distance>${formatNumber(Math.abs(Number(distance)) < 1e-12 ? 0 : distance, 4)}</strong> <span>(kosinová vzdálenost).</span>`;
+        drawContextStates();
+        window.ProbabilityGardenI18n?.translateTree(contextCards);
+        window.ProbabilityGardenI18n?.translateTree(stateComparison);
+      };
+
+      const renderResult = (data) => {
+        state.result = data;
+        initializeNeighborGraph(data);
+        const isWord = data.analysis_mode === "word_span";
+        const pair = data.pairs?.[0];
+        const series = trajectorySeries(data);
+        const contextCount = asArray(data.contexts).length;
+        const isComparison = contextCount > 1;
+        const embedding = data.embedding;
+        const token = data.selected_token;
+        const word = data.word_span;
+        const total = data.timing_ms?.total;
+        resultTitle.textContent = isWord
+          ? (
+            `Slovo ${word.text}: ${word.token_count} ${
+              word.token_count === 1 ? "střep" : "střepy"
+            }, ${contextCount} ${
+              contextCount === 1 ? "trajektorie" : "trajektorie"
+            }`
+          )
+          : (
+            `Token ${token.display}: jeden řádek, ${contextCount} ${
+              contextCount === 1 ? "trajektorie" : "trajektorie"
+            }`
+          );
+        resultSubtitle.textContent = (
+          `${activeModel()} · ${contextCount} ${
+            contextCount === 1 ? "kontext" : "kontexty"
+          } · ` +
+          `${data.cached ? "z cache" : "živý výpočet"}`
+        );
+        runtimeBadge.textContent = data.cached
+          ? "z cache"
+          : `${formatMs(total)} · ${data.execution.forward_passes} forwardy`;
+        rowKicker.textContent = isComparison ? "Společný vstup obou kontextů" : "Vstup před zpracováním kontextu";
+        rowHeading.textContent = isWord ? word.text : token.display;
+        rowId.textContent = isWord
+          ? (
+            `${word.token_count} tokeny · čtecí hranice ` +
+            `#${word.closing_token.token_id}`
+          )
+          : `token #${token.token_id} · ${embedding.dimension} rozměrů`;
+        rowCopy.textContent = isWord
+          ? "Každá z těchto částí má svůj pevný číselný kód (vstupní embedding), zatím bez vlivu okolní věty."
+          : "Tento token má v modelu svůj pevný číselný kód (vstupní embedding), zatím bez vlivu okolní věty.";
+        inputMapCopy.textContent = isComparison
+          ? "Oba kontexty začínají stejnými vstupními kódy. Níže už sledujeme dva samostatné kontextové stavy."
+          : "Níže sledujeme, jak se z tohoto vstupu stává stav ovlivněný předchozím textem.";
+        inputTechnicalDetails.open = false;
+        const fragments = isWord ? asArray(data.embedding_fragments) : [{token, position: 0, is_closing_fragment: false, embedding}];
+        fragmentStrip.hidden = false;
+        fragmentStrip.innerHTML = fragments.map((fragment) => `
+            <article class="fragment-card${
+              fragment.is_closing_fragment ? " is-closing" : ""
+            }">
+              <strong class="observed-token">${escapeHtml(fragment.token.display)}</strong>
+              <code>#${escapeHtml(fragment.token.token_id)}</code>
+              <small>${
+                fragment.is_closing_fragment
+                  ? "poslední střep · čtecí hranice"
+                  : `střep ${Number(fragment.position) + 1}`
+              }</small>
+            </article>
+          `).join("");
+        fragmentTechnicalStats.innerHTML = isWord ? fragments.map((fragment) => `
+          <h4 class="observed-token">${escapeHtml(fragment.token.display)}</h4>
+          <dl class="row-stats">${stat("Tokenové ID", `#${fragment.token.token_id}`)}${stat("Norma L2", formatNumber(fragment.embedding.norm, 4))}${stat("Otisk float32", fragment.embedding.float32_sha256)}</dl>
+        `).join("") : "";
+        rowStats.innerHTML = isWord
+          ? [
+            stat("Střepů", formatNumber(word.token_count, 0)),
+            stat("Tokenová ID", word.token_ids.map((id) => `#${id}`).join(" · ")),
+            stat("Rozměr řádku", formatNumber(embedding.dimension, 0)),
+            stat("Norma koncového řádku", formatNumber(embedding.norm, 4)),
+            stat("Koncový token", `#${token.token_id}`),
+            stat(
+              "Otisk koncového řádku",
+              embedding.float32_sha256.slice(0, 16) + "…"
+            )
+          ].join("")
+          : [
+            stat("Norma L2", formatNumber(embedding.norm, 4)),
+            stat("Průměr", formatNumber(embedding.mean, 6)),
+            stat("Směrodatná odchylka", formatNumber(
+              embedding.standard_deviation, 6
+            )),
+            stat("Minimum", formatNumber(embedding.minimum, 6)),
+            stat("Maximum", formatNumber(embedding.maximum, 6)),
+            stat("Otisk float32", embedding.float32_sha256.slice(0, 16) + "…")
+          ].join("");
+        const coordinates = asArray(embedding.coordinate_preview);
+        const maxAbs = Math.max(
+          1e-9,
+          ...coordinates.map((item) => Math.abs(Number(item.value)))
+        );
+        coordinateStrip.innerHTML = coordinates.map((item) => {
+          const magnitude = Math.max(
+            2,
+            Math.abs(Number(item.value)) / maxAbs * 40
+          );
+          const color = Number(item.value) >= 0 ? "#2b7753" : "#a87318";
+          return `<i
+            style="height:${magnitude}px;background:${color}"
+            title="[${item.index}] ${item.value}"
+          ></i>`;
+        }).join("");
+        coordinateStrip.setAttribute(
+          "aria-label",
+          isWord
+            ? "Kontrolní náhled souřadnic posledního tokenového střepu"
+            : "Kontrolní náhled prvních šestnácti souřadnic"
+        );
+        wordContract.hidden = !isWord;
+        neighborsSection.hidden = false;
+        const explained = asArray(data.projection?.explained_variance_ratio);
+        pcaCopy.textContent = (
+          `První dvě lokální osy zachytí ${formatNumber(
+            100 * (Number(explained[0] || 0) + Number(explained[1] || 0)),
+            1
+          )} % rozptylu zobrazeného výřezu. ${
+            isWord
+              ? "Zlatě jsou další skutečné střepy slova; zeleně jeho koncový střep."
+              : ""
+          }`
+        );
+        geometryCardTitle.textContent = isWord
+          ? "Střepy slova v lokální konstelaci"
+          : "Lokální konstelace tokenového řádku";
+        neighborListTitle.textContent = isWord
+          ? "Sousedi koncového střepu"
+          : "Nejbližší řádky";
+        neighborListCopy.textContent = isWord
+          ? (
+            "Kosinová podobnost se počítá k poslednímu střepu, který je " +
+            "čtecí hranicí; nejde o sousedy celého slova."
+          )
+          : "Kosinová podobnost v celé vstupní embeddingové tabulce.";
+        neighborList.innerHTML = asArray(data.neighbors).map((neighbor) => `
+          <li>
+            <button
+              type="button"
+              data-token-id="${neighbor.token_id}"
+              title="Rozbalit sousedy tokenu #${neighbor.token_id}"
+            >
+              <b>${neighbor.rank}</b>
+              <code class="observed-token">${escapeHtml(neighbor.display)}</code>
+              <span>${formatNumber(neighbor.cosine_similarity, 4)}</span>
+            </button>
+          </li>
+        `).join("");
+        setNeighborNetworkStatus(
+          "Klikni na bod, souseda nebo uzel. První tokenový řádek je " +
+          "už rozbalený; 1 z 8."
+        );
+
+        if (series) {
+          metricInput.textContent = formatNumber(
+            series.input_cosine_distance,
+            6
+          );
+          metricMax.textContent = formatNumber(series.max_distance, 4);
+          metricMaxLayer.textContent =
+            `maximum v L${series.max_distance_layer}`;
+          metricFinal.textContent = formatNumber(
+            series.final_cosine_distance,
+            4
+          );
+        }
+        metricInputLabel.textContent = isWord
+          ? "L0 · poslední střep"
+          : isComparison
+            ? "L0 · společný řádek"
+            : "L0 · vstupní řádek";
+        metricInputSmall.textContent = isWord
+          ? "ještě ne reprezentace celého slova"
+          : "kosinová vzdálenost";
+        metricMaxLabel.textContent = isComparison
+          ? "Největší rozchod"
+          : "Největší proměna";
+        const layerCount = Number(data.layer_count ?? data.contexts?.[0]?.layers?.at(-1)?.layer);
+        metricFinalLabel.textContent = isComparison
+          ? `L${layerCount} · rozchod`
+          : `L${layerCount} · od vstupu`;
+        metricTokenLabel.textContent = isWord
+          ? "Tokenová stavba"
+          : "Společná identita";
+        metricToken.textContent = isWord
+          ? `${word.token_count} střepy`
+          : `#${token.token_id}`;
+        metricTokenSmall.textContent = isWord
+          ? word.token_ids.map((id) => `#${id}`).join(" → ")
+          : (
+            isComparison
+              ? "tentýž token_id v obou větách"
+              : "přesné tokenové ID zvoleného výskytu"
+          );
+        trajectoryHeading.textContent = isComparison
+          ? "Kdy se výskyty rozejdou?"
+          : "Jak se stav promění?";
+        trajectoryCardTitle.textContent = isComparison
+          ? "Rozchod kontextových stavů"
+          : "Proměna kontextového stavu";
+        trajectoryCardCopy.innerHTML = isComparison
+          ? `1 − cosine(h<sub>A</sub>, h<sub>B</sub>) po vrstvách L0–L${layerCount}.`
+          : `1 − cosine(h<sub>L0</sub>, h<sub>L</sub>) po vrstvách L0–L${layerCount}.`;
+        trajectoryCopy.textContent = isComparison
+          ? (
+            isWord
+              ? (
+                "L0 je společný lookup posledního střepu. Od L1 " +
+                "porovnáváme stavy na konci slova, kde už pozice může " +
+                "integrovat jeho předchozí střepy i levý kontext."
+              )
+              : (
+                "L0 je společný lookup. Další body jsou stavy na pozici " +
+                "zvoleného výskytu po jednotlivých decoderových vrstvách. " +
+                "Čím výš křivka, tím odlišnější směry oba stavy mají."
+              )
+          )
+          : (
+            isWord
+              ? (
+                "L0 je pouze řádek posledního střepu. Od L1 sledujeme, " +
+                "jak se stav na konci slova vzdaluje od tohoto vstupu při " +
+                "integraci předchozích střepů a levého kontextu."
+              )
+              : (
+                "L0 je vstupní řádek zvoleného tokenu. Další body měří, " +
+                "jak se stav téhož výskytu vrstvu po vrstvě vzdaluje od " +
+                "svého začátku."
+              )
+          );
+        interpretationHeading.textContent = isWord
+          ? "Ne word embedding"
+          : "Ne word2vec";
+        interpretationCopy.textContent = isWord
+          ? (
+            "Slovo zde není statický vektor. Je to znakový úsek " +
+            "realizovaný posloupností tokenů a stav na jeho koncové " +
+            "pozici se vrstvu po vrstvě kontextualizuje."
+          )
+          : (
+            "Řádek je materiál na vstupu. Kontextová reprezentace se " +
+            "teprve vyrábí opakovanými transformacemi nad celým " +
+            "dosavadním prefixem."
+          );
+        contextStateHeading.textContent = isComparison
+          ? "Stejný začátek, dva kontextové stavy"
+          : "Od vstupu ke kontextovému stavu";
+        contextStateCopy.textContent = isComparison
+          ? "Oba panely ukazují stejnou vrstvu a používají stejné osy i měřítko. Změnou vrstvy sleduješ, jak se společný vstup proměňuje v každém kontextu."
+          : "Přepínáním vrstev sleduješ, jak se vstupní kód mění při zpracování předchozího textu. Osy i měřítko obrázku zůstávají stejné.";
+        state.selectedLayer = layerCount;
+        const t = (text) => window.ProbabilityGardenI18n?.t(text) ?? text;
+        stateLayer.innerHTML = Array.from({length: layerCount + 1}, (_, layer) => (
+          `<option value="${layer}">L${layer}${layer === 0 ? ` · ${t("Vstup")}` : layer === layerCount ? ` · ${t("Poslední vrstva")}` : ""}</option>`
+        )).join("");
+        stateLayer.value = String(layerCount);
+        stateShowInput.textContent = isComparison ? "Společný vstup · L0" : "Vstup · L0";
+        stateShowMax.textContent = isComparison ? "Největší rozdíl" : "Největší proměna";
+        stateShowMax.disabled = !series;
+        const explainedContexts = asArray(data.context_projection?.explained_variance_ratio);
+        contextProjectionCopy.innerHTML = `<span>Společná projekce zachycuje</span> <strong>${formatNumber(100 * explainedContexts.reduce((sum, value) => sum + Number(value), 0), 1)} %</strong> <span>rozptylu směrů stavů ze všech zobrazených kontextů a vrstev. Pro oba panely se počítá jen jednou.</span>`;
+        contextCards.replaceChildren();
+        renderContextStates();
+        results.hidden = false;
+        requestAnimationFrame(() => {
+          drawNeighborChart(data.projection);
+          drawNeighborNetwork();
+          drawTrajectoryChart(series);
+          drawContextStates();
+        });
+        resultTitle.focus({preventScroll: true});
+        results.scrollIntoView({behavior: "smooth", block: "start"});
+        dispatchWorkbenchState();
+      };
+
+      const measure = async () => {
+        if (!hasUsableSelection() || state.busy || !state.ready) return;
+        const isWord = state.mode === "word_span";
+        busyHeading.textContent = isWord
+          ? (
+            state.comparisonEnabled
+              ? "Od střepů ke dvěma stavům"
+              : "Od střepů ke kontextovému stavu"
+          )
+          : (
+            state.comparisonEnabled
+              ? "Od řádku ke dvěma stavům"
+              : "Od řádku ke kontextovému stavu"
+          );
+        busyCopy.textContent = isWord
+          ? (
+            "Načítám řádky střepů, jejich lokální geometrii a počítám " +
+            `${state.comparisonEnabled ? "dvě trajektorie" : "trajektorii"} ` +
+            "na koncové pozici slova."
+          )
+          : (
+            "Procházím slovník a počítám " +
+            `${state.comparisonEnabled ? "dvě trajektorie" : "trajektorii"} ` +
+            "bez KV cache."
+          );
+        setBusy(true);
+        setStatus(
+          isWord
+            ? (
+              "Hledám geometrii střepů a počítám " +
+              `${state.comparisonEnabled ? "dvě trajektorie" : "trajektorii"} ` +
+              "na konci slova…"
+            )
+            : (
+              "Hledám sousedy a počítám " +
+              `${state.comparisonEnabled ? "dvě kontextové trajektorie" : "kontextovou trajektorii"}…`
+            )
+        );
+        try {
+          const health = state.health;
+          const requestContext = (side) => {
+            const base = {
+              label: `Kontext ${side === 0 ? "A" : "B"}`,
+              text: side === 0 ? textA.value : textB.value,
+              token_index: state.selected[side]
+            };
+            if (!isWord) return base;
+            const span = state.selectedSpans[side];
+            return {
+              ...base,
+              span_start_token_index: span.tokenStart,
+              span_end_token_index: span.tokenEnd,
+              span_character_start: span.characterStart,
+              span_character_end: span.characterEnd,
+              span_text: span.text
+            };
+          };
+          const contexts = [requestContext(0)];
+          if (state.comparisonEnabled) contexts.push(requestContext(1));
+          const data = await fetchJson("/api/embeddings", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              contexts,
+              analysis_mode: state.mode,
+              neighbor_count: Number(neighborCount.value),
+              model_id: health.active_model.id,
+              model_generation: health.model_generation,
+              server_instance_id: health.server_instance_id
+            })
+          });
+          renderResult(data);
+          setStatus(
+            isWord
+              ? (
+                `Hotovo — ${data.word_span.token_count} střepy a ` +
+                `${data.contexts.length} ${
+                  data.contexts.length === 1 ? "trajektorie" : "trajektorie"
+                } za ` +
+                `${formatMs(data.timing_ms?.total)}.`
+              )
+              : (
+                `Hotovo — ${data.neighbors.length} sousedů a ` +
+                `${data.contexts.length} trajektorie za ${formatMs(
+                  data.timing_ms?.total
+                )}.`
+              )
+          );
+        } catch (error) {
+          setStatus(error.message || String(error), true);
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      const refreshHealth = async () => {
+        try {
+          const health = await fetchJson("/api/health", {cache: "no-store"});
+          state.health = health;
+          state.ready = health.status === "ready" &&
+            Boolean(health.active_model?.id);
+          modelState.dataset.state = state.ready ? "ready" : health.status;
+          modelState.textContent = state.ready
+            ? `${activeModel()} je připraven`
+            : health.status === "error"
+              ? (health.error || "Model se nenačetl")
+              : "Načítám model…";
+          tokenizeButton.disabled = !state.ready || state.busy;
+          if (state.ready && !state.autoRan) {
+            state.autoRan = true;
+            await tokenize({focus: false});
+          }
+        } catch (error) {
+          state.ready = false;
+          modelState.dataset.state = "error";
+          modelState.textContent = "Server není dostupný";
+          setStatus(error.message || String(error), true);
+        } finally {
+          dispatchWorkbenchState();
+          clearTimeout(state.pollTimer);
+          state.pollTimer = setTimeout(refreshHealth, state.ready ? 5000 : 1200);
+        }
+      };
+
+      const selectMode = (mode) => {
+        if (!["token", "word_span"].includes(mode) || state.busy) return;
+        state.mode = mode;
+        state.result = null;
+        state.neighborGraph = null;
+        results.hidden = true;
+        wordContract.hidden = true;
+        neighborsSection.hidden = true;
+        if (state.tokenization) {
+          if (mode === "word_span") {
+            state.selectedSpans = state.comparisonEnabled
+              ? defaultSharedWordSelection(state.tokenization)
+              : defaultSingleWordSelection(state.tokenization);
+            state.selected = state.selectedSpans.map(
+              (span) => span?.tokenEnd ?? null
+            );
+          } else {
+            state.wordSpans = [[], []];
+            state.selected = state.comparisonEnabled
+              ? defaultSharedSelection(state.tokenization)
+              : defaultSingleTokenSelection(state.tokenization);
+            state.selectedSpans = [null, null];
+          }
+          renderTokenStreams();
+          syncSelection();
+          setStatus(
+            hasUsableSelection()
+              ? (
+                state.comparisonEnabled
+                  ? (
+                    mode === "word_span"
+                      ? "Slovní režim — stejné slovo je předvybrané."
+                      : "Tokenový režim — společný token je předvybraný."
+                  )
+                  : (
+                    mode === "word_span"
+                      ? "Slovní režim — vyber celé slovo."
+                      : "Tokenový režim — vyber přesný tokenový řádek."
+                  )
+              )
+              : (
+                state.comparisonEnabled
+                  ? "Pro tento režim chybí společná jednotka."
+                  : (
+                    mode === "word_span" && !hasWordsOnSide(0)
+                      ? noWholeWordMessage()
+                      : "Pro tento režim zatím není vybraná jednotka."
+                  )
+              ),
+            !hasUsableSelection()
+          );
+        } else {
+          neighborControl.hidden = false;
+          measureButton.textContent = mode === "word_span"
+            ? "Sledovat celé slovo"
+            : "Sledovat vrstvami";
+        }
+        dispatchWorkbenchState();
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        tokenize();
+      });
+      toggleContextB.addEventListener("click", () => {
+        if (state.busy) return;
+        state.comparisonEnabled = !state.comparisonEnabled;
+        state.tokenization = null;
+        state.selected = [null, null];
+        state.wordSpans = [[], []];
+        state.selectedSpans = [null, null];
+        state.result = null;
+        state.neighborGraph = null;
+        selection.hidden = true;
+        results.hidden = true;
+        syncComparisonUI();
+        setStatus(
+          state.comparisonEnabled
+            ? (
+              "Druhý kontext je zapnutý. Uprav jej a znovu rozděl oba " +
+              "texty na tokeny."
+            )
+            : "Porovnání je vypnuté. Rozděl samostatný text na tokeny."
+        );
+        if (state.comparisonEnabled) textB.focus();
+        dispatchWorkbenchState();
+      });
+      measureButton.addEventListener("click", measure);
+      neighborList.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-token-id]");
+        if (!button) return;
+        expandNeighborGraphToken(Number(button.dataset.tokenId));
+      });
+      neighborNetworkNodes.addEventListener("click", (event) => {
+        const button = event.target.closest("button[data-token-id]");
+        if (!button) return;
+        expandNeighborGraphToken(Number(button.dataset.tokenId));
+      });
+      neighborChart.addEventListener("click", (event) => {
+        const hit = canvasHit(event, state.pcaHitRegions);
+        if (hit) expandNeighborGraphToken(hit.tokenId);
+      });
+      neighborChart.addEventListener("mousemove", (event) => {
+        const hit = canvasHit(event, state.pcaHitRegions);
+        neighborChart.style.cursor = hit ? "pointer" : "crosshair";
+        neighborChart.title = hit
+          ? `Rozbalit ${hit.display} · #${hit.tokenId}`
+          : "Lokální PCA; klikni přímo na bod";
+      });
+      neighborNetworkChart.addEventListener("click", (event) => {
+        const hit = canvasHit(event, state.networkHitRegions);
+        if (hit) expandNeighborGraphToken(hit.tokenId);
+      });
+      neighborNetworkChart.addEventListener("mousemove", (event) => {
+        const hit = canvasHit(event, state.networkHitRegions);
+        neighborNetworkChart.style.cursor = hit ? "pointer" : "crosshair";
+        neighborNetworkChart.title = hit
+          ? `Rozbalit ${hit.display} · #${hit.tokenId}`
+          : "Schematická síť; klikni přímo na uzel";
+      });
+      neighborNetworkReset.addEventListener("click", resetNeighborGraph);
+      const selectStateLayer = (layer) => {
+        if (!state.result) return;
+        state.selectedLayer = Math.max(0, Math.min(Number(state.result.layer_count), Number(layer)));
+        stateLayer.value = String(state.selectedLayer);
+        renderContextStates();
+      };
+      stateLayer.addEventListener("change", () => selectStateLayer(stateLayer.value));
+      stateShowInput.addEventListener("click", () => selectStateLayer(0));
+      stateShowMax.addEventListener("click", () => selectStateLayer(trajectorySeries(state.result)?.max_distance_layer ?? 0));
+      modeInputs.forEach((input) => {
+        input.addEventListener("change", () => {
+          if (input.checked) selectMode(input.value);
+        });
+      });
+      [textA, textB].forEach((textarea) => {
+        textarea.addEventListener("input", () => {
+          state.tokenization = null;
+          state.selected = [null, null];
+          state.wordSpans = [[], []];
+          state.selectedSpans = [null, null];
+          state.result = null;
+          state.neighborGraph = null;
+          selection.hidden = true;
+          results.hidden = true;
+          setStatus("Text se změnil — nejdřív jej znovu rozděl na tokeny.");
+          dispatchWorkbenchState();
+        });
+      });
+      window.addEventListener("resize", () => {
+        if (!state.result) return;
+        drawNeighborChart(state.result.projection);
+        drawNeighborNetwork();
+        drawTrajectoryChart(trajectorySeries(state.result));
+        drawContextStates();
+      });
+      window.addEventListener(
+        "probability-garden:request-workbench-state",
+        dispatchWorkbenchState
+      );
+
+      consumeHandoff();
+      syncComparisonUI();
+      selectMode(state.mode);
+      refreshHealth();
+    })();
+  </script>
+</body>
+</html>

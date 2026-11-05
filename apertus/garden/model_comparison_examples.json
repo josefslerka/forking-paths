@@ -1,0 +1,216 @@
+{
+  "status": "exploratory_examples_not_preregistered",
+  "description": "30 průzkumných kontextových párů. Slouží k ověření nástroje a hledání hypotéz; nemají předem určený správný modelový výsledek.",
+  "items": [
+    {
+      "id": "agreement-01",
+      "group": "agreement",
+      "prefix_a": "Matka řekla, že",
+      "prefix_b": "Otec řekl, že",
+      "continuation": " byla unavená."
+    },
+    {
+      "id": "agreement-02",
+      "group": "agreement",
+      "prefix_a": "Otec řekl, že",
+      "prefix_b": "Matka řekla, že",
+      "continuation": " byl unavený."
+    },
+    {
+      "id": "agreement-03",
+      "group": "agreement",
+      "prefix_a": "Studenti uvedli, že",
+      "prefix_b": "Student uvedl, že",
+      "continuation": " byli připraveni."
+    },
+    {
+      "id": "agreement-04",
+      "group": "agreement",
+      "prefix_a": "Student uvedl, že",
+      "prefix_b": "Studenti uvedli, že",
+      "continuation": " byl připraven."
+    },
+    {
+      "id": "agreement-05",
+      "group": "agreement",
+      "prefix_a": "Dívka se přiznala, že",
+      "prefix_b": "Chlapec se přiznal, že",
+      "continuation": " přišla pozdě."
+    },
+    {
+      "id": "selection-01",
+      "group": "selection",
+      "prefix_a": "Zahradník zasadil",
+      "prefix_b": "Malíř namaloval",
+      "continuation": " strom."
+    },
+    {
+      "id": "selection-02",
+      "group": "selection",
+      "prefix_a": "Kuchař nakrájel",
+      "prefix_b": "Truhlář rozřezal",
+      "continuation": " cibuli."
+    },
+    {
+      "id": "selection-03",
+      "group": "selection",
+      "prefix_a": "Řidič nastartoval",
+      "prefix_b": "Čtenář otevřel",
+      "continuation": " automobil."
+    },
+    {
+      "id": "selection-04",
+      "group": "selection",
+      "prefix_a": "Lékař předepsal",
+      "prefix_b": "Učitel vysvětlil",
+      "continuation": " lék."
+    },
+    {
+      "id": "selection-05",
+      "group": "selection",
+      "prefix_a": "Skladatel napsal",
+      "prefix_b": "Pekař upekl",
+      "continuation": " sonátu."
+    },
+    {
+      "id": "collocation-01",
+      "group": "collocation",
+      "prefix_a": "Dostal jsem chuť na",
+      "prefix_b": "Dostal jsem pokutu za",
+      "continuation": " zmrzlinu."
+    },
+    {
+      "id": "collocation-02",
+      "group": "collocation",
+      "prefix_a": "Položila si otázku, zda",
+      "prefix_b": "Položila si kabát, zda",
+      "continuation": " přijde."
+    },
+    {
+      "id": "collocation-03",
+      "group": "collocation",
+      "prefix_a": "Vzal nohy na",
+      "prefix_b": "Vzal knihu na",
+      "continuation": " ramena."
+    },
+    {
+      "id": "collocation-04",
+      "group": "collocation",
+      "prefix_a": "Měl máslo na",
+      "prefix_b": "Měl čepici na",
+      "continuation": " hlavě."
+    },
+    {
+      "id": "collocation-05",
+      "group": "collocation",
+      "prefix_a": "Udělali z komára",
+      "prefix_b": "Udělali z papíru",
+      "continuation": " velblouda."
+    },
+    {
+      "id": "negation-01",
+      "group": "negation",
+      "prefix_a": "Sklenice je",
+      "prefix_b": "Sklenice není",
+      "continuation": " prázdná."
+    },
+    {
+      "id": "negation-02",
+      "group": "negation",
+      "prefix_a": "Petr věděl, že",
+      "prefix_b": "Petr nevěděl, že",
+      "continuation": " vlak už odjel."
+    },
+    {
+      "id": "negation-03",
+      "group": "negation",
+      "prefix_a": "Marie souhlasila, že",
+      "prefix_b": "Marie nesouhlasila, že",
+      "continuation": " návrh přijmou."
+    },
+    {
+      "id": "negation-04",
+      "group": "negation",
+      "prefix_a": "Počasí nám dovolilo",
+      "prefix_b": "Počasí nám nedovolilo",
+      "continuation": " vyrazit na výlet."
+    },
+    {
+      "id": "negation-05",
+      "group": "negation",
+      "prefix_a": "Je pravda, že",
+      "prefix_b": "Není pravda, že",
+      "continuation": " odpověď byla správná."
+    },
+    {
+      "id": "genre-01",
+      "group": "genre",
+      "prefix_a": "Meteorolog oznámil:",
+      "prefix_b": "Básník napsal:",
+      "continuation": " zítra bude pršet."
+    },
+    {
+      "id": "genre-02",
+      "group": "genre",
+      "prefix_a": "V policejním protokolu stálo:",
+      "prefix_b": "V pohádce stálo:",
+      "continuation": " drak unesl princeznu."
+    },
+    {
+      "id": "genre-03",
+      "group": "genre",
+      "prefix_a": "Recept doporučuje",
+      "prefix_b": "Smlouva stanovuje",
+      "continuation": " přidat špetku soli."
+    },
+    {
+      "id": "genre-04",
+      "group": "genre",
+      "prefix_a": "Soudce rozhodl, že",
+      "prefix_b": "Vypravěč snil, že",
+      "continuation": " obžalovaný je nevinen."
+    },
+    {
+      "id": "genre-05",
+      "group": "genre",
+      "prefix_a": "Sportovní reportér popsal",
+      "prefix_b": "Astronom popsal",
+      "continuation": " vítězný gól."
+    },
+    {
+      "id": "world-01",
+      "group": "world",
+      "prefix_a": "V zimě voda",
+      "prefix_b": "V létě voda",
+      "continuation": " zamrzá."
+    },
+    {
+      "id": "world-02",
+      "group": "world",
+      "prefix_a": "Pták roztáhl",
+      "prefix_b": "Člověk roztáhl",
+      "continuation": " křídla."
+    },
+    {
+      "id": "world-03",
+      "group": "world",
+      "prefix_a": "Slunce vychází na",
+      "prefix_b": "Slunce zapadá na",
+      "continuation": " východě."
+    },
+    {
+      "id": "world-04",
+      "group": "world",
+      "prefix_a": "Ryba žije ve",
+      "prefix_b": "Kočka žije ve",
+      "continuation": " vodě."
+    },
+    {
+      "id": "world-05",
+      "group": "world",
+      "prefix_a": "Po zapnutí lampy bylo",
+      "prefix_b": "Po vypnutí lampy bylo",
+      "continuation": " světlo."
+    }
+  ]
+}

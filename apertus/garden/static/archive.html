@@ -1,0 +1,2373 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Lokální archiv měření Pravděpodobnostní zahrady."
+  >
+  <title>Archiv měření · Pravděpodobnostní zahrada</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09100d;
+      --surface: #111b16;
+      --surface-2: #17251d;
+      --text: #ecf6ef;
+      --muted: #9eb3a6;
+      --line: #31483a;
+      --leaf: #70d89b;
+      --leaf-bright: #9cf0bd;
+      --gold: #e6c978;
+      --danger: #f19a91;
+      --ink: #07100b;
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 8% -10%, rgba(57, 124, 83, 0.2), transparent 34rem),
+        radial-gradient(circle at 100% 54%, rgba(188, 149, 63, 0.07), transparent 35rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+    }
+
+    button,
+    a {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    a {
+      color: var(--leaf-bright);
+      text-underline-offset: 0.18em;
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(112, 216, 155, 0.52);
+      outline-offset: 3px;
+    }
+
+    .shell {
+      width: min(1520px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 72px;
+    }
+
+    .topbar,
+    .nav-links,
+    .toolbar,
+    .toolbar-actions,
+    .detail-actions,
+    .pager,
+    .metric-row,
+    .record-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .topbar {
+      justify-content: space-between;
+      margin-bottom: 54px;
+    }
+
+    .nav-links {
+      gap: 18px;
+    }
+
+    .nav-link {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 750;
+      text-decoration: none;
+    }
+
+    .nav-link:hover {
+      color: var(--text);
+    }
+
+    .storage-state {
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: clamp(32px, 7vw, 100px);
+      align-items: end;
+      margin-bottom: 38px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--leaf-bright);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(3rem, 6.4vw, 6rem);
+      font-weight: 400;
+      letter-spacing: -0.055em;
+      line-height: 0.92;
+    }
+
+    .lede {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.05rem, 1.8vw, 1.38rem);
+    }
+
+    .notice {
+      margin-bottom: 24px;
+      padding: 16px 18px;
+      border: 1px solid rgba(230, 201, 120, 0.38);
+      border-radius: 14px;
+      background: rgba(230, 201, 120, 0.055);
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .notice strong {
+      color: var(--text);
+    }
+
+    .toolbar {
+      justify-content: space-between;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(17, 27, 22, 0.78);
+    }
+
+    .toolbar-actions {
+      justify-content: flex-end;
+    }
+
+    select,
+    .button,
+    .file-button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0c1510;
+      color: var(--text);
+    }
+
+    select {
+      min-width: 210px;
+      padding: 0 36px 0 12px;
+    }
+
+    .button,
+    .file-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 14px;
+      font-size: 0.76rem;
+      font-weight: 780;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .button:hover,
+    .file-button:hover {
+      border-color: var(--leaf);
+      color: var(--leaf-bright);
+    }
+
+    .button.danger:hover {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .file-button input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+    }
+
+    .message {
+      min-height: 23px;
+      margin: 10px 2px 18px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.42fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .record-pane,
+    .detail-pane {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(12, 21, 16, 0.76);
+    }
+
+    .record-pane {
+      position: sticky;
+      top: 16px;
+      overflow: hidden;
+    }
+
+    .pane-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .pane-head h2 {
+      margin: 0;
+      font-size: 0.96rem;
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .record-list {
+      display: grid;
+      max-height: min(68vh, 820px);
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
+      list-style: none;
+    }
+
+    .record-button {
+      width: 100%;
+      padding: 15px 17px;
+      border: 0;
+      border-bottom: 1px solid rgba(49, 72, 58, 0.6);
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .record-button:hover {
+      background: rgba(112, 216, 155, 0.04);
+    }
+
+    .record-button.active {
+      background: rgba(112, 216, 155, 0.09);
+      box-shadow: inset 3px 0 0 var(--leaf);
+    }
+
+    .record-kind {
+      color: var(--leaf-bright);
+      font-size: 0.65rem;
+      font-weight: 820;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .record-title {
+      display: block;
+      margin: 5px 0 3px;
+      overflow: hidden;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 0.98rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .record-preview,
+    .record-meta {
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .record-preview {
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .pager {
+      justify-content: space-between;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .detail-pane {
+      min-height: 430px;
+      padding: clamp(20px, 3vw, 34px);
+    }
+
+    .empty {
+      display: grid;
+      min-height: 360px;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .detail-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 22px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .detail-head h2 {
+      margin: 4px 0 8px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.7rem, 3vw, 2.8rem);
+      font-weight: 400;
+      line-height: 1.05;
+    }
+
+    .detail-note {
+      max-width: 880px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+    }
+
+    .capture-warning {
+      margin: 16px 0 0;
+      padding: 12px 14px;
+      border: 1px solid rgba(230, 201, 120, 0.38);
+      border-radius: 12px;
+      background: rgba(230, 201, 120, 0.055);
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .capture-warning strong {
+      color: var(--gold);
+    }
+
+    .capture-warning ul {
+      margin: 7px 0 0;
+      padding-left: 20px;
+    }
+
+    .section {
+      margin-top: 28px;
+    }
+
+    .section h3 {
+      margin-bottom: 12px;
+      font-size: 0.88rem;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric,
+    .column-card {
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.64rem;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .prefix-pair,
+    .columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .prefix,
+    .column-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .prefix strong,
+    .column-card strong {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--text);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+      font-size: 0.72rem;
+    }
+
+    th,
+    td {
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(49, 72, 58, 0.62);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.62rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .token {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .reader-trajectory,
+    .tuned-trajectory {
+      min-width: 1120px;
+    }
+
+    .archived-token {
+      display: grid;
+      gap: 2px;
+    }
+
+    .archived-token-meta {
+      color: var(--muted);
+      font-size: 0.65rem;
+      white-space: nowrap;
+    }
+
+    .surprisal-source {
+      max-height: none;
+      margin: 0;
+      background: #0c1510;
+      color: var(--text);
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .surprisal-telemetry {
+      min-width: 1240px;
+    }
+
+    .surprisal-alternatives {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding-left: 1.15rem;
+      color: var(--muted);
+    }
+
+    .surprisal-alternatives .token {
+      color: var(--text);
+    }
+
+    .surprisal-provenance strong {
+      overflow-wrap: anywhere;
+    }
+
+    .raw-details {
+      margin-top: 28px;
+    }
+
+    .raw-details summary {
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    pre {
+      max-height: 480px;
+      padding: 14px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #07100b;
+      color: #c8d8cd;
+      font-size: 0.67rem;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .record-pane {
+        position: static;
+      }
+
+      .record-list {
+        max-height: 420px;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .shell {
+        width: min(100% - 24px, 1520px);
+      }
+
+      .topbar,
+      .toolbar,
+      .detail-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .toolbar-actions,
+      .toolbar-actions > *,
+      .detail-actions,
+      .detail-actions > * {
+        width: 100%;
+      }
+
+      select {
+        width: 100%;
+      }
+
+      .metrics,
+      .prefix-pair,
+      .columns {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+</head>
+<body data-workbench-page="archive">
+  <a class="skip-link" href="#workspace">Přeskočit na obsah</a>
+  <main id="workspace" class="shell">
+    <nav class="topbar" aria-label="Hlavní navigace">
+      <div class="nav-links">
+        <a class="nav-link" href="/">Pravděpodobnostní zahrada</a>
+        <a class="nav-link" href="/vrstvy">Trajektorie vrstev</a>
+        <a class="nav-link" href="/tuned-lens">RAW × TUNED</a>
+        <a class="nav-link" href="/steering">Steering</a>
+        <a class="nav-link" href="/jak-to-cist">Průvodce workbenchem</a>
+      </div>
+      <span id="storage-state" class="storage-state">Zjišťuji stav archivu…</span>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Lokální výzkumná paměť</p>
+        <h1>Archiv měření</h1>
+      </div>
+      <p class="lede">
+        Neměnné řezy zahradou a vrstvami, které lze znovu číst bez inference
+        a odnést jako reprodukovatelnou zálohu.
+      </p>
+    </header>
+
+    <aside class="notice">
+      <strong>Data zůstávají v tomto počítači.</strong>
+      SQLite databáze i stažené exporty jsou prostý, nešifrovaný text a mohou
+      obsahovat přesné prompty a poznámky. JSON je kanonická záloha; CSV je
+      odvozený tabulkový pohled.
+    </aside>
+
+    <section class="toolbar" aria-label="Nástroje archivu">
+      <label>
+        <span class="record-kind">Typ záznamu</span>
+        <select id="kind-filter">
+          <option value="">Všechny experimenty</option>
+          <option value="distribution_comparison">Srovnání distribucí</option>
+          <option value="garden_snapshot">Snímky zahrady</option>
+          <option value="lens_trajectory">Trajektorie vrstev</option>
+          <option value="text_surprisal">Surprisal textu</option>
+          <option value="text_surprisal_comparison">Srovnání surprisal textů</option>
+          <option value="context_contrast">Kontrast kontextů</option>
+          <option value="model_comparison">Porovnání modelů</option>
+        </select>
+      </label>
+      <div class="toolbar-actions">
+        <a
+          id="export-json"
+          class="button"
+          href="/api/experiments/export.json"
+          download="apertus-experiments.json"
+        >
+          Export archivu JSON
+        </a>
+        <a
+          id="export-csv"
+          class="button"
+          href="/api/experiments/export.csv"
+          download="apertus-experiments.csv"
+        >
+          Export archivu CSV
+        </a>
+        <label class="file-button">
+          Import JSON
+          <input id="import-file" type="file" accept="application/json,.json">
+        </label>
+      </div>
+    </section>
+
+    <div id="message" class="message" role="status" aria-live="polite"></div>
+
+    <section class="workspace">
+      <aside class="record-pane" aria-labelledby="records-title">
+        <header class="pane-head">
+          <h2 id="records-title">Uložené experimenty</h2>
+          <span id="record-count" class="count">0 záznamů</span>
+        </header>
+        <ol id="record-list" class="record-list"></ol>
+        <footer class="pager">
+          <button id="previous-page" class="button" type="button">← Novější</button>
+          <span id="page-label" class="count"></span>
+          <button id="next-page" class="button" type="button">Starší →</button>
+        </footer>
+      </aside>
+
+      <article id="detail" class="detail-pane" aria-live="polite">
+        <div class="empty">
+          <p>Vyber záznam vlevo. Archiv jej otevře bez nového běhu modelu.</p>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const PAGE_SIZE = 50;
+      const MAX_IMPORT_BATCH_BYTES = 24_000_000;
+      const kindFilter = document.querySelector("#kind-filter");
+      const exportJson = document.querySelector("#export-json");
+      const exportCsv = document.querySelector("#export-csv");
+      const importFile = document.querySelector("#import-file");
+      const message = document.querySelector("#message");
+      const storageState = document.querySelector("#storage-state");
+      const recordList = document.querySelector("#record-list");
+      const recordCount = document.querySelector("#record-count");
+      const previousPage = document.querySelector("#previous-page");
+      const nextPage = document.querySelector("#next-page");
+      const pageLabel = document.querySelector("#page-label");
+      const detail = document.querySelector("#detail");
+
+      let offset = 0;
+      let total = 0;
+      let records = [];
+      let selectedId = null;
+      let loading = false;
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+      const finite = (value, fallback = null) => {
+        if (value === null || value === undefined || value === "") return fallback;
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      };
+
+      const formatNumber = (value, digits = 2) => {
+        const number = finite(value);
+        return number === null
+          ? "—"
+          : new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+              maximumFractionDigits: digits
+            }).format(number);
+      };
+      const formatRatio = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        if (number > 0 && (number < 0.0001 || number >= 1_000_000)) {
+          const scientific = new Intl.NumberFormat(
+            window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ",
+            {notation: "scientific", maximumSignificantDigits: 3}
+          ).format(number);
+          return `${scientific}×`;
+        }
+        return `${formatNumber(number, number < 0.01 ? 4 : 2)}×`;
+      };
+
+      const formatPercent = (value) => {
+        const number = finite(value);
+        return number === null ? "—" : `${formatNumber(number * 100, 2)} %`;
+      };
+      const formatBits = (value) => (
+        finite(value) === null ? "—" : `${formatNumber(value, 3)} bit`
+      );
+      const asArray = (value) => Array.isArray(value) ? value : [];
+      const asObject = (value) => (
+        value && typeof value === "object" && !Array.isArray(value) ? value : {}
+      );
+      const formatDescriptor = (value) => {
+        if (value === null || value === undefined || value === "") return "—";
+        return typeof value === "object" ? JSON.stringify(value) : String(value);
+      };
+      const jsonByteLength = (value) => new TextEncoder().encode(
+        JSON.stringify(value)
+      ).byteLength;
+      const formatDate = (value) => {
+        const date = new Date(value);
+        return Number.isNaN(date.valueOf())
+          ? String(value || "—")
+          : new Intl.DateTimeFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+              dateStyle: "medium",
+              timeStyle: "short"
+            }).format(date);
+      };
+
+      const kindLabel = (kind) => ({
+        model_comparison: "Porovnání modelů",
+        distribution_comparison: "Srovnání distribucí",
+        garden_snapshot: "Snímek zahrady",
+        lens_trajectory: "Trajektorie vrstev",
+        steering_comparison: "Steering",
+        text_surprisal: "Surprisal textu",
+        text_surprisal_comparison: "Srovnání surprisal textů",
+        context_contrast: "Kontrast kontextů"
+      })[kind] || kind || "Experiment";
+
+      const setMessage = (text = "", error = false) => {
+        message.textContent = text;
+        message.classList.toggle("error", error);
+        message.setAttribute("role", error ? "alert" : "status");
+      };
+
+      const fetchJson = (...arguments_) => (
+        window.ProbabilityGardenApi.fetchJson(...arguments_)
+      );
+
+      const updateExportLinks = () => {
+        const kind = kindFilter.value;
+        const suffix = kind ? `?kind=${encodeURIComponent(kind)}` : "";
+        exportJson.href = `/api/experiments/export.json${suffix}`;
+        exportCsv.href = `/api/experiments/export.csv${suffix}`;
+        exportJson.textContent = kind ? "Export typu JSON" : "Export archivu JSON";
+        exportCsv.textContent = kind ? "Export typu CSV" : "Export archivu CSV";
+      };
+
+      const announceArchiveExport = (filename) => {
+        setMessage(
+          `Stažení ${filename} bylo předáno prohlížeči. ` +
+          "Pokud jej nevidíš, otevři jeho přehled stahování."
+        );
+      };
+
+      const loadStorageState = async () => {
+        try {
+          const health = await fetchJson("/api/health");
+          const storage = health.storage || {};
+          storageState.textContent = storage.ready
+            ? `SQLite · ${storage.path_label || "lokální archiv"}`
+            : "Archiv se připravuje";
+        } catch {
+          storageState.textContent = "Archiv není dostupný";
+        }
+      };
+
+      const recordTitle = (record) => (
+        record.title ||
+        record.annotation?.title ||
+        record.preview ||
+        kindLabel(record.kind)
+      );
+
+      const interfaceText = (value) => (
+        window.ProbabilityGardenI18n?.t(String(value ?? "")) ?? String(value ?? "")
+      );
+
+      const recordDisplayTitle = (record) => interfaceText(recordTitle(record));
+
+      const recordDisplayPreview = (record) => {
+        const preview = record.preview || recordNotes(record) || "Bez poznámky";
+        const authoredTitle = record.title || record.annotation?.title || "";
+        return preview === authoredTitle || preview === "Bez poznámky"
+          ? interfaceText(preview)
+          : preview;
+      };
+
+      const recordNotes = (record) => (
+        record.notes ?? record.annotation?.notes ?? ""
+      );
+
+      const recordModel = (record) => (
+        record.model_id ||
+        record.provenance?.model?.id ||
+        record.provenance?.model?.model_id ||
+        "model neuveden"
+      );
+
+      const renderList = () => {
+        recordCount.textContent = total === 1
+          ? "1 záznam"
+          : `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ").format(total)} záznamů`;
+        recordList.innerHTML = records.map((record) => `
+          <li>
+            <button
+              class="record-button ${record.id === selectedId ? "active" : ""}"
+              type="button"
+              data-record-id="${escapeHtml(record.id)}"
+              aria-current="${record.id === selectedId ? "true" : "false"}"
+            >
+              <span class="record-kind">${escapeHtml(kindLabel(record.kind))}</span>
+              <strong class="record-title">${escapeHtml(recordDisplayTitle(record))}</strong>
+              <span class="record-preview">${escapeHtml(
+                recordDisplayPreview(record)
+              )}</span>
+              <span class="record-meta">
+                <span>${escapeHtml(formatDate(record.captured_at))}</span>
+                <span>${escapeHtml(recordModel(record))}</span>
+              </span>
+            </button>
+          </li>
+        `).join("");
+        const first = total ? offset + 1 : 0;
+        const last = Math.min(offset + records.length, total);
+        pageLabel.textContent = `${first}–${last} / ${total}`;
+        previousPage.disabled = offset === 0 || loading;
+        nextPage.disabled = offset + records.length >= total || loading;
+      };
+
+      const metric = (label, value) => `
+        <div class="metric">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `;
+
+      const recordHeader = (record) => {
+        const annotation = record.annotation || {};
+        const capture = record.capture || {};
+        const warnings = asArray(capture.warnings);
+        const incomplete = capture.status && capture.status !== "complete";
+        const heading = interfaceText(
+          annotation.title || record.title || kindLabel(record.kind)
+        );
+        return `
+          <header class="detail-head">
+            <div>
+              <span class="record-kind">${escapeHtml(kindLabel(record.kind))}</span>
+              <h2>${escapeHtml(heading)}</h2>
+              <div class="record-meta">
+                <span>Zachyceno ${escapeHtml(formatDate(record.captured_at))}</span>
+                <span>Uloženo ${escapeHtml(formatDate(record.saved_at))}</span>
+                <span>${escapeHtml(recordModel(record))}</span>
+              </div>
+              ${annotation.notes
+                ? `<p class="detail-note">${escapeHtml(annotation.notes)}</p>`
+                : ""}
+              ${incomplete || warnings.length
+                ? `
+                  <div class="capture-warning">
+                    <strong>Stav záznamu: ${escapeHtml(capture.status || "s varováním")}</strong>
+                    ${warnings.length
+                      ? `<ul>${warnings.map(
+                          (warning) => `<li>${escapeHtml(warning)}</li>`
+                        ).join("")}</ul>`
+                      : ""}
+                  </div>
+                `
+                : ""}
+            </div>
+            <div class="detail-actions">
+              <a
+                class="button"
+                href="/api/experiments/${escapeHtml(
+                  encodeURIComponent(record.id)
+                )}/export.json"
+                download="apertus-experiment-${escapeHtml(record.id)}.json"
+                data-export-record
+                data-export-filename="apertus-experiment-${escapeHtml(
+                  record.id
+                )}.json"
+              >Export JSON</a>
+              <a
+                class="button"
+                href="/api/experiments/${escapeHtml(
+                  encodeURIComponent(record.id)
+                )}/export.csv"
+                download="apertus-experiment-${escapeHtml(record.id)}.csv"
+                data-export-record
+                data-export-filename="apertus-experiment-${escapeHtml(
+                  record.id
+                )}.csv"
+              >Export CSV</a>
+              <button
+                class="button danger"
+                type="button"
+                data-delete-record="${escapeHtml(record.id)}"
+              >Smazat</button>
+            </div>
+          </header>
+        `;
+      };
+
+      const renderComparison = (record) => {
+        const payload = record.payload || {};
+        const snapshot = payload.snapshot || payload.result?.snapshot || {};
+        const response = payload.response || payload.result?.response || {};
+        const left = snapshot.left || payload.left || {};
+        const right = snapshot.right || payload.right || {};
+        const movers = [
+          ...asArray(response.gains).map((item) => ({...item, direction: "zesílil"})),
+          ...asArray(response.losses).map((item) => ({...item, direction: "zeslábl"}))
+        ];
+        return `
+          <section class="section">
+            <div class="prefix-pair">
+              <div class="column-card prefix">
+                <strong>A</strong>${escapeHtml(left.prefix || left.text || "—")}
+              </div>
+              <div class="column-card prefix">
+                <strong>B</strong>${escapeHtml(right.prefix || right.text || "—")}
+              </div>
+            </div>
+          </section>
+          <section class="section">
+            <h3>Rozdíl B − A</h3>
+            <div class="metrics">
+              ${metric("Δ entropie", formatBits(response.delta_entropy_bits))}
+              ${metric("Poměr šířek", `${formatNumber(response.effective_support_ratio, 2)}×`)}
+              ${metric("JS divergence", formatBits(response.js_divergence_bits))}
+              ${metric("Celková variace", formatNumber(response.total_variation, 3))}
+            </div>
+          </section>
+          <section class="section">
+            <h3>Zobrazené posuny tokenů</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Směr</th><th>Token</th><th>ID</th><th>A</th><th>B</th><th>Δ</th></tr></thead>
+                <tbody>
+                  ${movers.map((item) => `
+                    <tr>
+                      <td>${escapeHtml(item.direction)}</td>
+                      <td class="token">${escapeHtml(item.display || item.text || "")}</td>
+                      <td>${escapeHtml(item.token_id)}</td>
+                      <td>${escapeHtml(formatPercent(item.probability_left))}</td>
+                      <td>${escapeHtml(formatPercent(item.probability_right))}</td>
+                      <td>${escapeHtml(formatPercent(item.delta))}</td>
+                    </tr>
+                  `).join("") || '<tr><td colspan="6">Bez uložených moverů.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        `;
+      };
+
+      const renderGarden = (record) => {
+        const payload = record.payload || {};
+        const columns = asArray(payload.columns || payload.workspace?.columns);
+        const controls = payload.controls || {};
+        return `
+          <section class="section">
+            <h3>Konfigurace a rozsah</h3>
+            <div class="metrics">
+              ${metric("Sloupce", columns.length)}
+              ${metric("Uzly", columns.reduce(
+                (sum, column) => sum + (column?.nodes?.length || 0),
+                0
+              ))}
+              ${metric("Teplota", formatNumber(controls.temperature, 2))}
+              ${metric("Top k", controls.top_k ?? "—")}
+            </div>
+          </section>
+          <section class="section">
+            <h3>Uložené zahrady</h3>
+            <div class="columns">
+              ${columns.map((column, index) => {
+                column = column && typeof column === "object" ? column : {};
+                const activeIds = (
+                  column.active_path_session_node_ids ||
+                  column.active_path_ids ||
+                  column.active_path ||
+                  []
+                );
+                const nodes = asArray(column.nodes);
+                const activeNode = nodes.find((node) => (
+                  node.session_node_id === column.active_session_node_id ||
+                  node.id === column.active_node_id ||
+                  node.active
+                ));
+                return `
+                  <article class="column-card">
+                    <strong>Prompt ${index + 1}</strong>
+                    <p class="experiment-prompt">${escapeHtml(column.planted_prompt || column.prompt || "—")}</p>
+                    <p>${nodes.length} uzlů · aktivní hloubka ${
+                      activeIds.length ? activeIds.length - 1 : activeNode?.depth ?? "—"
+                    }</p>
+                    ${activeNode
+                      ? `<p class="token">${escapeHtml(activeNode.prefix || "")}</p>`
+                      : ""}
+                  </article>
+                `;
+              }).join("") || '<p class="record-preview">Záznam neobsahuje sloupce.</p>'}
+            </div>
+          </section>
+        `;
+      };
+
+      const renderLens = (record) => {
+        const payload = record.payload || {};
+        const result = payload.result || payload;
+        const layers = asArray(result.layers);
+        const finalTop1 = result.final_top1 || {};
+        const reader = payload.reader || {};
+        const isJacobianComparison = (
+          reader.kind === "raw_vs_jacobian_lens" ||
+          layers.some((layer) => layer?.jacobian)
+        );
+        const isTunedComparison = !isJacobianComparison && (
+          reader.kind === "raw_vs_tuned_lens" ||
+          layers.some((layer) => layer?.raw || layer?.tuned)
+        );
+        const isPairedComparison = isJacobianComparison || isTunedComparison;
+        const secondVariantKey = isJacobianComparison ? "jacobian" : "tuned";
+        const secondVariantLabel = isJacobianComparison ? "J‑LENS" : "TUNED";
+        const calibration = result.calibration || payload.calibration || {};
+        const artifact = (
+          result.artifact ||
+          payload.artifact ||
+          calibration
+        );
+        const artifactReader = artifact.reader || {};
+        const artifactModel = artifact.model || {};
+        const transferProbe = result.transfer_probe || payload.transfer_probe || {};
+        const artifactId = (
+          artifact.artifact_id ||
+          artifact.calibration_id ||
+          reader.artifact_id ||
+          reader.calibration_id ||
+          "—"
+        );
+        if (isPairedComparison) {
+          const comparisonTitle = isJacobianComparison
+            ? "RAW × J‑LENS"
+            : "RAW × TUNED";
+          const comparisonDescription = isJacobianComparison
+            ? (
+                "RAW a J‑LENS jsou dvě čtečky téhož uloženého mezistavu. " +
+                "Jejich shoda ani nesoulad samy o sobě neurčují, která " +
+                "interpretace je správná. Záznam neobsahuje aktivace ani " +
+                "matice Jacobianu."
+              )
+            : (
+                "Naučená čtečka aproximuje finální distribuci. Uložený záznam " +
+                "neobsahuje aktivace ani váhy translatoru."
+              );
+          return `
+            <section class="section">
+              <div class="column-card prefix">
+                <strong>Prefix</strong>${escapeHtml(
+                  result.text || payload.request?.text || "—"
+                )}
+              </div>
+            </section>
+            <section class="section">
+              <h3>${comparisonTitle}</h3>
+              <div class="metrics">
+                ${metric(
+                  "Finální top 1",
+                  `${
+                    finalTop1.display || finalTop1.text || "—"
+                  } · token #${finalTop1.token_id ?? "—"}`
+                )}
+                ${metric("Pravděpodobnost", formatPercent(finalTop1.probability))}
+                ${metric("Artefakt", artifactId)}
+                ${metric("Vrstvy", layers.length)}
+                ${isJacobianComparison
+                  ? metric(
+                      "Přenosová sonda",
+                      transferProbe.status || "—"
+                    )
+                  : ""}
+              </div>
+              <p class="record-preview">
+                ${comparisonDescription}
+              </p>
+            </section>
+            ${isJacobianComparison ? `
+              <section class="section">
+                <h3>Provenience čtečky</h3>
+                <div class="metrics">
+                  ${metric("Formát", artifact.format || "—")}
+                  ${metric("Režim modelu", artifactModel.mode || "—")}
+                  ${metric(
+                    "Zdrojové vrstvy",
+                    formatDescriptor(
+                      artifactReader.source_layers ||
+                      artifactReader.selected_layers
+                    )
+                  )}
+                  ${metric(
+                    "Cílová vrstva",
+                    artifactReader.target_layer ??
+                    artifactReader.reference_layer ??
+                    "—"
+                  )}
+                  ${metric(
+                    "Manifest",
+                    artifact.canonical_manifest_sha256 ||
+                    artifact.manifest_sha256 ||
+                    "—"
+                  )}
+                  ${metric(
+                    "Váhy",
+                    artifact.weights?.sha256 || "—"
+                  )}
+                  ${metric(
+                    "Kompatibilita",
+                    formatDescriptor(artifact.compatibility || {})
+                  )}
+                </div>
+              </section>
+            ` : ""}
+            <section class="section">
+              <h3>Párová trajektorie</h3>
+              <div class="table-scroll">
+                <table
+                  class="reader-trajectory"
+                  aria-label="RAW a ${secondVariantLabel} čtečka vůči společné finální distribuci"
+                >
+                  <thead>
+                    <tr>
+                      <th scope="col">Vrstva</th>
+                      <th scope="col">RAW top 1</th>
+                      <th scope="col">${secondVariantLabel} top 1</th>
+                      <th scope="col">Rank finále RAW → ${secondVariantLabel}</th>
+                      <th scope="col">KL(FINAL ∥ RAW)</th>
+                      <th scope="col">KL(FINAL ∥ ${secondVariantLabel})</th>
+                      <th scope="col">JS(FINAL, RAW)</th>
+                      <th scope="col">JS(FINAL, ${secondVariantLabel})</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${layers.map((layer) => {
+                      layer = layer && typeof layer === "object" ? layer : {};
+                      const raw = layer.raw || {};
+                      const second = layer[secondVariantKey] || {};
+                      const rawTop = raw.candidates?.[0] || {};
+                      const secondTop = second.candidates?.[0] || {};
+                      return `
+                        <tr>
+                          <td>L${escapeHtml(layer.layer)}</td>
+                          <td class="token">
+                            <span class="archived-token">
+                              <span class="observed-token">${escapeHtml(
+                                rawTop.display || rawTop.text || "—"
+                              )}</span>
+                              <span class="archived-token-meta">token #${escapeHtml(
+                                rawTop.token_id ?? raw.top1_token_id ?? "—"
+                              )} · ${escapeHtml(
+                                formatPercent(rawTop.probability)
+                              )}</span>
+                            </span>
+                          </td>
+                          <td class="token">
+                            <span class="archived-token">
+                              <span class="observed-token">${escapeHtml(
+                                secondTop.display || secondTop.text || "—"
+                              )}</span>
+                              <span class="archived-token-meta">token #${escapeHtml(
+                                secondTop.token_id ?? second.top1_token_id ?? "—"
+                              )} · ${escapeHtml(
+                                formatPercent(secondTop.probability)
+                              )}</span>
+                            </span>
+                          </td>
+                          <td>#${escapeHtml(raw.final_top1_rank ?? "—")}
+                            → #${escapeHtml(second.final_top1_rank ?? "—")}</td>
+                          <td>${escapeHtml(formatBits(
+                            raw.kl_divergence_to_final_bits
+                          ))}</td>
+                          <td>${escapeHtml(formatBits(
+                            second.kl_divergence_to_final_bits
+                          ))}</td>
+                          <td>${escapeHtml(formatBits(
+                            raw.js_divergence_to_final_bits
+                          ))}</td>
+                          <td>${escapeHtml(formatBits(
+                            second.js_divergence_to_final_bits
+                          ))}</td>
+                        </tr>
+                      `;
+                    }).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          `;
+        }
+        return `
+          <section class="section">
+            <div class="column-card prefix">
+              <strong>Prefix</strong>${escapeHtml(result.text || payload.request?.text || "—")}
+            </div>
+          </section>
+          <section class="section">
+            <h3>Souhrn</h3>
+            <div class="metrics">
+              ${metric("Finální top 1", finalTop1.display || finalTop1.text || "—")}
+              ${metric("Pravděpodobnost", formatPercent(finalTop1.probability))}
+              ${metric("Stabilní od", result.stable_from_layer ? `L${result.stable_from_layer}` : "—")}
+              ${metric("Vrstvy", result.layer_count ?? layers.length)}
+            </div>
+          </section>
+          <section class="section">
+            <h3>Trajektorie</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Vrstva</th><th>Top 1</th><th>p</th><th>H</th><th>Šířka</th><th>Rank finále</th><th>JS → finále</th></tr></thead>
+                <tbody>
+                  ${layers.map((layer) => {
+                    layer = layer && typeof layer === "object" ? layer : {};
+                    const top = layer.candidates?.[0] || {};
+                    return `
+                      <tr>
+                        <td>L${escapeHtml(layer.layer)}</td>
+                        <td class="token">${escapeHtml(top.display || top.text || "—")}</td>
+                        <td>${escapeHtml(formatPercent(top.probability))}</td>
+                        <td>${escapeHtml(formatBits(layer.entropy_bits))}</td>
+                        <td>${escapeHtml(formatNumber(layer.effective_width ?? layer.effective_tokens, 1))}</td>
+                        <td>#${escapeHtml(layer.final_top1_rank ?? "—")}</td>
+                        <td>${escapeHtml(formatBits(layer.js_divergence_to_final_bits))}</td>
+                      </tr>
+                    `;
+                  }).join("")}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        `;
+      };
+
+      const renderTextSurprisal = (record) => {
+        const payload = asObject(record.payload);
+        const result = asObject(payload.result);
+        const payloadResponse = asObject(payload.response);
+        const nestedResponse = asObject(result.response);
+        const response = Object.keys(payloadResponse).length
+          ? payloadResponse
+          : Object.keys(nestedResponse).length
+            ? nestedResponse
+            : Object.keys(result).length
+              ? result
+              : payload;
+        const request = asObject(payload.request);
+        const summary = asObject(response.summary || payload.summary);
+        const tokens = asArray(response.tokens || payload.tokens);
+        const aggregations = asObject(
+          response.aggregations || payload.aggregations
+        );
+        const aggregationMethod = asObject(
+          response.aggregation_method || payload.aggregation_method
+        );
+        const originalText = (
+          response.original_text ?? request.text ?? response.text ?? ""
+        );
+        const analyzedText = response.normalized_text ?? response.text ?? originalText;
+        const maxToken = asObject(summary.max_surprisal_token);
+        const maxTokenLabel = Object.keys(maxToken).length
+          ? `${maxToken.display ?? maxToken.text ?? maxToken.piece ?? "—"} · index ${
+              maxToken.index ?? "—"
+            } · ${formatBits(maxToken.surprisal_bits)}`
+          : "—";
+        const aggregationLabels = {
+          whitespace_span: "Úseky podle bílých znaků",
+          line: "Řádky",
+          sentence_like: "Větám podobné úseky"
+        };
+        const canonicalAggregationTypes = [
+          "whitespace_span",
+          "line",
+          "sentence_like"
+        ];
+        const aggregationTypes = [
+          ...canonicalAggregationTypes.filter((type) => type in aggregations),
+          ...Object.keys(aggregations)
+            .filter((type) => !canonicalAggregationTypes.includes(type))
+            .sort()
+        ];
+        const aggregationSections = aggregationTypes.map((type) => {
+          const aggregation = asObject(aggregations[type]);
+          const aggregationSummary = asObject(aggregation.summary);
+          const spans = asArray(aggregation.spans);
+          const label = (
+            aggregation.label_cs ||
+            aggregation.label ||
+            aggregationLabels[type] ||
+            type
+          );
+          return `
+            <section class="section">
+              <h4>${escapeHtml(label)}</h4>
+              <div class="metrics">
+                ${metric(
+                  "Úseků",
+                  aggregationSummary.span_count ?? spans.length
+                )}
+                ${metric(
+                  "Úplných úseků",
+                  aggregationSummary.complete_span_count ??
+                    aggregationSummary.count ??
+                    "—"
+                )}
+                ${metric(
+                  "Neúplných úseků",
+                  aggregationSummary.incomplete_span_count ?? "—"
+                )}
+                ${metric(
+                  "Pokrytí tokenů",
+                  formatPercent(aggregationSummary.coverage_ratio)
+                )}
+                ${metric(
+                  "Přiřazené tokeny",
+                  aggregationSummary.assigned_token_count ?? "—"
+                )}
+                ${metric(
+                  "Nejednoznačné tokeny",
+                  aggregationSummary.ambiguous_token_count ?? "—"
+                )}
+                ${metric(
+                  "Nepřiřazené tokeny",
+                  aggregationSummary.unassigned_token_count ?? "—"
+                )}
+                ${metric(
+                  "Průměr I / nebílý znak",
+                  formatNumber(aggregationSummary.mean, 4)
+                )}
+                ${metric(
+                  "Medián I / nebílý znak",
+                  formatNumber(aggregationSummary.median, 4)
+                )}
+                ${metric("Q1", formatNumber(aggregationSummary.q1, 4))}
+                ${metric("Q3", formatNumber(aggregationSummary.q3, 4))}
+                ${metric("IQR", formatNumber(aggregationSummary.iqr, 4))}
+                ${metric(
+                  "Syrový MAD",
+                  formatNumber(aggregationSummary.raw_mad, 4)
+                )}
+                ${metric("Minimum", formatNumber(aggregationSummary.min, 4))}
+                ${metric("Maximum", formatNumber(aggregationSummary.max, 4))}
+              </div>
+              <div class="table-scroll">
+                <table
+                  class="surprisal-telemetry aggregation-telemetry"
+                  aria-label="${escapeHtml(label)} — číselná agregace surprisal"
+                >
+                  <thead>
+                    <tr>
+                      <th scope="col">Index</th>
+                      <th scope="col">Znaky</th>
+                      <th scope="col">Text úseku</th>
+                      <th scope="col">Tokeny</th>
+                      <th scope="col">I celkem</th>
+                      <th scope="col">I / token</th>
+                      <th scope="col">I / nebílý znak</th>
+                      <th scope="col">Znaky</th>
+                      <th scope="col">Nebílé znaky</th>
+                      <th scope="col">Pokryté nebílé</th>
+                      <th scope="col">Pokrytí znaků</th>
+                      <th scope="col">Přiřazení</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${spans.map((spanValue, fallbackIndex) => {
+                      const span = asObject(spanValue);
+                      const tokenIndices = asArray(span.token_indices);
+                      const tokenIds = asArray(span.token_ids);
+                      const ambiguousTokenIndices = asArray(
+                        span.ambiguous_token_indices
+                      );
+                      const perCharacter = (
+                        span.surprisal_bits_per_non_whitespace_character ??
+                        span.surprisal_bits_per_character
+                      );
+                      const complete = span.complete === true;
+                      return `
+                        <tr>
+                          <td>${escapeHtml(span.index ?? fallbackIndex)}</td>
+                          <td>${escapeHtml(
+                            `${span.character_start ?? "—"}–${
+                              span.character_end ?? "—"
+                            }`
+                          )}</td>
+                          <td><code>${escapeHtml(span.text ?? "")}</code></td>
+                          <td>
+                            <span class="archived-token">
+                              <span>${escapeHtml(
+                                span.token_count ?? tokenIndices.length
+                              )}</span>
+                              <span class="archived-token-meta">
+                                indexy ${escapeHtml(formatDescriptor(tokenIndices))}
+                                · ID ${escapeHtml(formatDescriptor(tokenIds))}
+                              </span>
+                            </span>
+                          </td>
+                          <td>${escapeHtml(
+                            complete
+                              ? formatBits(span.total_surprisal_bits)
+                              : "— (neúplné)"
+                          )}</td>
+                          <td>${escapeHtml(
+                            complete
+                              ? formatNumber(
+                                span.surprisal_bits_per_token,
+                                4
+                              )
+                              : "— (neúplné)"
+                          )}</td>
+                          <td>${escapeHtml(
+                            complete
+                              ? formatNumber(perCharacter, 4)
+                              : "— (neúplné)"
+                          )}</td>
+                          <td>${escapeHtml(span.character_count ?? "—")}</td>
+                          <td>${escapeHtml(
+                            span.non_whitespace_character_count ?? "—"
+                          )}</td>
+                          <td>${escapeHtml(
+                            span.covered_non_whitespace_character_count ?? "—"
+                          )}</td>
+                          <td>${escapeHtml(
+                            formatPercent(span.character_coverage_ratio)
+                          )}</td>
+                          <td>
+                            <span class="archived-token">
+                              <span>${complete ? "úplné" : "neúplné"}</span>
+                              <span class="archived-token-meta">
+                                nejednoznačných ${escapeHtml(
+                                  span.ambiguous_token_count ??
+                                    ambiguousTokenIndices.length
+                                )}
+                              </span>
+                              ${ambiguousTokenIndices.length
+                                ? `<span class="archived-token-meta">nejednoznačné indexy ${
+                                    escapeHtml(
+                                      formatDescriptor(ambiguousTokenIndices)
+                                    )
+                                  }</span>`
+                                : ""}
+                            </span>
+                          </td>
+                        </tr>
+                      `;
+                    }).join("") || `
+                      <tr>
+                        <td colspan="12">Záznam neobsahuje žádné úseky tohoto typu.</td>
+                      </tr>
+                    `}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          `;
+        }).join("");
+
+        const envelopeProvenance = asObject(record.provenance);
+        const responseProvenance = asObject(response.provenance);
+        const responseServerProvenance = asObject(responseProvenance.server);
+        const envelopeServerProvenance = asObject(envelopeProvenance.server);
+        const responseServerModel = asObject(responseServerProvenance.model);
+        const envelopeServerModel = asObject(envelopeServerProvenance.model);
+        const model = {
+          ...responseServerModel,
+          ...envelopeServerModel,
+          ...asObject(responseProvenance.model),
+          ...asObject(response.model),
+          ...asObject(envelopeProvenance.model)
+        };
+        const execution = {
+          ...asObject(responseProvenance.execution),
+          ...asObject(response.execution),
+          ...asObject(envelopeProvenance.execution)
+        };
+        const modelId = (
+          model.id ??
+          model.model_id ??
+          response.model_id ??
+          record.model_id ??
+          "—"
+        );
+        const modelGeneration = (
+          execution.model_generation ?? response.model_generation ?? "—"
+        );
+        const serverInstanceId = (
+          execution.server_instance_id ?? response.server_instance_id ?? "—"
+        );
+        const modelFingerprint = (
+          model.metadata_fingerprint ??
+          responseServerModel.metadata_fingerprint ??
+          envelopeServerModel.metadata_fingerprint ??
+          "—"
+        );
+
+        return `
+          <section class="section">
+            <h3>Původní text</h3>
+            <pre class="surprisal-source">${escapeHtml(originalText)}</pre>
+            ${analyzedText !== originalText
+              ? `
+                <details class="raw-details">
+                  <summary>Text po deklarované normalizaci</summary>
+                  <pre class="surprisal-source">${escapeHtml(analyzedText)}</pre>
+                </details>
+              `
+              : ""}
+          </section>
+          <section class="section">
+            <h3>Souhrn sekvence</h3>
+            <div class="metrics">
+              ${metric("Tokeny", response.token_count ?? tokens.length)}
+              ${metric("Celková surprisal", formatBits(summary.total_surprisal_bits))}
+              ${metric("Průměrná surprisal", formatBits(summary.mean_surprisal_bits))}
+              ${metric("Perplexita", formatNumber(summary.perplexity, 3))}
+              ${metric("Bitů / znak", formatNumber(summary.bits_per_character, 3))}
+              ${metric("Bitů / UTF-8 byte", formatNumber(summary.bits_per_utf8_byte, 3))}
+              ${metric("Průměrná entropie", formatBits(summary.mean_entropy_bits))}
+              ${metric("Nejpřekvapivější token", maxTokenLabel)}
+            </div>
+          </section>
+          ${aggregationTypes.length
+            ? `
+              <section class="section">
+                <h3>Obecné agregace úseků</h3>
+                <p class="record-preview">
+                  Sčítají se překvapení tokenů přiřazených podle jediného
+                  průniku se spolehlivým znakovým rozsahem; token proto může
+                  nést i přilehlé bílé místo mimo zobrazený text úseku.
+                  Délkově normalizovaná hodnota používá počet nebílých znaků;
+                  počet subtokenů zůstává diagnostikou.
+                </p>
+                <div class="capture-warning">
+                  <strong>Metodické omezení.</strong>
+                  Úseky podle bílých znaků a větám podobné úseky jsou
+                  pravidlové segmentace, nikoli jazykově autoritativní analýza.
+                  Disperze popisuje rozptýlení hodnot; sama neměří
+                  strukturovanost, poetičnost ani pořadí.
+                </div>
+                <div class="metrics surprisal-provenance">
+                  ${metric("Metoda", aggregationMethod.id ?? "—")}
+                  ${metric("Verze", aggregationMethod.version ?? "—")}
+                  ${metric("Status", aggregationMethod.status ?? "heuristic")}
+                  ${metric(
+                    "Populace souhrnu",
+                    aggregationMethod.summary_population ?? "complete_spans_only"
+                  )}
+                  ${metric(
+                    "Kvantily",
+                    aggregationMethod.quantile_method ?? "—"
+                  )}
+                  ${metric(
+                    "MAD",
+                    aggregationMethod.mad_definition ?? "—"
+                  )}
+                </div>
+              </section>
+              ${aggregationSections}
+            `
+            : ""}
+          <section class="section">
+            <h3>Tokenová telemetrie</h3>
+            <p class="record-preview">
+              Hodnoty jsou uvedeny číselně; barva nenese informaci o jejich velikosti.
+            </p>
+            <div class="table-scroll">
+              <table
+                class="surprisal-telemetry"
+                aria-label="Surprisal pozorovaných tokenů a top-k alternativy"
+              >
+                <thead>
+                  <tr>
+                    <th scope="col">Index</th>
+                    <th scope="col">Token</th>
+                    <th scope="col">ID</th>
+                    <th scope="col">p</th>
+                    <th scope="col">ln p</th>
+                    <th scope="col">Surprisal</th>
+                    <th scope="col">Rank</th>
+                    <th scope="col">H</th>
+                    <th scope="col">Efektivní šířka</th>
+                    <th scope="col">Gap top 1</th>
+                    <th scope="col">Top-k alternativy</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tokens.map((tokenValue, fallbackIndex) => {
+                    const token = asObject(tokenValue);
+                    const alternatives = asArray(token.alternatives);
+                    return `
+                      <tr>
+                        <td>
+                          <span class="archived-token">
+                            <span>${escapeHtml(token.index ?? fallbackIndex)}</span>
+                            ${token.character_start !== null &&
+                              token.character_start !== undefined &&
+                              token.character_end !== null &&
+                              token.character_end !== undefined
+                              ? `<span class="archived-token-meta">znaky ${
+                                  escapeHtml(token.character_start)
+                                }–${escapeHtml(token.character_end)}</span>`
+                              : ""}
+                          </span>
+                        </td>
+                        <td class="token">
+                          <span class="archived-token">
+                            <span class="observed-token">${escapeHtml(
+                              token.display ?? token.text ?? token.piece ?? ""
+                            )}</span>
+                            ${token.tokenizer_token !== null &&
+                              token.tokenizer_token !== undefined
+                              ? `<span class="archived-token-meta">tokenizer: ${
+                                  escapeHtml(token.tokenizer_token)
+                                }</span>`
+                              : ""}
+                          </span>
+                        </td>
+                        <td>${escapeHtml(token.token_id ?? "—")}</td>
+                        <td>${escapeHtml(formatPercent(token.probability))}</td>
+                        <td>${escapeHtml(formatNumber(token.logprob, 4))}</td>
+                        <td>${escapeHtml(formatBits(token.surprisal_bits))}</td>
+                        <td>#${escapeHtml(token.rank ?? "—")}</td>
+                        <td>${escapeHtml(formatBits(token.entropy_bits))}</td>
+                        <td>${escapeHtml(formatNumber(token.effective_tokens, 2))}</td>
+                        <td>${escapeHtml(formatBits(token.top1_gap_bits))}</td>
+                        <td>
+                          ${alternatives.length
+                            ? `
+                              <ol class="surprisal-alternatives">
+                                ${alternatives.map((alternativeValue) => {
+                                  const alternative = asObject(alternativeValue);
+                                  return `
+                                    <li>
+                                      <span class="token">${escapeHtml(
+                                        alternative.display ??
+                                        alternative.text ??
+                                        alternative.piece ??
+                                        ""
+                                      )}</span>
+                                      · #${escapeHtml(alternative.token_id ?? "—")}
+                                      · rank ${escapeHtml(alternative.rank ?? "—")}
+                                      · ${escapeHtml(
+                                        formatPercent(alternative.probability)
+                                      )}
+                                    </li>
+                                  `;
+                                }).join("")}
+                              </ol>
+                            `
+                            : "—"}
+                        </td>
+                      </tr>
+                    `;
+                  }).join("") || '<tr><td colspan="11">Záznam neobsahuje tokeny.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section class="section">
+            <h3>Provenience a podmínky výpočtu</h3>
+            <div class="metrics surprisal-provenance">
+              ${metric("Analýza", response.analysis_kind || "text_surprisal")}
+              ${metric("Model", modelId)}
+              ${metric("Fingerprint modelu", modelFingerprint)}
+              ${metric("Generace modelu", modelGeneration)}
+              ${metric("Instance serveru", serverInstanceId)}
+              ${metric("Režim", response.execution?.mode ?? "teacher_forced")}
+              ${metric("Latence", finite(response.latency_ms) === null
+                ? "—"
+                : `${formatNumber(response.latency_ms, 1)} ms`)}
+              ${metric("Distribuce", response.probability_kind ?? "—")}
+              ${metric("Teplota", formatNumber(response.temperature, 2))}
+              ${metric("Top k", response.top_k ?? request.top_k ?? "—")}
+              ${metric("Normalizace", formatDescriptor(response.normalization))}
+            </div>
+          </section>
+        `;
+      };
+
+      const renderTextSurprisalComparison = (record) => {
+        const payload = asObject(record.payload);
+        const comparison = asObject(payload.comparison);
+        const labels = (
+          Object.keys(asObject(payload.labels)).length
+            ? asObject(payload.labels)
+            : asObject(comparison.labels)
+        );
+        const sideResponse = (sideValue) => {
+          const side = asObject(sideValue);
+          const response = asObject(side.response);
+          if (Object.keys(response).length) return response;
+          const result = asObject(side.result);
+          const nestedResponse = asObject(result.response);
+          if (Object.keys(nestedResponse).length) return nestedResponse;
+          return Object.keys(result).length ? result : side;
+        };
+        const sideAContainer = asObject(payload.a);
+        const sideBContainer = asObject(payload.b);
+        const sideA = sideResponse(sideAContainer);
+        const sideB = sideResponse(sideBContainer);
+        const labelA = (
+          labels.a ??
+          labels.A ??
+          sideAContainer.label ??
+          sideAContainer.name ??
+          "A"
+        );
+        const labelB = (
+          labels.b ??
+          labels.B ??
+          sideBContainer.label ??
+          sideBContainer.name ??
+          "B"
+        );
+        const textA = (
+          sideA.original_text ??
+          sideA.normalized_text ??
+          sideA.text ??
+          ""
+        );
+        const textB = (
+          sideB.original_text ??
+          sideB.normalized_text ??
+          sideB.text ??
+          ""
+        );
+        const metrics = asObject(comparison.metrics);
+        const metricLabels = {
+          mean_surprisal_bits: "Průměrná surprisal",
+          bits_per_non_whitespace_character: "Bitů / nebílý znak",
+          median_whitespace_span_bits_per_non_whitespace_character:
+            "Medián úseků / nebílý znak",
+          whitespace_span_iqr_bits_per_non_whitespace_character:
+            "IQR úseků / nebílý znak",
+          whitespace_span_raw_mad_bits_per_non_whitespace_character:
+            "Syrový MAD úseků / nebílý znak"
+        };
+        const canonicalMetricNames = Object.keys(metricLabels);
+        const metricNames = [
+          ...canonicalMetricNames.filter((name) => name in metrics),
+          ...Object.keys(metrics)
+            .filter((name) => !canonicalMetricNames.includes(name))
+            .sort()
+        ];
+        const sharedProvenance = (
+          Object.keys(asObject(comparison.provenance)).length
+            ? asObject(comparison.provenance)
+            : asObject(record.provenance)
+        );
+
+        return `
+          <section class="section">
+            <h3>Dva samostatné textové řezy</h3>
+            <div class="prefix-pair">
+              <div class="column-card">
+                <strong>A · ${escapeHtml(labelA)}</strong>
+                <pre class="surprisal-source">${escapeHtml(textA)}</pre>
+              </div>
+              <div class="column-card">
+                <strong>B · ${escapeHtml(labelB)}</strong>
+                <pre class="surprisal-source">${escapeHtml(textB)}</pre>
+              </div>
+            </div>
+          </section>
+          <section class="section">
+            <h3>Uložené souhrnné rozdíly</h3>
+            <p class="record-preview">
+              Δ je definováno jako ${escapeHtml(
+                comparison.delta_definition ?? "B - A"
+              )}. Tabulka pouze přepisuje uložené souhrnné hodnoty;
+              jednotlivé tokenové řady A a B zůstávají oddělené.
+            </p>
+            <div class="table-scroll">
+              <table
+                class="surprisal-telemetry"
+                aria-label="Souhrnné metriky A, B a rozdíl B minus A"
+              >
+                <thead>
+                  <tr>
+                    <th scope="col">Metrika</th>
+                    <th scope="col">A</th>
+                    <th scope="col">B</th>
+                    <th scope="col">Δ B − A</th>
+                    <th scope="col">Jednotka</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${metricNames.map((metricName) => {
+                    const comparisonMetric = asObject(metrics[metricName]);
+                    return `
+                      <tr>
+                        <td>${escapeHtml(
+                          metricLabels[metricName] ?? metricName
+                        )}</td>
+                        <td>${escapeHtml(
+                          formatNumber(comparisonMetric.a, 4)
+                        )}</td>
+                        <td>${escapeHtml(
+                          formatNumber(comparisonMetric.b, 4)
+                        )}</td>
+                        <td>${escapeHtml(
+                          formatNumber(
+                            comparisonMetric.delta_b_minus_a,
+                            4
+                          )
+                        )}</td>
+                        <td>${escapeHtml(
+                          comparisonMetric.unit ?? "—"
+                        )}</td>
+                      </tr>
+                    `;
+                  }).join("") || `
+                    <tr>
+                      <td colspan="5">Záznam neobsahuje souhrnné párové metriky.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section class="section">
+            <h3>Společné podmínky záznamu</h3>
+            <div class="metrics surprisal-provenance">
+              ${metric("Model", recordModel(record))}
+              ${metric(
+                "Definice rozdílu",
+                comparison.delta_definition ?? "B - A"
+              )}
+              ${metric(
+                "Metoda",
+                formatDescriptor(comparison.method)
+              )}
+              ${metric(
+                "Společná provenience",
+                formatDescriptor(sharedProvenance)
+              )}
+            </div>
+          </section>
+        `;
+      };
+
+      const renderContextContrast = (record) => {
+        const payload = asObject(record.payload);
+        const response = asObject(payload.result || payload.response);
+        const inputs = asObject(response.inputs);
+        const score = asObject(response.target_score);
+        const root = asObject(response.root_field);
+        const persistence = asObject(response.persistence);
+        const persistenceSummary = asObject(persistence.summary);
+        const states = asArray(persistence.states);
+        const advantage = finite(
+          score.information_advantage_a_over_b_bits
+        );
+        const favored = score.favored_context === "a"
+          ? "A"
+          : score.favored_context === "b"
+            ? "B"
+            : "vyrovnané";
+        const halfLife = finite(
+          persistenceSummary.persistent_half_life_step
+        );
+        return `
+          <section class="section">
+            <h3>Dva prefixy a společná cesta</h3>
+            <div class="metrics">
+              ${metric("Prefix A", inputs.prefix_a ?? "—")}
+              ${metric("Prefix B", inputs.prefix_b ?? "—")}
+              ${metric("Přesné pokračování", inputs.continuation ?? "—")}
+              ${metric(
+                "Tokenů cíle",
+                response.tokenization?.continuation_token_count ?? "—"
+              )}
+            </div>
+          </section>
+          <section class="section">
+            <h3>Souhrn kontrastu</h3>
+            <div class="metrics">
+              ${metric(
+                "Informační výhoda A − B",
+                advantage === null
+                  ? "—"
+                  : `${advantage > 0 ? "+" : ""}${formatNumber(
+                      advantage,
+                      4
+                    )} bit`
+              )}
+              ${metric("Zvýhodněný kontext", favored)}
+              ${metric(
+                "P(y|A) / P(y|B)",
+                score.probability_ratio_status === "underflow"
+                  ? "≈ 0×"
+                  : finite(score.probability_ratio_a_over_b) === null
+                  ? score.probability_ratio_status ?? "—"
+                  : formatRatio(score.probability_ratio_a_over_b)
+              )}
+              ${metric(
+                "Kořenová JS",
+                formatBits(root.js_divergence_bits)
+              )}
+              ${metric(
+                "Kořenová total variation",
+                formatNumber(root.total_variation, 4)
+              )}
+              ${metric(
+                "Trvalý pokles pod polovinu",
+                halfLife === null ? "nepozorován" : `${halfLife} token`
+              )}
+            </div>
+          </section>
+          <section class="section">
+            <h3>Doznívání po společné cestě</h3>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Krok</th>
+                    <th>Spotřebovaný text</th>
+                    <th>JS</th>
+                    <th>Kumulativní A − B</th>
+                    <th>Další token</th>
+                    <th>P pod A / B</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${states.map((stateValue) => {
+                    const point = asObject(stateValue);
+                    const token = asObject(point.next_token);
+                    return `
+                      <tr>
+                        <td>${escapeHtml(
+                          point.consumed_continuation_token_count ?? "—"
+                        )}</td>
+                          <td class="experiment-text">${escapeHtml(point.consumed_text || "∅")}</td>
+                        <td>${escapeHtml(
+                          formatBits(point.js_divergence_bits)
+                        )}</td>
+                        <td>${escapeHtml(
+                          formatBits(
+                            point
+                              .cumulative_information_advantage_a_over_b_bits
+                          )
+                        )}</td>
+                        <td>${escapeHtml(
+                          token.display ??
+                          token.text ??
+                          (point.next_token ? "—" : "konec cíle")
+                        )}</td>
+                        <td>${point.next_token
+                          ? `${escapeHtml(formatPercent(token.probability_a))} / ${
+                              escapeHtml(formatPercent(token.probability_b))
+                            }`
+                          : "—"}</td>
+                      </tr>
+                    `;
+                  }).join("") || `
+                    <tr><td colspan="6">Záznam neobsahuje trajektorii.</td></tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section class="section">
+            <h3>Podmínky měření</h3>
+            <div class="metrics">
+              ${metric("Model", recordModel(record))}
+              ${metric("Teplota", formatNumber(response.temperature, 2))}
+              ${metric("Režim", response.execution?.mode ?? "—")}
+              ${metric("Forwardy", response.execution?.forward_passes ?? "—")}
+              ${metric(
+                "Zarovnání",
+                response.definition?.persistence_alignment ?? "—"
+              )}
+              ${metric(
+                "Latence",
+                finite(response.latency_ms) === null
+                  ? "—"
+                  : `${formatNumber(response.latency_ms, 1)} ms`
+              )}
+            </div>
+          </section>
+        `;
+      };
+
+      const renderDetail = (record) => {
+        const renderer = record.kind === "model_comparison"
+          ? (entry) => {
+            const summary = asObject(entry.payload?.summary);
+            const steering = Boolean(entry.payload?.request?.steering);
+            const agreement = steering
+              ? metric("Shoda směru steeringového účinku", `${summary.steering_direction_agreement_count ?? 0} / ${summary.steering_direction_eligible_count ?? 0}`)
+              : metric("Shoda směru kontextového účinku", `${summary.context_direction_agreement_count ?? 0} / ${summary.context_direction_eligible_count ?? 0}`);
+            const description = steering
+              ? "Steering celých stejných pokračování s větvemi −α / 0 / +α a kontrolními směry."
+              : "Součet surprisalu kanonické tokenové cesty.";
+            return `<section class="section"><h3>Porovnání modelů</h3><div class="metrics">${metric("Spárovaná zadání", `${summary.paired_items ?? 0} / ${summary.requested_items ?? 0}`)}${agreement}</div><p><a href="/porovnani-modelu?experiment=${encodeURIComponent(entry.id)}">Otevřít uložené porovnání</a></p><p>${description} Přesný protokol a oba modely jsou zachované v JSON.</p></section>`;
+          }
+          : record.kind === "distribution_comparison"
+          ? renderComparison
+          : record.kind === "garden_snapshot"
+            ? renderGarden
+            : record.kind === "lens_trajectory"
+              ? renderLens
+              : record.kind === "text_surprisal"
+                ? renderTextSurprisal
+                : record.kind === "text_surprisal_comparison"
+                  ? renderTextSurprisalComparison
+                  : record.kind === "context_contrast"
+                    ? renderContextContrast
+                    : () => "";
+        let rendered;
+        try {
+          rendered = renderer(record);
+        } catch (error) {
+          rendered = `
+            <section class="section capture-warning">
+              <strong>Strukturovaný náhled nelze sestavit.</strong>
+              Uložená data zůstávají beze změny v úplném JSON níže:
+              ${escapeHtml(error.message)}
+            </section>
+          `;
+        }
+        detail.innerHTML = `
+          ${recordHeader(record)}
+          ${rendered}
+          <details class="raw-details">
+            <summary>Zobrazit úplný uložený JSON</summary>
+            <pre>${escapeHtml(JSON.stringify(record, null, 2))}</pre>
+          </details>
+        `;
+      };
+
+      const loadRecord = async (id) => {
+        selectedId = id;
+        renderList();
+        detail.innerHTML = '<div class="empty"><p>Načítám neměnný záznam…</p></div>';
+        try {
+          const data = await fetchJson(`/api/experiments/${encodeURIComponent(id)}`);
+          const record = data.record || data;
+          if (selectedId !== id) return;
+          renderDetail(record);
+          window.history.replaceState(null, "", `/archiv?id=${encodeURIComponent(id)}${
+            kindFilter.value ? `&kind=${encodeURIComponent(kindFilter.value)}` : ""
+          }`);
+        } catch (error) {
+          detail.innerHTML = `<div class="empty"><p>${escapeHtml(error.message)}</p></div>`;
+        }
+      };
+
+      const loadRecords = async ({preserveSelection = false} = {}) => {
+        loading = true;
+        renderList();
+        const query = new URLSearchParams({
+          limit: String(PAGE_SIZE),
+          offset: String(offset)
+        });
+        if (kindFilter.value) query.set("kind", kindFilter.value);
+        try {
+          const data = await fetchJson(`/api/experiments?${query}`);
+          records = data.records || data.items || [];
+          total = Number(data.total ?? records.length);
+          renderList();
+          if (!preserveSelection) {
+            const requested = new URLSearchParams(window.location.search).get("id");
+            const target = requested || records[0]?.id || null;
+            if (target) loadRecord(target);
+            else {
+              selectedId = null;
+              detail.innerHTML = '<div class="empty"><p>Archiv je zatím prázdný.</p></div>';
+            }
+          } else if (!records.length) {
+            selectedId = null;
+            detail.innerHTML = '<div class="empty"><p>Archiv je zatím prázdný.</p></div>';
+          }
+        } catch (error) {
+          records = [];
+          total = 0;
+          storageState.textContent = "Archiv není dostupný";
+          setMessage(error.message || "Archiv se nepodařilo načíst.", true);
+          renderList();
+        } finally {
+          loading = false;
+          renderList();
+        }
+      };
+
+      const deleteRecord = async (id) => {
+        if (!window.confirm("Opravdu tento uložený experiment trvale smazat?")) return;
+        try {
+          await fetchJson(`/api/experiments/${encodeURIComponent(id)}`, {
+            method: "DELETE"
+          });
+          setMessage("Záznam byl z lokálního archivu odstraněn.");
+          selectedId = null;
+          if (offset >= Math.max(0, total - 1)) {
+            offset = Math.max(0, offset - PAGE_SIZE);
+          }
+          await loadRecords();
+        } catch (error) {
+          setMessage(error.message || "Záznam se nepodařilo smazat.", true);
+        }
+      };
+
+      const importBatches = (data) => {
+        const exported = (
+          data &&
+          typeof data === "object" &&
+          !Array.isArray(data) &&
+          data.format === "apertus.experiment-export" &&
+          Array.isArray(data.records)
+        );
+        const genericWrapper = (
+          data &&
+          typeof data === "object" &&
+          !Array.isArray(data) &&
+          data.format === undefined &&
+          data.schema === undefined &&
+          Array.isArray(data.records)
+        );
+        const records = exported || genericWrapper
+          ? data.records
+          : Array.isArray(data)
+            ? data
+            : null;
+        if (!records) {
+          const bytes = jsonByteLength(data);
+          if (bytes > MAX_IMPORT_BATCH_BYTES) {
+            throw new Error(
+              "Jeden importovaný záznam překračuje bezpečný limit 24 MB."
+            );
+          }
+          return [data];
+        }
+
+        const wrap = (batch) => exported
+          ? {
+              format: "apertus.experiment-export",
+              schema_version: data.schema_version,
+              records: batch
+            }
+          : {records: batch};
+        if (!records.length) return [wrap([])];
+
+        const batches = [];
+        let current = [];
+        const wrapperBytes = jsonByteLength(wrap([]));
+        let currentBytes = wrapperBytes;
+        records.forEach((record) => {
+          const recordBytes = jsonByteLength(record);
+          const candidateBytes = currentBytes + recordBytes + (
+            current.length ? 1 : 0
+          );
+          if (candidateBytes <= MAX_IMPORT_BATCH_BYTES) {
+            current.push(record);
+            currentBytes = candidateBytes;
+            return;
+          }
+          if (!current.length) {
+            throw new Error(
+              "Jeden importovaný záznam překračuje bezpečný limit 24 MB."
+            );
+          }
+          batches.push(wrap(current));
+          current = [record];
+          const singleBytes = wrapperBytes + recordBytes;
+          if (singleBytes > MAX_IMPORT_BATCH_BYTES) {
+            throw new Error(
+              "Jeden importovaný záznam překračuje bezpečný limit 24 MB."
+            );
+          }
+          currentBytes = singleBytes;
+        });
+        if (current.length) batches.push(wrap(current));
+        return batches;
+      };
+
+      const importArchive = async (file) => {
+        if (!file) return;
+        const totals = {
+          imported: 0,
+          existing: 0,
+          conflicts: 0,
+          rejected: 0
+        };
+        let completedBatches = 0;
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          const batches = importBatches(data);
+          for (const [index, batch] of batches.entries()) {
+            setMessage(
+              `Importuji a kontroluji dávku ${index + 1} z ${batches.length}…`
+            );
+            const result = await fetchJson("/api/experiments/import", {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify(batch)
+            });
+            totals.imported += Number(result.imported ?? result.created ?? 0);
+            totals.existing += Number(
+              result.existing ?? result.duplicates ?? 0
+            );
+            totals.conflicts += Number(result.conflicts ?? 0);
+            totals.rejected += Number(
+              result.rejected?.length ?? result.rejected ?? 0
+            );
+            completedBatches += 1;
+          }
+          setMessage(
+            `Import: ${totals.imported} nových, ${
+              totals.existing
+            } již přítomných, ${totals.conflicts} konfliktů UUID a ${
+              totals.rejected
+            } odmítnutých.`,
+            totals.conflicts > 0 || totals.rejected > 0
+          );
+          offset = 0;
+          await loadRecords();
+        } catch (error) {
+          const partial = completedBatches
+            ? ` ${completedBatches} dávek už server bezpečně zpracoval; opakování je idempotentní.`
+            : "";
+          setMessage(
+            `${error.message || "JSON se nepodařilo importovat."}${partial}`,
+            true
+          );
+          if (completedBatches) await loadRecords();
+        } finally {
+          importFile.value = "";
+        }
+      };
+
+      recordList.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-record-id]");
+        if (button) loadRecord(button.dataset.recordId);
+      });
+
+      detail.addEventListener("click", (event) => {
+        const exportLink = event.target.closest("[data-export-record]");
+        if (exportLink && !event.defaultPrevented) {
+          announceArchiveExport(exportLink.dataset.exportFilename);
+        }
+        const button = event.target.closest("[data-delete-record]");
+        if (button) deleteRecord(button.dataset.deleteRecord);
+      });
+
+      kindFilter.addEventListener("change", () => {
+        offset = 0;
+        selectedId = null;
+        updateExportLinks();
+        loadRecords();
+      });
+
+      previousPage.addEventListener("click", () => {
+        offset = Math.max(0, offset - PAGE_SIZE);
+        loadRecords();
+      });
+
+      nextPage.addEventListener("click", () => {
+        offset += PAGE_SIZE;
+        loadRecords();
+      });
+
+      exportJson.addEventListener("click", (event) => {
+        if (event.defaultPrevented) return;
+        announceArchiveExport("apertus-experiments.json");
+      });
+
+      exportCsv.addEventListener("click", (event) => {
+        if (event.defaultPrevented) return;
+        announceArchiveExport("apertus-experiments.csv");
+      });
+
+      importFile.addEventListener("change", () => importArchive(importFile.files[0]));
+
+      const initialKind = new URLSearchParams(window.location.search).get("kind");
+      if ([...kindFilter.options].some((option) => option.value === initialKind)) {
+        kindFilter.value = initialKind;
+      }
+      updateExportLinks();
+      renderList();
+      loadStorageState();
+      loadRecords();
+    })();
+  </script>
+</body>
+</html>

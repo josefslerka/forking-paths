@@ -1,0 +1,59 @@
+{
+  "name": "apertus-workbench-desktop",
+  "version": "0.1.0",
+  "description": "Local macOS desktop shell for the Apertus research workbench",
+  "author": "Josef Šlerka",
+  "license": "Apache-2.0",
+  "engines": {"node": ">=22.12.0"},
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.mjs",
+    "pack": "electron-builder --dir --mac --arm64 --publish never",
+    "dist": "electron-builder --mac dir zip --arm64 --publish never"
+  },
+  "build": {
+    "appId": "cz.cuni.apertus.workbench",
+    "productName": "Apertus Workbench",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.mjs",
+      "preload.cjs",
+      "renderer.mjs",
+      "shell.html",
+      "shell.css",
+      "lib/**/*.mjs",
+      "assets/icon.png"
+    ],
+    "extraResources": [
+      {"from": "../../../LICENSE", "to": "WORKBENCH-LICENSE.txt"},
+      {"from": "../../../NOTICE", "to": "WORKBENCH-NOTICE.txt"},
+      {"from": "../../../THIRD_PARTY_NOTICES.md", "to": "WORKBENCH-THIRD-PARTY-NOTICES.md"}
+    ],
+    "mac": {
+      "category": "public.app-category.education",
+      "icon": "assets/icon.png",
+      "artifactName": "Apertus-Workbench-${version}-${arch}.${ext}",
+      "target": [
+        "dir",
+        "zip"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.1"
+  },
+  "overrides": {
+    "@electron/universal": {"minimatch": "11.0.4"},
+    "app-builder-lib": {"minimatch": "11.0.4"}
+  },
+  "allowScripts": {
+    "electron@45.2.3": true
+  }
+}

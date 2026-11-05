@@ -1,0 +1,40 @@
+# Copy to models.toml, edit paths, then run:
+# apertus-workbench models list --registry models.toml
+# Paths are relative to THIS file, not to the terminal's working directory.
+schema_version = 1
+backend = "mlx"
+default_model = "bf16"
+enable_research_artifacts = false
+
+[models.bf16]
+label = "Apertus 8B · BF16"
+adapter = "apertus"
+# Omit path to use the operating system's user model-cache directory.
+# path = "/absolute/path/to/your/apertus-bf16"
+repository = "swiss-ai/Apertus-8B-2509"
+revision = "3162c99675aa588097cecd4a24b9aa1f712af477"
+
+[models."8bit"]
+label = "Apertus 8B · 8bit"
+adapter = "apertus"
+convert_from = "bf16"
+bits = 8
+
+[models.hybrid]
+label = "Apertus 8B · Hybrid 8bit/BF16"
+kind = "apertus-hybrid"
+adapter = "apertus"
+
+# A new compatible checkpoint needs only a new table. No Python edits:
+# [models.my-model]
+# label = "My local causal language model"
+# path = "models/my-model"
+# adapter = "causal-lm"
+#
+# Optional download metadata (use a full immutable commit hash):
+# repository = "publisher/model-name"
+# revision = "0123456789012345678901234567890123456789"
+#
+# For reviewed full-attention Llama checkpoints on MLX, you may instead use
+# adapter = "llama-full-attention" to enable native state readout and steering.
+# The runtime checks the model family, layer count, native hooks and readout.

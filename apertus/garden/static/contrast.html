@@ -1,0 +1,2037 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Kontrast dvou přesných prefixů: informační účinek, vzdálenost celých distribucí a doznívání kontextu v modelu Apertus."
+  >
+  <title>Kontrast kontextů · Apertus</title>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--pg-sans);
+      line-height: 1.5;
+    }
+    body.is-computing { overflow: hidden; }
+    button, input, textarea, select { font: inherit; }
+    button { color: inherit; }
+    :focus-visible {
+      outline: 3px solid rgba(116, 224, 166, 0.52);
+      outline-offset: 3px;
+    }
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+    .skip-link {
+      position: fixed;
+      z-index: 150;
+      top: 8px;
+      left: 10px;
+      padding: 8px 11px;
+      border-radius: 7px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-weight: 750;
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .shell {
+      width: min(1420px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 80px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 34px;
+    }
+    .topbar a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+    #model-state {
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    #model-state[data-state="ready"] { color: var(--leaf-bright); }
+    #model-state[data-state="error"] { color: var(--danger); }
+    .hero { margin-bottom: 26px; }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--leaf);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      margin: 0;
+      color: #f1f7f2;
+      font-family: var(--pg-serif);
+      font-size: clamp(3rem, 6vw, 5.8rem);
+      font-weight: 500;
+      letter-spacing: -0.055em;
+      line-height: 0.96;
+    }
+    .lede {
+      max-width: 760px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+    .methodology-drawer {
+      margin: 0 0 26px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .methodology-drawer summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 13px 2px;
+      cursor: pointer;
+      list-style: none;
+    }
+    .methodology-drawer summary::-webkit-details-marker { display: none; }
+    .methodology-drawer summary span:first-child {
+      color: #d8e5dc;
+      font-size: 0.72rem;
+      font-weight: 750;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+    }
+    .methodology-drawer summary span:last-child {
+      color: #7d9187;
+      font-size: 0.72rem;
+    }
+    .method-copy {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      padding: 4px 2px 20px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .method-copy p { margin: 0; }
+    .method-copy strong { color: var(--text); }
+    .analysis-form,
+    .panel,
+    .metric-card,
+    .field-card,
+    .chart-card,
+    .table-card,
+    .save-panel,
+    .export-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(10, 16, 12, 0.78);
+    }
+    .analysis-form { padding: 24px; }
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    textarea,
+    input,
+    select {
+      width: 100%;
+      border: 1px solid #294035;
+      border-radius: 9px;
+      background: #09110c;
+      color: var(--text);
+    }
+    textarea {
+      min-height: 94px;
+      padding: 13px 14px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+    #continuation { min-height: 78px; }
+    input, select {
+      min-height: 42px;
+      padding: 9px 12px;
+    }
+    textarea:disabled,
+    input:disabled,
+    select:disabled,
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.52;
+    }
+    .continuation-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 160px 190px;
+      gap: 16px;
+      align-items: end;
+      margin-top: 16px;
+    }
+    .primary-button,
+    .secondary-button {
+      min-height: 44px;
+      padding: 10px 15px;
+      border-radius: 9px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    .primary-button {
+      border: 1px solid #65d498;
+      background: var(--leaf);
+      color: var(--ink);
+    }
+    .primary-button:hover:not(:disabled) { background: var(--leaf-bright); }
+    .secondary-button {
+      border: 1px solid #315040;
+      background: #0b1510;
+      color: #d8e5dc;
+    }
+    .secondary-button:hover:not(:disabled) {
+      border-color: #4f7b63;
+      background: #102018;
+    }
+    .form-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 13px;
+      color: #7f9588;
+      font-size: 0.75rem;
+    }
+    .message {
+      min-height: 24px;
+      margin: 12px 2px 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .message.error { color: var(--danger); }
+    .stale-notice {
+      margin: 12px 2px 0;
+      padding: 10px 14px;
+      border-left: 3px solid var(--warning);
+      border-radius: 0 8px 8px 0;
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 0.84rem;
+    }
+    .stale-notice[hidden] { display: none; }
+    .results {
+      display: grid;
+      gap: 28px;
+      margin-top: 34px;
+    }
+    .results[hidden] { display: none; }
+    .results[data-stale="true"] { opacity: 0.62; }
+    .results-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 20px;
+    }
+    .results-head h2 {
+      max-width: 980px;
+      margin: 0;
+      font-family: var(--pg-serif);
+      font-size: clamp(2rem, 4vw, 3.8rem);
+      font-weight: 500;
+      letter-spacing: -0.035em;
+      line-height: 1.04;
+    }
+    .result-context {
+      max-width: 920px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .result-badge {
+      flex: 0 0 auto;
+      padding: 5px 9px;
+      border: 1px solid #315040;
+      border-radius: 999px;
+      color: var(--leaf-bright);
+      font-size: 0.7rem;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .metric-card { padding: 17px; }
+    .metric-card > span:first-child {
+      display: block;
+      color: #81968a;
+      font-size: 0.66rem;
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .metric-card strong {
+      display: block;
+      margin: 8px 0 4px;
+      color: #eef6f0;
+      font-family: var(--pg-mono);
+      font-size: clamp(1.15rem, 2vw, 1.7rem);
+      font-weight: 520;
+      line-height: 1.15;
+    }
+    .metric-card > span:last-child {
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.42;
+    }
+    .interpretation {
+      padding: 15px 18px;
+      border-left: 3px solid var(--leaf);
+      background: rgba(116, 224, 166, 0.055);
+      color: #b7c9bd;
+      font-size: 0.88rem;
+    }
+    .interpretation strong { color: #eef6f0; }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 13px;
+    }
+    .section-head h3 {
+      margin: 0;
+      color: #e6f0e9;
+      font-family: var(--pg-serif);
+      font-size: 1.75rem;
+      font-weight: 500;
+    }
+    .section-head p {
+      max-width: 720px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+    .field-grid,
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .field-card,
+    .chart-card,
+    .table-card { padding: 18px; }
+    .field-card h4,
+    .chart-card h4 {
+      margin: 0;
+      color: #dce9e0;
+      font-size: 0.84rem;
+    }
+    .field-prefix {
+      min-height: 42px;
+      margin: 5px 0 14px;
+      color: #8fa497;
+      font-family: var(--pg-serif);
+      font-size: 1.08rem;
+    }
+    .token-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .token-row {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 7px 0;
+      border-top: 1px solid rgba(36, 51, 43, 0.65);
+    }
+    .token-row:first-child { border-top: 0; }
+    .token-rank {
+      color: #667b6f;
+      font-family: var(--pg-mono);
+      font-size: 0.68rem;
+    }
+    .token-name {
+      overflow: hidden;
+      color: #e7f0ea;
+      font-family: var(--pg-mono);
+      font-size: 0.8rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .token-probability {
+      color: var(--leaf-bright);
+      font-family: var(--pg-mono);
+      font-size: 0.76rem;
+    }
+    .chart-copy {
+      margin: 5px 0 10px;
+      color: #7f9388;
+      font-size: 0.73rem;
+    }
+    .chart-host {
+      min-height: 230px;
+      overflow: hidden;
+      border-top: 1px solid var(--line-soft);
+    }
+    .chart-host svg {
+      display: block;
+      width: 100%;
+      height: 230px;
+      overflow: visible;
+    }
+    .chart-axis {
+      stroke: #31463a;
+      stroke-width: 1;
+    }
+    .chart-gridline {
+      stroke: #1c2922;
+      stroke-width: 1;
+    }
+    .chart-label {
+      fill: #73887c;
+      font-family: var(--pg-mono);
+      font-size: 10px;
+    }
+    .chart-line-a,
+    .chart-line-b,
+    .chart-line-main {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2.25;
+    }
+    .chart-line-a { stroke: var(--leaf); }
+    .chart-line-b { stroke: var(--gold); }
+    .chart-line-main { stroke: #9ac7ad; }
+    .chart-point { stroke: #07100a; stroke-width: 1.4; }
+    .chart-point-a { fill: var(--leaf); }
+    .chart-point-b { fill: var(--gold); }
+    .chart-point-main { fill: #9ac7ad; }
+    .chart-legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+    .legend-swatch {
+      display: inline-block;
+      width: 16px;
+      height: 2px;
+      margin: 0 6px 3px 0;
+      background: var(--leaf);
+    }
+    .legend-swatch.b { background: var(--gold); }
+    .table-scroll { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.76rem;
+    }
+    th, td {
+      padding: 10px 9px;
+      border-top: 1px solid var(--line-soft);
+      text-align: right;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    thead th {
+      border-top: 0;
+      color: #7f9588;
+      font-size: 0.64rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    th:first-child,
+    td:first-child,
+    th:nth-child(2),
+    td:nth-child(2) { text-align: left; }
+    td { color: #b8c8be; font-family: var(--pg-mono); }
+    .token-cell { color: #edf5ef; }
+    .positive { color: var(--leaf-bright); }
+    .negative { color: #e1bc77; }
+    .tokenization {
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .tokenization summary {
+      padding: 13px 0;
+      cursor: pointer;
+      color: #c7d7cc;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .tokenization-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      padding-bottom: 12px;
+    }
+    .tokenization-grid article {
+      min-width: 0;
+      padding: 13px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #08100b;
+    }
+    .tokenization-grid h4 {
+      margin: 0 0 8px;
+      color: #dce9e0;
+      font-size: 0.75rem;
+    }
+    .token-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .token-chip {
+      max-width: 100%;
+      padding: 4px 6px;
+      overflow: hidden;
+      border: 1px solid #26392e;
+      border-radius: 5px;
+      color: #a9bcb0;
+      font-family: var(--pg-mono);
+      font-size: 0.65rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .warning-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: #9db0a4;
+      font-size: 0.76rem;
+    }
+    .warning-list li::before {
+      content: "— ";
+      color: var(--gold);
+    }
+    .export-panel,
+    .save-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      padding: 18px;
+    }
+    .export-copy,
+    .save-copy { display: grid; gap: 4px; }
+    .export-copy strong,
+    .save-copy strong { color: #e7f0ea; }
+    .export-copy span,
+    .save-copy span {
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+    .export-actions,
+    .save-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .save-panel { grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr) auto; }
+    .archive-link {
+      align-self: center;
+      color: var(--leaf-bright);
+      font-size: 0.78rem;
+      text-decoration: none;
+    }
+    .compute-overlay {
+      position: fixed;
+      z-index: 140;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(3, 7, 5, 0.84);
+      backdrop-filter: blur(8px);
+    }
+    .compute-overlay[hidden] { display: none; }
+    .compute-status {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      width: min(720px, 100%);
+      padding: 20px;
+      border: 1px solid #315040;
+      border-radius: 12px;
+      background: #0a120d;
+    }
+    .compute-spinner {
+      width: 22px;
+      height: 22px;
+      border: 2px solid #30483a;
+      border-top-color: var(--leaf);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    .compute-copy { display: grid; gap: 3px; }
+    .compute-copy strong { color: #edf5ef; }
+    .compute-copy span { color: var(--muted); font-size: 0.78rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 980px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .continuation-row { grid-template-columns: minmax(0, 1fr) 140px; }
+      .continuation-row .primary-button { grid-column: 1 / -1; }
+      .method-copy { grid-template-columns: 1fr; }
+      .save-panel { grid-template-columns: 1fr; }
+      .save-actions { justify-content: flex-start; }
+    }
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 28px, 1420px); }
+      .input-grid,
+      .field-grid,
+      .chart-grid,
+      .tokenization-grid { grid-template-columns: 1fr; }
+      .continuation-row { grid-template-columns: 1fr; }
+      .continuation-row .primary-button { grid-column: auto; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .results-head,
+      .section-head,
+      .form-foot { align-items: start; flex-direction: column; }
+      .export-panel { grid-template-columns: 1fr; }
+      .export-actions { justify-content: flex-start; }
+      .compute-status { grid-template-columns: auto minmax(0, 1fr); }
+      .compute-status button { grid-column: 1 / -1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body data-workbench-page="contrast">
+  <a class="skip-link" href="#workspace">Přeskočit na obsah</a>
+
+  <div
+    id="compute-overlay"
+    class="compute-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="compute-title"
+    aria-describedby="compute-detail compute-note"
+    hidden
+  >
+    <div class="compute-status">
+      <span class="compute-spinner" aria-hidden="true"></span>
+      <span class="compute-copy">
+        <strong id="compute-title">Apertus porovnává dva kontexty</strong>
+        <span id="compute-detail" role="status" aria-live="polite">
+          Připravuji dva přesné forwardy…
+        </span>
+        <span id="compute-note">
+          Skrytí okna výpočet nezastaví; formulář zůstane zamčený.
+        </span>
+      </span>
+      <button id="hide-wait" class="secondary-button" type="button">
+        Skrýt čekání
+      </button>
+    </div>
+  </div>
+
+  <main id="workspace" class="shell">
+    <header class="topbar">
+      <a href="/">← Pravděpodobnostní zahrada</a>
+      <div id="model-state" data-state="loading" role="status">
+        <span id="model-state-text">Zjišťuji stav modelu…</span>
+      </div>
+    </header>
+
+    <header class="hero">
+      <p class="eyebrow">Apertus · vztah dvou polí</p>
+      <h1>Kontrast kontextů</h1>
+      <p class="lede">
+        Dva přesné prefixy, jedno společné pokračování. Sleduj, co se
+        zpřístupní, jak se přestaví celé pole dalších tokenů a jak dlouho si
+        společná cesta nese rozdíl předchozího kontextu.
+      </p>
+    </header>
+
+    <details class="methodology-drawer">
+      <summary>
+        <span>Co přesně se měří</span>
+        <span>rozbalit metodickou poznámku</span>
+      </summary>
+      <div class="method-copy">
+        <p>
+          <strong>Účinek na přesné pokračování</strong> je
+          log₂ P(y|A) − log₂ P(y|B). Kladná hodnota znamená, že přesný
+          tokenový řetězec y je pod A pravděpodobnější než pod B.
+        </p>
+        <p>
+          <strong>JS divergence</strong> porovnává celé distribuce dalšího
+          tokenu při T = 1. Je symetrická a leží mezi 0 a 1 bitem. Neříká,
+          který význam nebo token rozdíl způsobil.
+        </p>
+        <p>
+          <strong>Doznívání</strong> vzniká teacher forcingem týchž tokenů po
+          obou prefixech. Je popisem dvou podmíněných jazykových polí,
+          <strong>nikoli pravděpodobností faktu ani kauzálním
+          zásahem</strong> nebo úsudkem o pravdě.
+        </p>
+      </div>
+    </details>
+
+    <form id="contrast-form" class="analysis-form" novalidate>
+      <div class="input-grid">
+        <label for="prefix-a">
+          Prefix A
+          <textarea id="prefix-a" maxlength="4000" spellcheck="true">Hlavním městem České republiky je</textarea>
+        </label>
+        <label for="prefix-b">
+          Prefix B
+          <textarea id="prefix-b" maxlength="4000" spellcheck="true">Českou metropolí je</textarea>
+        </label>
+      </div>
+      <div class="continuation-row">
+        <label for="continuation">
+          Jedno přesné pokračování pro A i B
+          <textarea id="continuation" maxlength="4000" spellcheck="true"> Praha leží na řece Vltavě.</textarea>
+        </label>
+        <label for="top-k">
+          Kandidáti v kořeni
+          <select id="top-k">
+            <option value="5" selected>Top 5</option>
+            <option value="8">Top 8</option>
+            <option value="12">Top 12</option>
+          </select>
+        </label>
+        <button id="analyze" class="primary-button" type="submit" disabled>
+          Porovnat kontexty
+        </button>
+      </div>
+      <div class="form-foot">
+        <span id="control-reason">Čekám na model.</span>
+        <span>
+          Úvodní mezera pokračování patří k cíli; koncové mezery se oříznou ·
+          Ctrl/⌘ + Enter
+        </span>
+      </div>
+    </form>
+
+    <p id="message" class="message" role="status" aria-live="polite"></p>
+    <p id="stale-notice" class="stale-notice" role="status" hidden>
+      Výsledek neodpovídá současnému vstupu nebo modelovému běhu. Spusťte porovnání znovu.
+    </p>
+
+    <section
+      id="results"
+      class="results"
+      aria-labelledby="results-title"
+      aria-busy="false"
+      data-stale="false"
+      hidden
+    >
+      <header class="results-head">
+        <div>
+          <p class="eyebrow">Párový teacher-forced řez · T = 1</p>
+          <h2 id="results-title" tabindex="-1">Jedno pokračování, dva kontexty</h2>
+          <p id="result-context" class="result-context"></p>
+        </div>
+        <span id="result-badge" class="result-badge">aktuální</span>
+      </header>
+
+      <div class="summary-grid" aria-label="Souhrn kontrastu">
+        <article class="metric-card">
+          <span>Informační výhoda A − B</span>
+          <strong id="summary-advantage">—</strong>
+          <span id="summary-advantage-detail">Skóre celého přesného pokračování.</span>
+        </article>
+        <article class="metric-card">
+          <span>Poměr P(y|A) / P(y|B)</span>
+          <strong id="summary-ratio">—</strong>
+          <span id="summary-ratio-detail">Tentýž vztah v násobcích.</span>
+        </article>
+        <article class="metric-card">
+          <span>Kořenová JS divergence</span>
+          <strong id="summary-js">—</strong>
+          <span>Vzdálenost celých polí dalšího tokenu.</span>
+        </article>
+        <article class="metric-card">
+          <span>Trvalý pokles pod polovinu</span>
+          <strong id="summary-half-life">—</strong>
+          <span id="summary-half-life-detail">Deskriptivní práh v pozorované cestě.</span>
+        </article>
+      </div>
+
+      <p id="interpretation" class="interpretation"></p>
+
+      <section aria-labelledby="fields-title">
+        <div class="section-head">
+          <h3 id="fields-title">Pole před prvním tokenem cíle</h3>
+          <p>
+            Top-k je jen viditelný výřez. JS výše je vždy spočtená nad celým
+            slovníkem, včetně nezobrazeného ocasu.
+          </p>
+        </div>
+        <div class="field-grid">
+          <article class="field-card">
+            <h4>Kontext A</h4>
+            <p id="field-prefix-a" class="field-prefix"></p>
+            <ol id="field-a" class="token-list"></ol>
+          </article>
+          <article class="field-card">
+            <h4>Kontext B</h4>
+            <p id="field-prefix-b" class="field-prefix"></p>
+            <ol id="field-b" class="token-list"></ol>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="access-title">
+        <div class="section-head">
+          <h3 id="access-title">Kdy se cíl zpřístupňuje</h3>
+          <p>
+            Křivka sleduje pouze první token pokračování při postupném
+            přidávání tokenů prefixu. Nahoře znamená méně překvapení.
+          </p>
+        </div>
+        <article class="chart-card">
+          <h4 id="access-token-title">První token cíle</h4>
+          <p class="chart-copy">
+            Osa x: počet spotřebovaných textových tokenů prefixu. Osa y:
+            překvapení prvního cílového tokenu v bitech.
+          </p>
+          <div id="access-chart" class="chart-host"></div>
+          <div class="chart-legend">
+            <span><i class="legend-swatch"></i>Prefix A</span>
+            <span><i class="legend-swatch b"></i>Prefix B</span>
+          </div>
+        </article>
+      </section>
+
+      <section aria-labelledby="persistence-title">
+        <div class="section-head">
+          <h3 id="persistence-title">Jak rozdíl doznívá</h3>
+          <p>
+            Tytéž tokeny cíle se vnutí oběma cestám. Jeden graf sleduje celé
+            pole, druhý kumuluje výhodu přesného pokračování.
+          </p>
+        </div>
+        <div class="chart-grid">
+          <article class="chart-card">
+            <h4>Vzdálenost celých polí</h4>
+            <p class="chart-copy">
+              JS divergence po 0 až n spotřebovaných tokenech pokračování.
+            </p>
+            <div id="js-chart" class="chart-host"></div>
+          </article>
+          <article class="chart-card">
+            <h4>Kumulativní výhoda přesné cesty</h4>
+            <p class="chart-copy">
+              Kladná hodnota favorizuje A; záporná B. Není to vzdálenost
+              celých distribucí.
+            </p>
+            <div id="advantage-chart" class="chart-host"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="table-card" aria-labelledby="tokens-title">
+        <div class="section-head">
+          <h3 id="tokens-title">Token po tokenu</h3>
+          <p>
+            ΔI je log₂ p(token|A) − log₂ p(token|B). JS se měří ještě před
+            příchodem daného tokenu.
+          </p>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <caption class="visually-hidden">
+              Pravděpodobnosti cílových tokenů pod kontexty A a B
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Token</th>
+                <th scope="col">P pod A</th>
+                <th scope="col">P pod B</th>
+                <th scope="col">Rank A / B</th>
+                <th scope="col">ΔI A − B</th>
+                <th scope="col">Kumulativně</th>
+                <th scope="col">JS před tokenem</th>
+              </tr>
+            </thead>
+            <tbody id="token-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <details class="tokenization">
+        <summary id="tokenization-summary">Přesná tokenizace a omezení měření</summary>
+        <div class="tokenization-grid">
+          <article>
+            <h4>Prefix A</h4>
+            <ol id="tokens-a" class="token-chips"></ol>
+          </article>
+          <article>
+            <h4>Prefix B</h4>
+            <ol id="tokens-b" class="token-chips"></ol>
+          </article>
+          <article>
+            <h4>Společné pokračování</h4>
+            <ol id="tokens-target" class="token-chips"></ol>
+          </article>
+        </div>
+        <ul id="warning-list" class="warning-list"></ul>
+      </details>
+
+      <section class="export-panel" aria-labelledby="export-title">
+        <div class="export-copy">
+          <strong id="export-title">Export měření</strong>
+          <span>
+            JSON zachová úplnou odpověď serveru. CSV rozepíše souhrn,
+            zpřístupňování, doznívání i viditelný kořenový top-k.
+          </span>
+        </div>
+        <div class="export-actions">
+          <button id="export-json" class="secondary-button" type="button">
+            Export JSON
+          </button>
+          <button id="export-csv" class="secondary-button" type="button">
+            Export CSV
+          </button>
+        </div>
+      </section>
+
+      <section class="save-panel" aria-labelledby="save-title">
+        <div class="save-copy">
+          <strong id="save-title">Uložit experiment</strong>
+          <span>Neměnný záznam se uloží do lokálního SQLite archivu.</span>
+        </div>
+        <label for="experiment-note">
+          Poznámka
+          <input
+            id="experiment-note"
+            type="text"
+            maxlength="1000"
+            placeholder="Například: stejná úloha, jiný syntaktický rámec"
+          >
+        </label>
+        <div class="save-actions">
+          <button id="save-experiment" class="secondary-button" type="button">
+            Uložit experiment
+          </button>
+          <a class="archive-link" href="/archiv?kind=context_contrast">
+            Otevřít archiv
+          </a>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const ANALYSIS_TIMEOUT_MS = 600_000;
+      const HEALTH_TIMEOUT_MS = 12_000;
+      const SAVE_TIMEOUT_MS = 20_000;
+      const SVG_NS = "http://www.w3.org/2000/svg";
+
+      const form = document.querySelector("#contrast-form");
+      const prefixA = document.querySelector("#prefix-a");
+      const prefixB = document.querySelector("#prefix-b");
+      const continuation = document.querySelector("#continuation");
+      const topK = document.querySelector("#top-k");
+      const analyzeButton = document.querySelector("#analyze");
+      const controlReason = document.querySelector("#control-reason");
+      const modelState = document.querySelector("#model-state");
+      const modelStateText = document.querySelector("#model-state-text");
+      const message = document.querySelector("#message");
+      const staleNotice = document.querySelector("#stale-notice");
+      const overlay = document.querySelector("#compute-overlay");
+      const computeDetail = document.querySelector("#compute-detail");
+      const hideWaitButton = document.querySelector("#hide-wait");
+      const results = document.querySelector("#results");
+      const resultsTitle = document.querySelector("#results-title");
+      const resultContext = document.querySelector("#result-context");
+      const resultBadge = document.querySelector("#result-badge");
+      const summaryAdvantage = document.querySelector("#summary-advantage");
+      const summaryAdvantageDetail = document.querySelector(
+        "#summary-advantage-detail"
+      );
+      const summaryRatio = document.querySelector("#summary-ratio");
+      const summaryRatioDetail = document.querySelector(
+        "#summary-ratio-detail"
+      );
+      const summaryJs = document.querySelector("#summary-js");
+      const summaryHalfLife = document.querySelector("#summary-half-life");
+      const summaryHalfLifeDetail = document.querySelector(
+        "#summary-half-life-detail"
+      );
+      const interpretation = document.querySelector("#interpretation");
+      const fieldPrefixA = document.querySelector("#field-prefix-a");
+      const fieldPrefixB = document.querySelector("#field-prefix-b");
+      const fieldA = document.querySelector("#field-a");
+      const fieldB = document.querySelector("#field-b");
+      const accessTokenTitle = document.querySelector("#access-token-title");
+      const accessChart = document.querySelector("#access-chart");
+      const jsChart = document.querySelector("#js-chart");
+      const advantageChart = document.querySelector("#advantage-chart");
+      const tokenTableBody = document.querySelector("#token-table-body");
+      const tokenizationSummary = document.querySelector(
+        "#tokenization-summary"
+      );
+      const tokensA = document.querySelector("#tokens-a");
+      const tokensB = document.querySelector("#tokens-b");
+      const tokensTarget = document.querySelector("#tokens-target");
+      const warningList = document.querySelector("#warning-list");
+      const exportJsonButton = document.querySelector("#export-json");
+      const exportCsvButton = document.querySelector("#export-csv");
+      const experimentNote = document.querySelector("#experiment-note");
+      const saveExperimentButton = document.querySelector("#save-experiment");
+
+      const state = {
+        health: null,
+        healthAvailable: false,
+        busy: false,
+        saveBusy: false,
+        controller: null,
+        pollTimer: null,
+        progressTimer: null,
+        overlayReturnFocus: null,
+        result: null,
+        request: null,
+        signature: null,
+        capturedAt: null,
+        recordId: null,
+        savedRecordId: null
+      };
+
+      const progressMessages = [
+        "Tokenizuji oba prefixy a ověřuji společnou hranici cíle…",
+        "Počítám úplnou distribuci po prefixu A…",
+        "Počítám úplnou distribuci po prefixu B…",
+        "Měřím informační výhodu, JS divergence a doznívání…"
+      ];
+
+      const asArray = (value) => Array.isArray(value) ? value : [];
+      const finite = (value, fallback = null) => {
+        if (value === null || value === undefined || value === "") {
+          return fallback;
+        }
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      };
+      const formatNumber = (value, digits = 2) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        return new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: digits
+        }).format(number);
+      };
+      const formatInteger = (value) => formatNumber(value, 0);
+      const formatRatio = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        if (number > 0 && (number < 0.0001 || number >= 1_000_000)) {
+          const scientific = new Intl.NumberFormat(
+            window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ",
+            {notation: "scientific", maximumSignificantDigits: 3}
+          ).format(number);
+          return `${scientific}×`;
+        }
+        return `${formatNumber(number, number < 0.01 ? 4 : 2)}×`;
+      };
+      const formatSignedBits = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const digits = Math.abs(number) > 0 && Math.abs(number) < 0.01 ? 4 : 2;
+        return `${number > 0 ? "+" : ""}${formatNumber(number, digits)} bit`;
+      };
+      const formatBits = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const digits = number > 0 && number < 0.01 ? 4 : 2;
+        return `${formatNumber(number, digits)} bit`;
+      };
+      const formatPercent = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const percentage = number * 100;
+        const digits = percentage > 0 && percentage < 0.01 ? 4 : 2;
+        return `${formatNumber(percentage, digits)} %`;
+      };
+      const visibleToken = (value) => {
+        const token = String(value ?? "");
+        if (!token) return "∅";
+        return token
+          .replaceAll(" ", "␠")
+          .replaceAll("\n", "↵")
+          .replaceAll("\t", "⇥");
+      };
+      const tokenLabel = (token) => (
+        token?.display ||
+        visibleToken(token?.text ?? token?.piece ?? token?.token ?? "")
+      );
+      const identity = (health = state.health) => ({
+        modelId: health?.active_model?.id ?? null,
+        modelGeneration: health?.model_generation ?? null,
+        serverInstanceId: health?.server_instance_id ?? null
+      });
+      const normalizedInput = () => ({
+        prefixA: prefixA.value.trimEnd(),
+        prefixB: prefixB.value.trimEnd(),
+        continuation: continuation.value.trimEnd(),
+        topK: Number(topK.value)
+      });
+      const currentSignature = () => {
+        const current = identity();
+        return JSON.stringify({
+          ...normalizedInput(),
+          model_id: current.modelId,
+          model_generation: current.modelGeneration,
+          server_instance_id: current.serverInstanceId
+        });
+      };
+      const resultIsStale = () => Boolean(
+        state.result && state.signature !== currentSignature()
+      );
+      const setMessage = (text = "", isError = false) => {
+        message.textContent = text;
+        message.classList.toggle("error", isError);
+        message.setAttribute("role", isError ? "alert" : "status");
+      };
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+      const validation = () => {
+        const input = normalizedInput();
+        let reason = "";
+        if (!state.healthAvailable) {
+          reason = "Server není dostupný.";
+        } else if (state.health?.status !== "ready") {
+          reason = state.health?.status === "error"
+            ? "Model se nepodařilo načíst."
+            : "Čekám na připravený model.";
+        } else if (!input.prefixA.trim()) {
+          reason = "Prefix A musí být neprázdný.";
+        } else if (!input.prefixB.trim()) {
+          reason = "Prefix B musí být neprázdný.";
+        } else if (!input.continuation.trim()) {
+          reason = "Pokračování musí být neprázdné.";
+        } else if (
+          input.prefixA.length > 4000 ||
+          input.prefixB.length > 4000 ||
+          input.continuation.length > 4000
+        ) {
+          reason = "Každé textové pole může mít nejvýše 4 000 znaků.";
+        } else if (![5, 8, 12].includes(input.topK)) {
+          reason = "Počet kandidátů musí být 5, 8 nebo 12.";
+        }
+        return {valid: !reason, reason, ...input, identity: identity()};
+      };
+      const workbenchState = () => {
+        const current = identity();
+        let status = "Čekám na model";
+        let statusKind = "running";
+        if (!state.healthAvailable) {
+          status = "Server není dostupný";
+          statusKind = "error";
+        } else if (state.busy) {
+          status = "Porovnávám dva kontexty";
+          statusKind = "running";
+        } else if (state.saveBusy) {
+          status = "Ukládám experiment";
+          statusKind = "running";
+        } else if (state.result && resultIsStale()) {
+          status = "Výsledek je zastaralý";
+          statusKind = "stale";
+        } else if (state.result) {
+          status = "Kontrast je připraven";
+          statusKind = "ready";
+        } else if (state.health?.status === "ready") {
+          status = "Připraveno k měření";
+          statusKind = "ready";
+        }
+        return {
+          model: (
+            state.health?.active_model?.label ??
+            current.modelId ??
+            "Apertus"
+          ),
+          run: current.modelGeneration === null
+            ? "lokální"
+            : `generace ${current.modelGeneration}`,
+          prompt: normalizedInput().prefixA,
+          status,
+          statusKind
+        };
+      };
+      const dispatchWorkbenchState = () => window.dispatchEvent(
+        new CustomEvent("probability-garden:workbench-state", {
+          detail: {context: workbenchState()}
+        })
+      );
+      const syncControls = () => {
+        const check = validation();
+        const stale = resultIsStale();
+        for (const control of [prefixA, prefixB, continuation, topK]) {
+          control.disabled = state.busy;
+        }
+        analyzeButton.disabled = state.busy || !check.valid;
+        analyzeButton.textContent = state.busy
+          ? "Porovnávám…"
+          : "Porovnat kontexty";
+        controlReason.textContent = check.reason || (
+          `${check.prefixA.length} + ${check.prefixB.length} znaků prefixu · ` +
+          `${check.continuation.length} znaků cíle`
+        );
+        results.dataset.stale = String(stale);
+        staleNotice.hidden = !stale;
+        resultBadge.textContent = stale ? "zastaralé" : "aktuální";
+        saveExperimentButton.disabled = (
+          state.busy ||
+          state.saveBusy ||
+          !state.result ||
+          stale ||
+          Boolean(state.savedRecordId)
+        );
+        saveExperimentButton.textContent = state.saveBusy
+          ? "Ukládám…"
+          : state.savedRecordId
+          ? "Uloženo"
+          : "Uložit experiment";
+        exportJsonButton.disabled = !state.result || stale;
+        exportCsvButton.disabled = !state.result || stale;
+        dispatchWorkbenchState();
+      };
+      const fetchJson = (url, options = {}) => (
+        window.ProbabilityGardenApi.fetchJson(url, {
+          timeoutMs: 30_000,
+          ...options
+        })
+      );
+      const refreshHealth = async () => {
+        try {
+          const health = await fetchJson("/api/health", {
+            timeoutMs: HEALTH_TIMEOUT_MS
+          });
+          state.health = health;
+          state.healthAvailable = true;
+          modelState.dataset.state = health.status === "ready"
+            ? "ready"
+            : "loading";
+          modelStateText.textContent = health.status === "ready"
+            ? `${health.active_model?.label ?? "Apertus"} je připraven`
+            : "Model se připravuje…";
+        } catch (_error) {
+          state.healthAvailable = false;
+          modelState.dataset.state = "error";
+          modelStateText.textContent = "Server není dostupný";
+        } finally {
+          syncControls();
+        }
+      };
+      const scheduleHealth = () => {
+        window.clearTimeout(state.pollTimer);
+        state.pollTimer = window.setTimeout(async () => {
+          await refreshHealth();
+          scheduleHealth();
+        }, state.health?.status === "ready" ? 2500 : 1000);
+      };
+      const pollHealth = async () => {
+        await refreshHealth();
+        scheduleHealth();
+      };
+      const showWait = () => {
+        state.overlayReturnFocus = document.activeElement;
+        overlay.hidden = false;
+        document.body.classList.add("is-computing");
+        hideWaitButton.focus();
+        let index = 0;
+        computeDetail.textContent = progressMessages[index];
+        window.clearInterval(state.progressTimer);
+        state.progressTimer = window.setInterval(() => {
+          index = (index + 1) % progressMessages.length;
+          computeDetail.textContent = progressMessages[index];
+        }, 4200);
+      };
+      const hideWait = () => {
+        overlay.hidden = true;
+        document.body.classList.remove("is-computing");
+        state.overlayReturnFocus?.focus?.();
+      };
+      const stopWait = () => {
+        window.clearInterval(state.progressTimer);
+        hideWait();
+      };
+      const newRecordId = () => {
+        if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
+        return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      };
+      const svgElement = (tag, attributes = {}) => {
+        const node = document.createElementNS(SVG_NS, tag);
+        Object.entries(attributes).forEach(([key, value]) => {
+          node.setAttribute(key, String(value));
+        });
+        return node;
+      };
+      const drawChart = (
+        host,
+        series,
+        {
+          xKey = "x",
+          yKey = "y",
+          higherIsUp = true,
+          yFloor = null,
+          zeroLine = false,
+          yFormatter = (value) => formatNumber(value, 2)
+        } = {}
+      ) => {
+        host.replaceChildren();
+        const cleanSeries = asArray(series)
+          .map((item) => ({
+            ...item,
+            points: asArray(item.points).filter(
+              (point) => (
+                finite(point?.[xKey]) !== null &&
+                finite(point?.[yKey]) !== null
+              )
+            )
+          }))
+          .filter((item) => item.points.length);
+        if (!cleanSeries.length) {
+          const empty = document.createElement("p");
+          empty.className = "chart-copy";
+          empty.textContent = "Pro tento běh nejsou k dispozici body grafu.";
+          host.append(empty);
+          return;
+        }
+        const allPoints = cleanSeries.flatMap((item) => item.points);
+        const xs = allPoints.map((point) => Number(point[xKey]));
+        const ys = allPoints.map((point) => Number(point[yKey]));
+        let minX = Math.min(...xs);
+        let maxX = Math.max(...xs);
+        let minY = yFloor === null ? Math.min(...ys) : Number(yFloor);
+        let maxY = Math.max(...ys);
+        if (zeroLine) {
+          minY = Math.min(minY, 0);
+          maxY = Math.max(maxY, 0);
+        }
+        if (minX === maxX) maxX = minX + 1;
+        if (minY === maxY) {
+          const padding = Math.abs(minY) > 0 ? Math.abs(minY) * 0.1 : 1;
+          minY -= padding;
+          maxY += padding;
+        }
+        const yPadding = (maxY - minY) * 0.08;
+        minY -= yPadding;
+        maxY += yPadding;
+        const width = 760;
+        const height = 230;
+        const margins = {left: 58, right: 18, top: 18, bottom: 34};
+        const plotWidth = width - margins.left - margins.right;
+        const plotHeight = height - margins.top - margins.bottom;
+        const xAt = (value) => (
+          margins.left + ((value - minX) / (maxX - minX)) * plotWidth
+        );
+        const yAt = (value) => {
+          const ratio = (value - minY) / (maxY - minY);
+          return higherIsUp
+            ? margins.top + (1 - ratio) * plotHeight
+            : margins.top + ratio * plotHeight;
+        };
+        const svg = svgElement("svg", {
+          viewBox: `0 0 ${width} ${height}`,
+          role: "img",
+          "aria-label": cleanSeries.map((item) => item.label).join(" a ")
+        });
+        for (let tick = 0; tick <= 4; tick += 1) {
+          const ratio = tick / 4;
+          const chartY = margins.top + ratio * plotHeight;
+          const value = higherIsUp
+            ? maxY - ratio * (maxY - minY)
+            : minY + ratio * (maxY - minY);
+          svg.append(svgElement("line", {
+            x1: margins.left,
+            x2: width - margins.right,
+            y1: chartY,
+            y2: chartY,
+            class: "chart-gridline"
+          }));
+          const label = svgElement("text", {
+            x: margins.left - 8,
+            y: chartY + 3,
+            "text-anchor": "end",
+            class: "chart-label"
+          });
+          label.textContent = yFormatter(value);
+          svg.append(label);
+        }
+        if (zeroLine && minY <= 0 && maxY >= 0) {
+          svg.append(svgElement("line", {
+            x1: margins.left,
+            x2: width - margins.right,
+            y1: yAt(0),
+            y2: yAt(0),
+            class: "chart-axis"
+          }));
+        }
+        svg.append(svgElement("line", {
+          x1: margins.left,
+          x2: width - margins.right,
+          y1: height - margins.bottom,
+          y2: height - margins.bottom,
+          class: "chart-axis"
+        }));
+        for (const value of [minX, maxX]) {
+          const label = svgElement("text", {
+            x: xAt(value),
+            y: height - 11,
+            "text-anchor": value === minX ? "start" : "end",
+            class: "chart-label"
+          });
+          label.textContent = formatInteger(value);
+          svg.append(label);
+        }
+        cleanSeries.forEach((item, seriesIndex) => {
+          const points = item.points.map((point) => ({
+            x: xAt(Number(point[xKey])),
+            y: yAt(Number(point[yKey])),
+            raw: point
+          }));
+          const polyline = svgElement("polyline", {
+            points: points.map((point) => `${point.x},${point.y}`).join(" "),
+            class: item.className || (
+              seriesIndex === 0 ? "chart-line-a" : "chart-line-b"
+            )
+          });
+          svg.append(polyline);
+          points.forEach((point) => {
+            const circle = svgElement("circle", {
+              cx: point.x,
+              cy: point.y,
+              r: 3.2,
+              class: `chart-point ${
+                item.pointClassName ||
+                (seriesIndex === 0 ? "chart-point-a" : "chart-point-b")
+              }`
+            });
+            const title = svgElement("title");
+            title.textContent = (
+              `${item.label}: x ${formatNumber(point.raw[xKey], 0)}, ` +
+              `${yFormatter(point.raw[yKey])}`
+            );
+            circle.append(title);
+            svg.append(circle);
+          });
+        });
+        host.append(svg);
+      };
+      const renderTopTokens = (container, items) => {
+        container.replaceChildren();
+        asArray(items).forEach((token, index) => {
+          const row = document.createElement("li");
+          row.className = "token-row";
+          const rank = document.createElement("span");
+          rank.className = "token-rank";
+          rank.textContent = `#${token.rank ?? index + 1}`;
+          const name = document.createElement("span");
+          name.className = "token-name observed-token";
+          name.textContent = `${tokenLabel(token)} · #${token.token_id}`;
+          const probability = document.createElement("span");
+          probability.className = "token-probability";
+          probability.textContent = formatPercent(token.probability);
+          row.append(rank, name, probability);
+          container.append(row);
+        });
+      };
+      const renderTokenChips = (container, tokenIds, tokenItems = null) => {
+        container.replaceChildren();
+        asArray(tokenIds).forEach((tokenId, index) => {
+          const item = tokenItems?.[index];
+          const chip = document.createElement("li");
+          chip.className = "token-chip observed-token";
+          chip.textContent = item
+            ? `${tokenLabel(item)} · #${tokenId}`
+            : `#${tokenId}`;
+          container.append(chip);
+        });
+      };
+      const renderResult = () => {
+        const data = state.result;
+        if (!data) return;
+        const score = data.target_score ?? {};
+        const root = data.root_field ?? {};
+        const persistence = data.persistence ?? {};
+        const summary = persistence.summary ?? {};
+        const states = asArray(persistence.states);
+        const advantage = finite(
+          score.information_advantage_a_over_b_bits,
+          0
+        );
+        const favored = score.favored_context === "a"
+          ? "A"
+          : score.favored_context === "b"
+          ? "B"
+          : "ani jeden";
+        const target = data.inputs?.continuation ?? "";
+        resultsTitle.textContent = `„${target}“`;
+        resultContext.innerHTML = (
+          `A: <span class="experiment-text">„${escapeHtml(
+            data.inputs?.prefix_a ?? ""
+          )}“</span> · ` +
+          `B: <span class="experiment-text">„${escapeHtml(
+            data.inputs?.prefix_b ?? ""
+          )}“</span> · ` +
+          `<span>${escapeHtml(
+            data.tokenization?.continuation_token_count ?? 0
+          )} tokenů cíle</span> · ` +
+          `<span>${data.cached ? "z cache" : "živý výpočet"}</span>`
+        );
+        summaryAdvantage.textContent = formatSignedBits(advantage);
+        summaryAdvantage.className = advantage >= 0 ? "positive" : "negative";
+        summaryAdvantageDetail.textContent = advantage === 0
+          ? "Oba kontexty dávají přesné cestě stejné skóre."
+          : `Přesnou cestu zvýhodňuje kontext ${favored}.`;
+        const ratio = finite(score.probability_ratio_a_over_b);
+        if (score.probability_ratio_status === "overflow") {
+          summaryRatio.textContent = "mimo rozsah";
+          summaryRatioDetail.textContent = "Poměr je příliš velký pro float64.";
+        } else if (score.probability_ratio_status === "underflow") {
+          summaryRatio.textContent = "≈ 0×";
+          summaryRatioDetail.textContent = "A je proti B pod rozsahem float64.";
+        } else {
+          summaryRatio.textContent = formatRatio(ratio);
+          summaryRatioDetail.textContent = ratio !== null && ratio >= 1
+            ? "Přesné pokračování je pravděpodobnější pod A."
+            : "Přesné pokračování je pravděpodobnější pod B.";
+        }
+        summaryJs.textContent = formatBits(root.js_divergence_bits);
+        const halfLife = finite(summary.persistent_half_life_step);
+        summaryHalfLife.textContent = halfLife === null
+          ? "nepozorován"
+          : `${formatInteger(halfLife)} token`;
+        summaryHalfLifeDetail.textContent = halfLife === null
+          ? "Žádný pokles JS pod polovinu kořene nepřetrval do konce pozorovaného úseku."
+          : (
+              "Od tohoto kroku zůstala JS pod polovinou kořenové hodnoty."
+            );
+        interpretation.replaceChildren();
+        const strong = document.createElement("strong");
+        strong.textContent = advantage === 0
+          ? "Přesná cesta je mezi kontexty vyrovnaná. "
+          : (
+              `Kontext ${favored} zpřístupňuje přesné pokračování více. `
+            );
+        interpretation.append(strong);
+        interpretation.append(document.createTextNode(
+          `${formatSignedBits(advantage)} popisuje pouze zadaný tokenový ` +
+          `řetězec; kořenová JS ${formatBits(root.js_divergence_bits)} ` +
+          "současně říká, jak silně se přestavělo celé pole."
+        ));
+        fieldPrefixA.textContent = data.inputs?.prefix_a ?? "";
+        fieldPrefixB.textContent = data.inputs?.prefix_b ?? "";
+        renderTopTokens(fieldA, root.top_tokens_a);
+        renderTopTokens(fieldB, root.top_tokens_b);
+        const targetToken = data.access_curve?.target_token;
+        accessTokenTitle.textContent = (
+          `První token cíle: ${tokenLabel(targetToken)} · ` +
+          `#${targetToken?.token_id ?? "—"}`
+        );
+        drawChart(
+          accessChart,
+          [
+            {
+              label: "Prefix A",
+              points: data.access_curve?.a,
+              className: "chart-line-a",
+              pointClassName: "chart-point-a"
+            },
+            {
+              label: "Prefix B",
+              points: data.access_curve?.b,
+              className: "chart-line-b",
+              pointClassName: "chart-point-b"
+            }
+          ],
+          {
+            xKey: "consumed_prefix_token_count",
+            yKey: "surprisal_bits",
+            higherIsUp: false,
+            yFloor: 0,
+            yFormatter: (value) => `${formatNumber(value, 1)} b`
+          }
+        );
+        drawChart(
+          jsChart,
+          [{
+            label: "JS divergence",
+            points: states,
+            className: "chart-line-main",
+            pointClassName: "chart-point-main"
+          }],
+          {
+            xKey: "consumed_continuation_token_count",
+            yKey: "js_divergence_bits",
+            yFloor: 0,
+            yFormatter: (value) => `${formatNumber(value, 2)} b`
+          }
+        );
+        drawChart(
+          advantageChart,
+          [{
+            label: "Kumulativní výhoda A − B",
+            points: states,
+            className: "chart-line-main",
+            pointClassName: "chart-point-main"
+          }],
+          {
+            xKey: "consumed_continuation_token_count",
+            yKey: "cumulative_information_advantage_a_over_b_bits",
+            zeroLine: true,
+            yFormatter: (value) => `${formatNumber(value, 1)} b`
+          }
+        );
+        tokenTableBody.replaceChildren();
+        states.filter((point) => point.next_token).forEach((point, index) => {
+          const token = point.next_token;
+          const row = document.createElement("tr");
+          const cells = [
+            String(index + 1),
+            `${tokenLabel(token)} · #${token.token_id}`,
+            formatPercent(token.probability_a),
+            formatPercent(token.probability_b),
+            `#${formatInteger(token.rank_a)} / #${formatInteger(token.rank_b)}`,
+            formatSignedBits(token.information_advantage_a_over_b_bits),
+            formatSignedBits(
+              point.cumulative_information_advantage_after_token_bits
+            ),
+            formatBits(point.js_divergence_bits)
+          ];
+          cells.forEach((value, cellIndex) => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            if (cellIndex === 1) cell.className = "token-cell";
+            if (cellIndex === 5 || cellIndex === 6) {
+              const rawValue = cellIndex === 5
+                ? token.information_advantage_a_over_b_bits
+                : point.cumulative_information_advantage_after_token_bits;
+              cell.classList.add(finite(rawValue, 0) >= 0 ? "positive" : "negative");
+            }
+            row.append(cell);
+          });
+          tokenTableBody.append(row);
+        });
+        const tokenization = data.tokenization ?? {};
+        tokenizationSummary.textContent = (
+          `Přesná tokenizace · A ${tokenization.prefix_a_token_count ?? 0} · ` +
+          `B ${tokenization.prefix_b_token_count ?? 0} · ` +
+          `cíl ${tokenization.continuation_token_count ?? 0} tokenů`
+        );
+        renderTokenChips(tokensA, tokenization.prefix_a_token_ids);
+        renderTokenChips(tokensB, tokenization.prefix_b_token_ids);
+        renderTokenChips(
+          tokensTarget,
+          tokenization.continuation_token_ids,
+          tokenization.continuation_tokens
+        );
+        warningList.replaceChildren();
+        asArray(data.warnings).forEach((warning) => {
+          const item = document.createElement("li");
+          item.textContent = warning.message ?? String(warning);
+          warningList.append(item);
+        });
+        results.hidden = false;
+        results.dataset.stale = "false";
+        resultBadge.textContent = "aktuální";
+      };
+      const analyze = async () => {
+        const check = validation();
+        if (state.busy || !check.valid) {
+          if (check.reason) setMessage(check.reason, true);
+          return;
+        }
+        const request = {
+          prefix_a: check.prefixA,
+          prefix_b: check.prefixB,
+          continuation: check.continuation,
+          top_k: check.topK,
+          model_id: check.identity.modelId,
+          model_generation: check.identity.modelGeneration,
+          server_instance_id: check.identity.serverInstanceId
+        };
+        state.busy = true;
+        state.controller = new AbortController();
+        setMessage("Počítám dva přesné forwardy a společnou trajektorii…");
+        showWait();
+        syncControls();
+        results.setAttribute("aria-busy", "true");
+        try {
+          const data = await fetchJson("/api/context-contrast", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(request),
+            timeoutMs: ANALYSIS_TIMEOUT_MS,
+            signal: state.controller.signal
+          });
+          state.result = data;
+          state.request = request;
+          state.signature = currentSignature();
+          state.capturedAt = new Date().toISOString();
+          state.recordId = newRecordId();
+          state.savedRecordId = null;
+          renderResult();
+          setMessage(
+            `Hotovo — dva forwardy za ${formatNumber(data.timing_ms?.total, 0)} ms.`
+          );
+          requestAnimationFrame(() => {
+            resultsTitle.focus({preventScroll: true});
+            results.scrollIntoView({
+              behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+                ? "auto"
+                : "smooth",
+              block: "start"
+            });
+          });
+        } catch (error) {
+          if (error.name !== "AbortError") {
+            setMessage(
+              error.message || "Kontrast se nepodařilo vypočítat.",
+              true
+            );
+          }
+          if (error.code === "model_changed" && error.health) {
+            state.health = error.health;
+          }
+        } finally {
+          state.busy = false;
+          state.controller = null;
+          results.setAttribute("aria-busy", "false");
+          stopWait();
+          await refreshHealth();
+          syncControls();
+        }
+      };
+      const safeFilenamePart = (value) => String(value ?? "apertus")
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase() || "apertus";
+      const filename = (extension) => (
+        `context-contrast-${safeFilenamePart(state.result?.model_id)}-` +
+        `${new Date().toISOString().replaceAll(":", "-")}.${extension}`
+      );
+      const downloadBlob = (content, type, name) => {
+        const blob = new Blob([content], {type});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = name;
+        link.hidden = true;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+      const csvCell = (value) => {
+        if (value === null || value === undefined) return "";
+        let text = typeof value === "object"
+          ? JSON.stringify(value)
+          : String(value);
+        if (/^\s*[=+\-@]/.test(text)) text = `'${text}`;
+        return `"${text.replaceAll('"', '""')}"`;
+      };
+      const rowsToCsv = (rows) => {
+        const columns = [];
+        rows.forEach((row) => Object.keys(row).forEach((key) => {
+          if (!columns.includes(key)) columns.push(key);
+        }));
+        return [
+          columns.map(csvCell).join(","),
+          ...rows.map(
+            (row) => columns.map((column) => csvCell(row[column])).join(",")
+          )
+        ].join("\r\n");
+      };
+      const csvRows = () => {
+        const data = state.result;
+        if (!data) return [];
+        const rows = [{
+          analysis_kind: "context_contrast",
+          row_type: "summary",
+          prefix_a: data.inputs?.prefix_a,
+          prefix_b: data.inputs?.prefix_b,
+          continuation: data.inputs?.continuation,
+          continuation_token_count: data.tokenization?.continuation_token_count,
+          information_advantage_a_over_b_bits: (
+            data.target_score?.information_advantage_a_over_b_bits
+          ),
+          mean_information_advantage_bits_per_token: (
+            data.target_score?.mean_information_advantage_bits_per_token
+          ),
+          probability_ratio_a_over_b: (
+            data.target_score?.probability_ratio_a_over_b
+          ),
+          favored_context: data.target_score?.favored_context,
+          root_js_divergence_bits: data.root_field?.js_divergence_bits,
+          root_total_variation: data.root_field?.total_variation,
+          persistent_half_life_step: (
+            data.persistence?.summary?.persistent_half_life_step
+          ),
+          js_area_bit_token_steps: (
+            data.persistence?.summary?.js_area_bit_token_steps
+          ),
+          model_id: data.model_id,
+          model_generation: data.model_generation,
+          server_instance_id: data.server_instance_id
+        }];
+        for (const side of ["a", "b"]) {
+          asArray(data.root_field?.[`top_tokens_${side}`]).forEach((token) => {
+            rows.push({
+              analysis_kind: "context_contrast",
+              row_type: "root_top_token",
+              side: side.toUpperCase(),
+              rank: token.rank,
+              token_id: token.token_id,
+              token_text: tokenLabel(token),
+              probability: token.probability,
+              logit: token.logit
+            });
+          });
+          asArray(data.access_curve?.[side]).forEach((point) => {
+            rows.push({
+              analysis_kind: "context_contrast",
+              row_type: "access_curve",
+              side: side.toUpperCase(),
+              consumed_prefix_token_count: point.consumed_prefix_token_count,
+              context_text: point.context_text,
+              target_token_id: point.target_token_id,
+              probability: point.probability,
+              log2_probability: point.log2_probability,
+              surprisal_bits: point.surprisal_bits,
+              rank: point.rank
+            });
+          });
+        }
+        asArray(data.persistence?.states).forEach((point) => {
+          rows.push({
+            analysis_kind: "context_contrast",
+            row_type: point.next_token ? "persistence_token" : "persistence_end",
+            consumed_continuation_token_count: (
+              point.consumed_continuation_token_count
+            ),
+            consumed_text: point.consumed_text,
+            js_divergence_bits: point.js_divergence_bits,
+            total_variation: point.total_variation,
+            entropy_bits_a: point.entropy_bits_a,
+            entropy_bits_b: point.entropy_bits_b,
+            cumulative_information_advantage_a_over_b_bits: (
+              point.cumulative_information_advantage_a_over_b_bits
+            ),
+            token_id: point.next_token?.token_id,
+            token_text: point.next_token ? tokenLabel(point.next_token) : null,
+            probability_a: point.next_token?.probability_a,
+            probability_b: point.next_token?.probability_b,
+            rank_a: point.next_token?.rank_a,
+            rank_b: point.next_token?.rank_b,
+            information_advantage_a_over_b_bits: (
+              point.next_token?.information_advantage_a_over_b_bits
+            )
+          });
+        });
+        rows.push({
+          analysis_kind: "context_contrast",
+          row_type: "provenance",
+          raw_json: {
+            definition: data.definition,
+            normalization: data.inputs?.normalization,
+            execution: data.execution,
+            warnings: data.warnings,
+            provenance: data.provenance,
+            timing_ms: data.timing_ms
+          }
+        });
+        return rows;
+      };
+      const buildRecord = () => {
+        const data = state.result;
+        if (!data || !state.request || !state.recordId) return null;
+        return {
+          schema: "apertus.experiment-record",
+          schema_version: 1,
+          id: state.recordId,
+          kind: "context_contrast",
+          captured_at: state.capturedAt,
+          series_id: null,
+          annotation: {
+            title: `Kontrast kontextů · ${state.request.continuation.slice(0, 100)}`,
+            notes: experimentNote.value.trim() || null,
+            tags: ["context-contrast", "teacher-forced", "full-vocabulary-js"]
+          },
+          capture: {
+            status: "complete",
+            warnings: asArray(data.warnings).map(
+              (warning) => warning.message ?? String(warning)
+            )
+          },
+          provenance: {
+            application: {
+              id: "apertus-garden",
+              name: "Pravděpodobnostní zahrada",
+              surface: "context_contrast"
+            },
+            source: "live_ui",
+            route: window.location.pathname,
+            model: {
+              id: data.model_id,
+              label: data.model_label ?? null,
+              name: data.model ?? null
+            },
+            execution: {
+              model_generation: data.model_generation,
+              server_instance_id: data.server_instance_id
+            },
+            server: data.provenance ?? state.health?.provenance ?? null,
+            storage: state.health?.storage ?? null
+          },
+          payload: {
+            request: {...state.request},
+            result: data,
+            reader: {
+              kind: "paired_context_teacher_forcing",
+              temperature: 1,
+              probability_kind: "raw_model",
+              sequence_metric: "log2_probability_ratio",
+              field_metric: "full_vocabulary_jensen_shannon_bits",
+              persistence_alignment: "identical_continuation_token_ids"
+            }
+          },
+          diagnostics: {
+            cached: Boolean(data.cached),
+            timing_ms: data.timing_ms ?? null
+          }
+        };
+      };
+      const saveExperiment = async () => {
+        if (
+          state.saveBusy ||
+          !state.result ||
+          resultIsStale() ||
+          state.savedRecordId
+        ) return;
+        const record = buildRecord();
+        if (!record) return;
+        state.saveBusy = true;
+        syncControls();
+        setMessage("Ukládám úplný párový řez do lokálního archivu…");
+        try {
+          const response = await fetchJson("/api/experiments", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({record}),
+            timeoutMs: SAVE_TIMEOUT_MS
+          });
+          state.savedRecordId = response.record?.id ?? response.id ?? record.id;
+          setMessage(
+            response.created === false
+              ? "Tento experiment už v archivu je."
+              : "Experiment byl uložen do lokálního archivu."
+          );
+        } catch (error) {
+          setMessage(error.message || "Experiment se nepodařilo uložit.", true);
+        } finally {
+          state.saveBusy = false;
+          syncControls();
+        }
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        analyze();
+      });
+      form.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          if (!analyzeButton.disabled) analyze();
+        }
+      });
+      for (const control of [prefixA, prefixB, continuation, topK]) {
+        control.addEventListener("input", syncControls);
+        control.addEventListener("change", syncControls);
+      }
+      hideWaitButton.addEventListener("click", hideWait);
+      exportJsonButton.addEventListener("click", () => {
+        if (!state.result || resultIsStale()) return;
+        downloadBlob(
+          `${JSON.stringify(buildRecord(), null, 2)}\n`,
+          "application/json;charset=utf-8",
+          filename("json")
+        );
+      });
+      exportCsvButton.addEventListener("click", () => {
+        if (!state.result || resultIsStale()) return;
+        downloadBlob(
+          `\uFEFF${rowsToCsv(csvRows())}`,
+          "text/csv;charset=utf-8",
+          filename("csv")
+        );
+      });
+      saveExperimentButton.addEventListener("click", saveExperiment);
+      window.addEventListener(
+        "probability-garden:request-workbench-state",
+        dispatchWorkbenchState
+      );
+      window.addEventListener("pagehide", (event) => {
+        window.clearTimeout(state.pollTimer);
+        window.clearInterval(state.progressTimer);
+        if (!event.persisted) state.controller?.abort();
+      });
+
+      syncControls();
+      pollHealth();
+    })();
+  </script>
+</body>
+</html>

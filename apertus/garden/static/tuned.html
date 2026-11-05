@@ -1,0 +1,2710 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Explorativní srovnání RAW a TUNED čtečky mezistavů modelu Apertus."
+  >
+  <title>RAW × TUNED · Kalibrovaný řez · Apertus</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09100d;
+      --surface: #111b16;
+      --surface-2: #17251d;
+      --surface-soft: rgba(17, 27, 22, 0.78);
+      --text: #ecf6ef;
+      --muted: #9eb3a6;
+      --line: #31483a;
+      --line-soft: rgba(49, 72, 58, 0.62);
+      --leaf: #70d89b;
+      --leaf-bright: #9cf0bd;
+      --gold: #e6c978;
+      --danger: #f19a91;
+      --ink: #07100b;
+      --raw: #aebbc9;
+      --tuned: #70d89b;
+      --radius: 18px;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 10% -12%, rgba(57, 124, 83, 0.2), transparent 34rem),
+        radial-gradient(circle at 98% 40%, rgba(188, 149, 63, 0.08), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    body.is-computing {
+      overflow: hidden;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    a {
+      color: var(--leaf-bright);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover {
+      color: var(--text);
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(112, 216, 155, 0.56);
+      outline-offset: 3px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 120;
+      top: 10px;
+      left: 10px;
+      padding: 9px 13px;
+      border-radius: 10px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-weight: 800;
+      transform: translateY(-160%);
+      transition: transform 140ms ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .shell {
+      width: min(1500px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 80px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 52px;
+    }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 720;
+      text-decoration: none;
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible,
+    .nav-link[aria-current="page"] {
+      color: var(--text);
+    }
+
+    .nav-link:first-child::before {
+      content: "←";
+      color: var(--leaf);
+      font-size: 1.08rem;
+    }
+
+    .state-cluster {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(17, 27, 22, 0.8);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 0 5px rgba(230, 201, 120, 0.08);
+    }
+
+    .state-pill[data-state="ready"] .state-dot {
+      background: var(--leaf);
+      box-shadow: 0 0 0 5px rgba(112, 216, 155, 0.09);
+    }
+
+    .state-pill[data-state="error"] .state-dot,
+    .state-pill[data-state="missing"] .state-dot,
+    .state-pill[data-state="incompatible"] .state-dot,
+    .state-pill[data-state="unvalidated"] .state-dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 5px rgba(241, 154, 145, 0.09);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.72fr);
+      gap: clamp(36px, 7vw, 108px);
+      align-items: end;
+      margin-bottom: 42px;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--leaf-bright);
+      font-size: 0.76rem;
+      font-weight: 760;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 980px;
+      margin-bottom: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(3rem, 6.8vw, 6.3rem);
+      font-weight: 400;
+      letter-spacing: -0.055em;
+      line-height: 0.91;
+    }
+
+    .lede {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.15rem, 2vw, 1.45rem);
+      line-height: 1.45;
+    }
+
+    .calibration-panel,
+    .control-panel,
+    .results,
+    .section-block,
+    .save-panel {
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      box-shadow: var(--shadow);
+    }
+
+    .calibration-panel {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.75fr) minmax(0, 1.25fr);
+      gap: 30px;
+      margin-bottom: 22px;
+      padding: 24px 26px;
+      border-radius: var(--radius);
+    }
+
+    .calibration-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .calibration-heading h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.5rem, 3vw, 2.25rem);
+      font-weight: 400;
+    }
+
+    .calibration-copy {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .status-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .status-label[data-state="ready"] {
+      border-color: rgba(112, 216, 155, 0.5);
+      color: var(--leaf-bright);
+    }
+
+    .status-label[data-state="error"],
+    .status-label[data-state="missing"],
+    .status-label[data-state="incompatible"],
+    .status-label[data-state="unvalidated"] {
+      border-color: rgba(241, 154, 145, 0.5);
+      color: var(--danger);
+    }
+
+    .calibration-data {
+      align-self: center;
+    }
+
+    .meta-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .meta-chip {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      min-height: 31px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .meta-chip strong {
+      color: var(--text);
+      font-weight: 760;
+    }
+
+    .heldout-compact {
+      margin-top: 15px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .heldout-compact strong {
+      color: var(--text);
+    }
+
+    .control-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(170px, 0.2fr) auto;
+      gap: 16px;
+      align-items: end;
+      padding: 24px;
+      border-radius: var(--radius);
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 720;
+    }
+
+    textarea,
+    input,
+    select {
+      width: 100%;
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(9, 16, 13, 0.88);
+      color: var(--text);
+    }
+
+    textarea {
+      min-height: 80px;
+      padding: 14px 15px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    input,
+    select {
+      padding: 0 13px;
+    }
+
+    textarea:disabled,
+    input:disabled,
+    select:disabled,
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+    }
+
+    .primary-button,
+    .secondary-button,
+    .archive-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 0 18px;
+      border-radius: 13px;
+      font-weight: 790;
+      text-decoration: none;
+    }
+
+    .primary-button {
+      border: 1px solid var(--leaf);
+      background: var(--leaf);
+      color: var(--ink);
+    }
+
+    .primary-button:not(:disabled):hover {
+      background: var(--leaf-bright);
+    }
+
+    .secondary-button,
+    .archive-link {
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .secondary-button:not(:disabled):hover,
+    .archive-link:hover {
+      border-color: var(--leaf);
+      color: var(--leaf-bright);
+    }
+
+    .control-foot {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 4px 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .message {
+      min-height: 34px;
+      padding: 11px 4px 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    .results {
+      margin-top: 25px;
+      padding: clamp(22px, 3vw, 38px);
+      border-radius: 24px;
+    }
+
+    .results-head,
+    .section-head,
+    .save-panel {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .results-head {
+      margin-bottom: 24px;
+    }
+
+    .results-head h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2rem, 4.5vw, 4.4rem);
+      font-weight: 400;
+      letter-spacing: -0.035em;
+      line-height: 1;
+    }
+
+    .result-context {
+      max-width: 900px;
+      margin: 13px 0 0;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+
+    .lens-badge {
+      flex: 0 0 auto;
+      padding: 7px 11px;
+      border: 1px solid rgba(112, 216, 155, 0.5);
+      border-radius: 999px;
+      color: var(--leaf-bright);
+      font-size: 0.73rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .summary-card {
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(9, 16, 13, 0.6);
+    }
+
+    .summary-label,
+    .summary-detail {
+      display: block;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .summary-value {
+      display: block;
+      margin: 7px 0 4px;
+      color: var(--text);
+      font-size: clamp(1.05rem, 2vw, 1.45rem);
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .section-block {
+      margin-top: 17px;
+      padding: 20px;
+      border-radius: var(--radius);
+      box-shadow: none;
+    }
+
+    .section-head {
+      margin-bottom: 15px;
+    }
+
+    .section-head h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .section-help {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: right;
+    }
+
+    .tokenization {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .token-chip {
+      display: inline-grid;
+      grid-template-columns: auto auto;
+      gap: 7px;
+      align-items: baseline;
+      min-height: 33px;
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(9, 16, 13, 0.62);
+    }
+
+    .token-chip.special {
+      border-color: rgba(230, 201, 120, 0.5);
+    }
+
+    .token-piece {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--text);
+      font-weight: 720;
+    }
+
+    .token-id {
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .validation-shell,
+    .trajectory-shell {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(9, 16, 13, 0.54);
+    }
+
+    .validation-scroll,
+    .trajectory-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--line-soft);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 780;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr:hover {
+      background: rgba(112, 216, 155, 0.035);
+    }
+
+    .layer-number {
+      color: var(--leaf-bright);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .prediction {
+      display: grid;
+      gap: 5px;
+      min-width: 170px;
+    }
+
+    .prediction-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .prediction-token {
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 770;
+      overflow-wrap: anywhere;
+    }
+
+    .prediction-token-wrap {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .prediction-token-id,
+    .candidate-token-id {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .probability {
+      color: var(--muted);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    .bar {
+      height: 4px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(158, 179, 166, 0.13);
+    }
+
+    .bar span {
+      display: block;
+      width: var(--bar, 0%);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--raw);
+    }
+
+    .prediction.tuned .bar span {
+      background: var(--tuned);
+    }
+
+    details.candidates {
+      margin-top: 2px;
+    }
+
+    details.candidates summary {
+      width: max-content;
+      max-width: 100%;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.73rem;
+    }
+
+    .candidate-list {
+      display: grid;
+      gap: 5px;
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .candidate {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 0.74rem;
+    }
+
+    .candidate code {
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+
+    .paired-metric {
+      display: grid;
+      gap: 3px;
+      min-width: 124px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .paired-metric strong {
+      font-size: 0.84rem;
+    }
+
+    .paired-metric span {
+      color: var(--muted);
+      font-size: 0.73rem;
+    }
+
+    .delta {
+      display: grid;
+      gap: 3px;
+      min-width: 112px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .delta strong {
+      font-size: 0.9rem;
+    }
+
+    .delta span {
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .delta.closer strong {
+      color: var(--leaf-bright);
+    }
+
+    .delta.farther strong {
+      color: var(--danger);
+    }
+
+    .delta.same strong {
+      color: var(--gold);
+    }
+
+    .table-note {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      margin: 0;
+      padding: 12px 13px;
+      border-top: 1px solid var(--line-soft);
+      color: var(--muted);
+      font-size: 0.74rem;
+    }
+
+    .closing-note {
+      margin: 14px 2px 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .save-panel {
+      align-items: end;
+      margin-top: 17px;
+      padding: 20px;
+      border-radius: var(--radius);
+      box-shadow: none;
+    }
+
+    .save-copy {
+      max-width: 470px;
+    }
+
+    .save-copy h3 {
+      margin-bottom: 6px;
+      font-size: 1rem;
+    }
+
+    .save-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .save-note {
+      min-width: min(360px, 100%);
+      flex: 1 1 320px;
+    }
+
+    .save-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .archive-count {
+      display: block;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .compute-overlay {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(5, 10, 8, 0.78);
+      backdrop-filter: blur(7px);
+    }
+
+    .compute-overlay[hidden] {
+      display: none;
+    }
+
+    .compute-status {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      width: min(560px, 100%);
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .compute-spinner {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+      border: 3px solid rgba(112, 216, 155, 0.2);
+      border-top-color: var(--leaf);
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+
+    .compute-copy {
+      display: grid;
+      gap: 3px;
+      min-width: min(280px, 100%);
+      flex: 1 1 280px;
+    }
+
+    .compute-title {
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .compute-detail {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .compute-cancel {
+      min-height: 42px;
+      flex: 0 0 auto;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .hero,
+      .calibration-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .control-panel {
+        grid-template-columns: minmax(0, 1fr) minmax(150px, 0.3fr);
+      }
+
+      .prompt-control {
+        grid-column: 1 / -1;
+      }
+
+      .save-panel {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: min(100% - 26px, 1500px);
+        padding-top: 14px;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        margin-bottom: 35px;
+      }
+
+      .state-cluster {
+        justify-content: flex-start;
+      }
+
+      .hero {
+        gap: 24px;
+      }
+
+      h1 {
+        font-size: clamp(3rem, 18vw, 5rem);
+      }
+
+      .control-panel,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .prompt-control {
+        grid-column: auto;
+      }
+
+      .primary-button {
+        width: 100%;
+      }
+
+      .results {
+        padding: 18px 13px;
+      }
+
+      .results-head,
+      .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .section-help {
+        text-align: left;
+      }
+
+      .save-actions,
+      .save-actions > * {
+        width: 100%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+</head>
+<body data-workbench-page="tuned">
+  <a id="skip-link" class="skip-link" href="#workspace">Přeskočit na obsah</a>
+
+  <div
+    id="compute-overlay"
+    class="compute-overlay"
+    role="dialog"
+    tabindex="-1"
+    aria-modal="true"
+    aria-labelledby="compute-title"
+    aria-describedby="compute-detail"
+    hidden
+  >
+    <div class="compute-status">
+      <span class="compute-spinner" aria-hidden="true"></span>
+      <span class="compute-copy">
+        <span id="compute-title" class="compute-title">Apertus počítá RAW × TUNED</span>
+        <span
+          id="compute-detail"
+          class="compute-detail"
+          role="status"
+          aria-live="polite"
+        >Připravuji prefix a kalibraci…</span>
+      </span>
+      <button id="cancel-compute" class="secondary-button compute-cancel" type="button">
+        Zrušit
+      </button>
+    </div>
+  </div>
+
+  <main id="workspace" class="shell">
+    <nav class="topbar" aria-label="Hlavní navigace">
+      <div class="nav-links">
+        <a class="nav-link" href="/">Pravděpodobnostní zahrada</a>
+        <a class="nav-link" href="/vrstvy">RAW vrstvy</a>
+        <a class="nav-link" href="/tuned-lens" aria-current="page">RAW × TUNED</a>
+        <a class="nav-link" href="/steering">Steering</a>
+        <a class="nav-link" href="/jak-to-cist">Průvodce workbenchem</a>
+        <a class="nav-link" href="/archiv">Archiv měření</a>
+      </div>
+      <div class="state-cluster" aria-label="Stav výpočtu">
+        <div
+          id="model-state"
+          class="state-pill"
+          data-state="loading"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="state-dot" aria-hidden="true"></span>
+          <span id="model-state-text">Zjišťuji stav modelu…</span>
+        </div>
+        <div
+          id="reader-state"
+          class="state-pill"
+          data-state="loading"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="state-dot" aria-hidden="true"></span>
+          <span id="reader-state-text">Zjišťuji stav kalibrace…</span>
+        </div>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Apertus · kalibrovaný vertikální řez</p>
+        <h1>RAW × TUNED</h1>
+      </div>
+      <p class="lede">
+        Polož dvě čtečky nad tentýž mezistav a sleduj, jak naučený překlad
+        promění jeho vztah k finální distribuci.
+      </p>
+    </header>
+
+    <section
+      id="calibration-panel"
+      class="calibration-panel"
+      aria-labelledby="calibration-title"
+      aria-busy="true"
+    >
+      <div>
+        <div class="calibration-heading">
+          <span
+            id="calibration-label"
+            class="status-label"
+            data-state="loading"
+          >Načítám</span>
+          <h2 id="calibration-title">Kalibrace čtečky</h2>
+        </div>
+        <p id="calibration-copy" class="calibration-copy">
+          Ověřuji, zda kalibrace odpovídá právě aktivnímu modelu.
+        </p>
+      </div>
+      <div id="calibration-data" class="calibration-data">
+        <ul id="calibration-chips" class="meta-chips" aria-label="Provenience kalibrace"></ul>
+        <p id="heldout-compact" class="heldout-compact"></p>
+      </div>
+    </section>
+
+    <form id="tuned-form" novalidate>
+      <section class="control-panel" aria-label="Nastavení srovnání čteček">
+        <label class="prompt-control" for="prompt">
+          Prefix
+          <textarea
+            id="prompt"
+            name="prompt"
+            maxlength="4000"
+            aria-describedby="prompt-limit control-reason"
+            required
+            spellcheck="true"
+          >Hlavním městem České republiky je</textarea>
+        </label>
+        <label for="top-k">
+          Tokenů na čtečku
+          <select id="top-k" name="top_k">
+            <option value="3">Top 3</option>
+            <option value="5" selected>Top 5</option>
+            <option value="8">Top 8</option>
+          </select>
+        </label>
+        <button id="analyze-button" class="primary-button" type="submit" disabled>
+          Porovnat čtečky
+        </button>
+      </section>
+      <div class="control-foot">
+        <span id="control-reason">Výpočet se zpřístupní po načtení kompatibilní kalibrace.</span>
+        <span id="prompt-limit">
+          Server přijme nejvýše 256 tokenů po tokenizaci; pole dovolí nejvýše
+          4000 znaků. Klávesově: Ctrl/⌘ + Enter.
+        </span>
+      </div>
+    </form>
+
+    <div id="message" class="message" aria-live="polite"></div>
+
+    <section
+      id="results"
+      class="results"
+      aria-labelledby="results-title"
+      aria-busy="false"
+      hidden
+    >
+      <header class="results-head">
+        <div>
+          <p class="eyebrow">Živý řez · jeden prefix</p>
+          <h2 id="results-title" tabindex="-1">Srovnání čteček</h2>
+          <p id="result-context" class="result-context"></p>
+        </div>
+        <span class="lens-badge">RAW × TUNED · T = 1</span>
+      </header>
+
+      <div class="summary-grid" aria-label="Souhrn živého běhu">
+        <article class="summary-card">
+          <span class="summary-label">Finální top 1</span>
+          <strong id="final-token" class="summary-value observed-token">—</strong>
+          <span id="final-token-detail" class="summary-detail"></span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Kalibrované vrstvy</span>
+          <strong id="layer-summary" class="summary-value">—</strong>
+          <span id="layer-detail" class="summary-detail"></span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">TUNED blíž k finále podle KL</span>
+          <strong id="closer-summary" class="summary-value">—</strong>
+          <span id="closer-detail" class="summary-detail"></span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Výpočet</span>
+          <strong id="timing-total" class="summary-value">—</strong>
+          <span id="timing-detail" class="summary-detail"></span>
+        </article>
+      </div>
+
+      <section class="section-block" aria-labelledby="tokenization-title">
+        <div class="section-head">
+          <h3 id="tokenization-title">Tokenizace vstupu</h3>
+          <p id="token-count" class="section-help"></p>
+        </div>
+        <ol id="tokenization" class="tokenization"></ol>
+      </section>
+
+      <section
+        id="validation-section"
+        class="section-block"
+        aria-labelledby="validation-title"
+        hidden
+      >
+        <div class="section-head">
+          <div>
+            <h3 id="validation-title">Validace čtečky mimo trénink</h3>
+            <p class="closing-note">
+              Toto jsou agregáty held-out sady, nikoli výsledek právě zadaného prefixu.
+            </p>
+          </div>
+          <p id="validation-count" class="section-help"></p>
+        </div>
+        <div class="validation-shell">
+          <div
+            class="validation-scroll"
+            tabindex="0"
+            aria-label="Held-out metriky kalibrace"
+          >
+            <table>
+              <caption class="sr-only">
+                Srovnání RAW a TUNED čtečky na held-out datech po vrstvách
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Vrstva</th>
+                  <th scope="col">Průměrná JS RAW → TUNED</th>
+                  <th scope="col">Shoda top 1 RAW → TUNED</th>
+                  <th scope="col">Medián ranku finále RAW → TUNED</th>
+                </tr>
+              </thead>
+              <tbody id="validation-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-block" aria-labelledby="trajectory-title">
+        <div class="section-head">
+          <div>
+            <h3 id="trajectory-title">Vrstva po vrstvě</h3>
+            <p class="closing-note">
+              Obě čtečky dostávají tentýž reziduální stav. Finální distribuce
+              modelu je jejich společná reference.
+            </p>
+          </div>
+          <p id="trajectory-help" class="section-help"></p>
+        </div>
+        <div class="trajectory-shell">
+          <div
+            class="trajectory-scroll"
+            tabindex="0"
+            aria-label="Živé srovnání RAW a TUNED čtečky"
+          >
+            <table>
+              <caption class="sr-only">
+                RAW a TUNED predikce a jejich vzdálenost k finální distribuci
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Vrstva</th>
+                  <th scope="col">RAW top 1</th>
+                  <th scope="col">TUNED top 1</th>
+                  <th scope="col">Rank finálního tokenu RAW → TUNED</th>
+                  <th scope="col">JS k finále RAW → TUNED</th>
+                  <th scope="col">ΔJS (TUNED − RAW)</th>
+                </tr>
+              </thead>
+              <tbody id="trajectory-body"></tbody>
+            </table>
+          </div>
+          <p class="table-note">
+            <span><strong>ΔJS &lt; 0:</strong> TUNED je blíž finální distribuci.</span>
+            <span><strong>ΔJS &gt; 0:</strong> TUNED je dál.</span>
+            <span>Tokeny se vždy čtou včetně ID a viditelné počáteční mezery ␠.</span>
+          </p>
+        </div>
+        <p class="closing-note">
+          Naučená čtečka je aproximace finálního výpočtu. Není přímým dekodérem
+          „významu“ a její lepší metrika není důkazem správnější interpretace vrstvy.
+        </p>
+      </section>
+
+      <section class="save-panel" aria-labelledby="save-title">
+        <div class="save-copy">
+          <h3 id="save-title">Uložit srovnání čteček</h3>
+          <p>
+            Archiv zachová prefix, kalibraci, held-out metriky i oba pohledy po
+            vrstvách. Aktivace, váhy modelu ani váhy translatorů se neukládají.
+          </p>
+        </div>
+        <label class="save-note" for="tuned-note">
+          Poznámka k měření
+          <input
+            id="tuned-note"
+            type="text"
+            maxlength="1000"
+            placeholder="Například: české jméno, Hybrid, pilot v1"
+          >
+        </label>
+        <div>
+          <div class="save-actions">
+            <button id="save-result" class="secondary-button" type="button" disabled>
+              Uložit RAW × TUNED
+            </button>
+            <a class="archive-link" href="/archiv?kind=lens_trajectory">
+              Otevřít archiv
+            </a>
+          </div>
+          <span id="archive-count" class="archive-count" aria-live="polite"></span>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const form = document.querySelector("#tuned-form");
+      const promptInput = document.querySelector("#prompt");
+      const topKSelect = document.querySelector("#top-k");
+      const analyzeButton = document.querySelector("#analyze-button");
+      const controlReason = document.querySelector("#control-reason");
+      const modelState = document.querySelector("#model-state");
+      const modelStateText = document.querySelector("#model-state-text");
+      const readerState = document.querySelector("#reader-state");
+      const readerStateText = document.querySelector("#reader-state-text");
+      const calibrationPanel = document.querySelector("#calibration-panel");
+      const calibrationLabel = document.querySelector("#calibration-label");
+      const calibrationCopy = document.querySelector("#calibration-copy");
+      const calibrationChips = document.querySelector("#calibration-chips");
+      const heldoutCompact = document.querySelector("#heldout-compact");
+      const skipLink = document.querySelector("#skip-link");
+      const workspace = document.querySelector("#workspace");
+      const computeOverlay = document.querySelector("#compute-overlay");
+      const computeDetail = document.querySelector("#compute-detail");
+      const cancelComputeButton = document.querySelector("#cancel-compute");
+      const message = document.querySelector("#message");
+      const results = document.querySelector("#results");
+      const resultsTitle = document.querySelector("#results-title");
+      const resultContext = document.querySelector("#result-context");
+      const finalToken = document.querySelector("#final-token");
+      const finalTokenDetail = document.querySelector("#final-token-detail");
+      const layerSummary = document.querySelector("#layer-summary");
+      const layerDetail = document.querySelector("#layer-detail");
+      const closerSummary = document.querySelector("#closer-summary");
+      const closerDetail = document.querySelector("#closer-detail");
+      const timingTotal = document.querySelector("#timing-total");
+      const timingDetail = document.querySelector("#timing-detail");
+      const tokenCount = document.querySelector("#token-count");
+      const tokenization = document.querySelector("#tokenization");
+      const validationSection = document.querySelector("#validation-section");
+      const validationCount = document.querySelector("#validation-count");
+      const validationBody = document.querySelector("#validation-body");
+      const trajectoryHelp = document.querySelector("#trajectory-help");
+      const trajectoryBody = document.querySelector("#trajectory-body");
+      const tunedNote = document.querySelector("#tuned-note");
+      const saveResultButton = document.querySelector("#save-result");
+      const archiveCount = document.querySelector("#archive-count");
+
+      const DEFAULT_FETCH_TIMEOUT_MS = 20_000;
+      const STATUS_FETCH_TIMEOUT_MS = 12_000;
+      const COMPUTE_FETCH_TIMEOUT_MS = 180_000;
+      const SAVE_FETCH_TIMEOUT_MS = 30_000;
+
+      const progressMessages = [
+        "Připravuji prefix a kalibraci…",
+        "Sbírám mezistavy kalibrovaných vrstev…",
+        "Promítám RAW a TUNED čtečku…",
+        "Sestavuji společné metriky k finále…"
+      ];
+
+      let health = null;
+      let tunedStatus = null;
+      let healthAvailable = false;
+      let readerStatusAvailable = false;
+      let readerStatusError = null;
+      let readerFailure = null;
+      let busy = false;
+      let saveBusy = false;
+      let progressTimer = null;
+      let pollTimer = null;
+      let pollSequence = 0;
+      let computeController = null;
+      let overlayReturnFocus = null;
+      let pollMessageActive = false;
+      let currentResult = null;
+      let currentCapturedAt = null;
+      let pendingRecord = null;
+      let savedRecordId = null;
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+      const finite = (value, fallback = null) => {
+        if (value === null || value === undefined || value === "") return fallback;
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      };
+
+      const clamp = (value, minimum = 0, maximum = 1) => {
+        const number = finite(value, minimum);
+        return Math.max(minimum, Math.min(maximum, number));
+      };
+
+      const asArray = (value) => Array.isArray(value) ? value : [];
+
+      const formatInteger = (value) => {
+        const number = finite(value);
+        return number === null
+          ? "—"
+          : new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {maximumFractionDigits: 0}).format(number);
+      };
+
+      const formatNumber = (value, digits = 2) => {
+        const number = finite(value);
+        return number === null
+          ? "—"
+          : new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+              maximumFractionDigits: digits
+            }).format(number);
+      };
+
+      const formatBits = (value, signed = false) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const digits = Math.abs(number) > 0 && Math.abs(number) < 0.001 ? 5 : 3;
+        const formatted = new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          signDisplay: signed ? "always" : "auto",
+          maximumFractionDigits: digits
+        }).format(number);
+        return `${formatted} bit`;
+      };
+
+      const formatProbability = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const percentage = clamp(number) * 100;
+        return `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: percentage > 0 && percentage < 0.01 ? 4 : 2
+        }).format(percentage)} %`;
+      };
+
+      const formatRate = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const normalized = number > 1 ? number : number * 100;
+        return `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: 1
+        }).format(normalized)} %`;
+      };
+
+      const formatMilliseconds = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        if (number < 1000) {
+          return `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+            maximumFractionDigits: number < 10 ? 1 : 0
+          }).format(number)} ms`;
+        }
+        return `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: 2
+        }).format(number / 1000)} s`;
+      };
+
+      const visibleToken = (value) => {
+        const token = String(value ?? "");
+        if (!token) return "∅";
+        return token
+          .replaceAll(" ", "␠")
+          .replaceAll("\n", "↵")
+          .replaceAll("\t", "⇥");
+      };
+
+      const modelLabel = (modelId, fallback = null) => ({
+        bf16: "BF16",
+        hybrid: "Hybrid",
+        "8bit": "8bit",
+        "4bit": "4bit",
+        mock: "simulace"
+      })[modelId] || fallback || modelId || "Apertus";
+
+      const fetchJson = (url, options = {}) => (
+        window.ProbabilityGardenApi.fetchJson(url, {
+          timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+          ...options
+        })
+      );
+
+      const setMessage = (text = "", isError = false, source = "general") => {
+        pollMessageActive = source === "poll" && Boolean(text);
+        message.textContent = text;
+        message.classList.toggle("error", isError);
+        message.setAttribute("role", isError ? "alert" : "status");
+      };
+
+      const calibrationObject = (status = tunedStatus) => (
+        status?.calibration && typeof status.calibration === "object"
+          ? status.calibration
+          : status || {}
+      );
+
+      const calibrationState = (status = tunedStatus) => {
+        const raw = String(
+          status?.status ??
+          status?.calibration_status ??
+          calibrationObject(status)?.status ??
+          "loading"
+        ).toLowerCase();
+        if ([
+          "ready",
+          "missing",
+          "incompatible",
+          "unvalidated",
+          "loading",
+          "error"
+        ].includes(raw)) {
+          return raw;
+        }
+        return raw === "available" ? "ready" : "error";
+      };
+
+      const calibrationId = (status = tunedStatus) => {
+        const calibration = calibrationObject(status);
+        return (
+          calibration.calibration_id ??
+          calibration.artifact_id ??
+          calibration.id ??
+          status?.calibration_id ??
+          status?.artifact_id ??
+          null
+        );
+      };
+
+      const resultCalibrationId = (data) => (
+        data?.calibration?.calibration_id ??
+        data?.calibration?.artifact_id ??
+        data?.calibration?.id ??
+        null
+      );
+
+      const sameIdentity = (left, right) => (
+        left !== null &&
+        left !== undefined &&
+        right !== null &&
+        right !== undefined &&
+        String(left) === String(right)
+      );
+
+      const statusMatchesHealth = (
+        nextHealth = health,
+        nextStatus = tunedStatus
+      ) => (
+        healthAvailable &&
+        readerStatusAvailable &&
+        sameIdentity(nextStatus?.model_id, nextHealth?.active_model?.id) &&
+        sameIdentity(nextStatus?.model_generation, nextHealth?.model_generation) &&
+        sameIdentity(
+          nextStatus?.server_instance_id,
+          nextHealth?.server_instance_id
+        )
+      );
+
+      const resultMatchesActiveState = (data = currentResult) => (
+        Boolean(data) &&
+        healthAvailable &&
+        readerStatusAvailable &&
+        !readerFailure &&
+        !readerStatusError &&
+        health?.status === "ready" &&
+        calibrationState() === "ready" &&
+        statusMatchesHealth() &&
+        sameIdentity(data.model_id, health?.active_model?.id) &&
+        sameIdentity(data.model_generation, health?.model_generation) &&
+        sameIdentity(data.server_instance_id, health?.server_instance_id) &&
+        sameIdentity(resultCalibrationId(data), calibrationId())
+      );
+
+      const effectiveCalibrationState = () => {
+        if (readerFailure || readerStatusError) return "error";
+        if (
+          healthAvailable &&
+          readerStatusAvailable &&
+          !statusMatchesHealth()
+        ) {
+          return "incompatible";
+        }
+        return calibrationState();
+      };
+
+      const calibratedLayers = (status = tunedStatus) => {
+        const calibration = calibrationObject(status);
+        const values = (
+          calibration.calibrated_layers ??
+          calibration.reader?.selected_layers ??
+          calibration.layers ??
+          status?.calibrated_layers ??
+          []
+        );
+        return asArray(values)
+          .map((value) => finite(value))
+          .filter((value) => value !== null);
+      };
+
+      const validationObject = (source = tunedStatus) => {
+        const calibration = calibrationObject(source);
+        return (
+          source?.validation ??
+          source?.held_out ??
+          calibration.validation ??
+          calibration.held_out ??
+          {}
+        );
+      };
+
+      const heldOutObject = (validation) => (
+        validation?.held_out && typeof validation.held_out === "object"
+          ? validation.held_out
+          : validation || {}
+      );
+
+      const metricValue = (object, keys, fallback = null) => {
+        for (const key of keys) {
+          const value = finite(object?.[key]);
+          if (value !== null) return value;
+        }
+        return fallback;
+      };
+
+      const validationRows = (validation) => {
+        const heldOut = heldOutObject(validation);
+        const rows = (
+          heldOut?.by_layer ??
+          heldOut?.layers ??
+          heldOut?.metrics_by_layer ??
+          []
+        );
+        return asArray(rows).map((row) => ({
+          layer: metricValue(row, ["layer", "layer_number", "index"]),
+          rawJs: metricValue(row, [
+            "raw_mean_js_to_final_bits",
+            "raw_js_to_final_bits",
+            "raw_js_bits",
+            "raw_mean_js_bits"
+          ]),
+          tunedJs: metricValue(row, [
+            "tuned_mean_js_to_final_bits",
+            "tuned_js_to_final_bits",
+            "tuned_js_bits",
+            "tuned_mean_js_bits"
+          ]),
+          rawTop1: metricValue(row, [
+            "raw_final_top1_agreement",
+            "raw_top1_agreement",
+            "raw_top1_match_rate"
+          ]),
+          tunedTop1: metricValue(row, [
+            "tuned_final_top1_agreement",
+            "tuned_top1_agreement",
+            "tuned_top1_match_rate"
+          ]),
+          rawRank: metricValue(row, [
+            "raw_median_final_top1_rank",
+            "raw_median_rank",
+            "raw_final_top1_median_rank"
+          ]),
+          tunedRank: metricValue(row, [
+            "tuned_median_final_top1_rank",
+            "tuned_median_rank",
+            "tuned_final_top1_median_rank"
+          ])
+        })).filter((row) => row.layer !== null);
+      };
+
+      const validationSampleCount = (validation) => (
+        metricValue(heldOutObject(validation), [
+          "held_out_positions",
+          "positions",
+          "token_positions",
+          "sample_count",
+          "samples"
+        ]) ??
+        metricValue(
+          asArray(heldOutObject(validation)?.by_layer)[0],
+          ["positions", "samples"]
+        ) ??
+        metricValue(calibrationObject()?.dataset, [
+          "held_out_positions",
+          "validation_positions",
+          "test_positions"
+        ])
+      );
+
+      const statusCopy = {
+        ready: "Kalibrace odpovídá aktivnímu modelu a je připravena k on-demand výpočtu.",
+        missing: "Pro aktivní model zatím není uložená kalibrace.",
+        incompatible: "Nalezená kalibrace neodpovídá aktivnímu modelu nebo jeho fingerprintu.",
+        unvalidated: "Artefakt existuje, ale neprošel held-out přijímací podmínkou.",
+        loading: "Načítám kalibraci a ověřuji její kompatibilitu.",
+        error: "Stav kalibrace se nepodařilo spolehlivě ověřit."
+      };
+
+      const syncControls = () => {
+        const modelReady = healthAvailable && health?.status === "ready";
+        const readerStateValue = effectiveCalibrationState();
+        const readerReady = (
+          readerStatusAvailable &&
+          statusMatchesHealth() &&
+          readerStateValue === "ready"
+        );
+        const resultIdentityMatches = resultMatchesActiveState();
+        promptInput.disabled = busy || saveBusy;
+        topKSelect.disabled = busy || saveBusy;
+        analyzeButton.disabled = (
+          busy ||
+          saveBusy ||
+          !modelReady ||
+          !readerReady ||
+          !calibrationId() ||
+          !promptInput.value.trim()
+        );
+        tunedNote.disabled = (
+          busy ||
+          saveBusy ||
+          Boolean(savedRecordId) ||
+          Boolean(pendingRecord)
+        );
+        saveResultButton.disabled = (
+          busy ||
+          saveBusy ||
+          !currentResult ||
+          !resultIdentityMatches ||
+          Boolean(savedRecordId)
+        );
+        saveResultButton.title = (
+          currentResult && !resultIdentityMatches
+            ? "Uložení je zablokované: aktivní model nebo kalibrace už neodpovídá tomuto výsledku."
+            : ""
+        );
+
+        if (!healthAvailable) {
+          controlReason.textContent = "Stav modelu se nepodařilo ověřit.";
+        } else if (!modelReady) {
+          controlReason.textContent = "Výpočet čeká na připravený model.";
+        } else if (!readerStatusAvailable) {
+          controlReason.textContent = "Stav kalibrace se nepodařilo ověřit.";
+        } else if (!statusMatchesHealth()) {
+          controlReason.textContent = "Model a kalibrace nepatří ke stejnému stavovému snapshotu.";
+        } else if (!readerReady) {
+          controlReason.textContent = (
+            readerFailure?.message ||
+            readerStatusError ||
+            statusCopy[readerStateValue] ||
+            statusCopy.error
+          );
+        } else {
+          const layers = calibratedLayers();
+          controlReason.textContent = `${
+            layers.length ? `${layers.length} kalibrovaných vrstev` : "Kalibrace"
+          } · výpočet pouze po stisknutí tlačítka · koncové mezery se odstraní.`;
+        }
+      };
+
+      const applyHealth = (nextHealth) => {
+        if (!nextHealth || typeof nextHealth !== "object") return;
+        health = nextHealth;
+        healthAvailable = true;
+        const state = nextHealth.status === "ready"
+          ? "ready"
+          : nextHealth.status === "error"
+            ? "error"
+            : "loading";
+        modelState.dataset.state = state;
+        if (nextHealth.status === "ready") {
+          modelStateText.textContent = `${
+            nextHealth.active_model?.label ||
+            modelLabel(nextHealth.active_model?.id, nextHealth.model)
+          } je připraven`;
+        } else if (nextHealth.status === "switching") {
+          modelStateText.textContent = "Model se přepíná…";
+        } else if (nextHealth.status === "error") {
+          modelStateText.textContent = "Model se nenačetl";
+        } else {
+          modelStateText.textContent = "Model se načítá…";
+        }
+        syncControls();
+      };
+
+      const markHealthUnavailable = (error) => {
+        healthAvailable = false;
+        modelState.dataset.state = "error";
+        modelStateText.textContent = "Stav modelu nelze ověřit";
+        syncControls();
+      };
+
+      const renderCalibration = (status) => {
+        tunedStatus = status && typeof status === "object" ? status : {};
+        const identityMismatch = (
+          healthAvailable &&
+          readerStatusAvailable &&
+          !statusMatchesHealth()
+        );
+        const localError = readerFailure?.message || readerStatusError;
+        const state = localError
+          ? "error"
+          : identityMismatch
+            ? "incompatible"
+            : calibrationState(tunedStatus);
+        const calibration = calibrationObject(tunedStatus);
+        const layers = calibratedLayers(tunedStatus);
+        const dataset = calibration.dataset || tunedStatus.dataset || {};
+        const validation = validationObject(tunedStatus);
+        const samples = validationSampleCount(validation);
+        const readerId = calibrationId(tunedStatus);
+        const fingerprint = (
+          calibration.canonical_manifest_sha256 ??
+          calibration.artifact_sha256 ??
+          calibration.weights?.sha256 ??
+          calibration.artifact_fingerprint ??
+          tunedStatus.artifact_sha256 ??
+          null
+        );
+        const translator = (
+          calibration.translator_kind ??
+          calibration.reader?.translator_kind ??
+          calibration.reader_kind ??
+          tunedStatus.translator_kind ??
+          null
+        );
+        const heldoutRows = validationRows(validation);
+
+        calibrationPanel.setAttribute("aria-busy", state === "loading" ? "true" : "false");
+        calibrationLabel.dataset.state = state;
+        calibrationLabel.textContent = ({
+          ready: "Připravená",
+          missing: "Chybí",
+          incompatible: "Nekompatibilní",
+          unvalidated: "Neověřená",
+          loading: "Načítám",
+          error: "Chyba"
+        })[state] || "Neznámá";
+        calibrationCopy.textContent = localError || (
+          identityMismatch
+            ? "Model a kalibrace pocházejí z různých stavových snapshotů."
+            : (
+                tunedStatus.message ||
+                tunedStatus.error ||
+                statusCopy[state] ||
+                statusCopy.error
+              )
+        );
+
+        readerState.dataset.state = state;
+        readerStateText.textContent = localError
+          ? "Kalibrace je lokálně deaktivována"
+          : identityMismatch
+            ? "Identita kalibrace nesouhlasí"
+            : state === "ready"
+          ? `${readerId || "Kalibrace"} je připravena`
+          : ({
+              missing: "Kalibrace chybí",
+              incompatible: "Kalibrace je nekompatibilní",
+              unvalidated: "Kalibrace neprošla validací",
+              loading: "Kalibrace se načítá…",
+              error: "Kalibraci nelze ověřit"
+            })[state] || "Kalibrace není připravena";
+
+        const chips = [
+          readerId ? ["ID", readerId] : null,
+          translator ? ["Překladač", translator] : null,
+          layers.length ? ["Vrstvy", layers.map((layer) => `L${layer}`).join(", ")] : null,
+          dataset.languages?.length
+            ? ["Jazyky", asArray(dataset.languages).join(" · ")]
+            : null,
+          samples !== null ? ["Held-out pozic", formatInteger(samples)] : null,
+          tunedStatus.content_verification
+            ? ["Ověření vah", tunedStatus.content_verification]
+            : null,
+          fingerprint ? ["Manifest", String(fingerprint).slice(0, 12)] : null
+        ].filter(Boolean);
+        calibrationChips.innerHTML = chips.map(([label, value]) => `
+          <li class="meta-chip">
+            <span>${escapeHtml(label)}</span>
+            <strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong>
+          </li>
+        `).join("");
+
+        if (heldoutRows.length) {
+          const improved = heldoutRows.filter((row) => (
+            row.rawJs !== null &&
+            row.tunedJs !== null &&
+            row.tunedJs < row.rawJs
+          )).length;
+          heldoutCompact.innerHTML = `
+            Held-out: <strong>${improved} z ${heldoutRows.length} vrstev</strong>
+            má po kalibraci nižší průměrnou JS divergenci k finále.
+          `;
+        } else {
+          heldoutCompact.textContent = state === "ready"
+            ? "Held-out souhrn není ve stavové odpovědi k dispozici."
+            : "";
+        }
+        renderValidation(validation);
+        syncControls();
+      };
+
+      const markReaderUnavailable = (error) => {
+        readerStatusAvailable = false;
+        readerStatusError = (
+          error?.message || "Stav kalibrace se nepodařilo ověřit."
+        );
+        renderCalibration(tunedStatus || {});
+      };
+
+      const renderValidation = (validation) => {
+        const rows = validationRows(validation);
+        const samples = validationSampleCount(validation);
+        validationSection.hidden = rows.length === 0;
+        validationCount.textContent = samples === null
+          ? `${rows.length} vrstev`
+          : `${formatInteger(samples)} held-out pozic · ${rows.length} vrstev`;
+        validationBody.innerHTML = rows.map((row) => `
+          <tr>
+            <td><span class="layer-number">L${escapeHtml(row.layer)}</span></td>
+            <td>
+              <span class="paired-metric">
+                <strong>${escapeHtml(formatBits(row.rawJs))} → ${escapeHtml(
+                  formatBits(row.tunedJs)
+                )}</strong>
+                <span>${row.rawJs !== null && row.tunedJs !== null
+                  ? escapeHtml(
+                      row.tunedJs < row.rawJs
+                        ? "TUNED blíž"
+                        : row.tunedJs > row.rawJs
+                          ? "TUNED dál"
+                          : "beze změny"
+                    )
+                  : "neúplná metrika"}</span>
+              </span>
+            </td>
+            <td>
+              <span class="paired-metric">
+                <strong>${escapeHtml(formatRate(row.rawTop1))} → ${escapeHtml(
+                  formatRate(row.tunedTop1)
+                )}</strong>
+                <span>shoda s finálním top 1</span>
+              </span>
+            </td>
+            <td>
+              <span class="paired-metric">
+                <strong>#${escapeHtml(formatNumber(row.rawRank, 1))} → #${escapeHtml(
+                  formatNumber(row.tunedRank, 1)
+                )}</strong>
+                <span>nižší rank je blíž vrcholu</span>
+              </span>
+            </td>
+          </tr>
+        `).join("");
+      };
+
+      const pollStatus = async () => {
+        const pollId = ++pollSequence;
+        window.clearTimeout(pollTimer);
+        const [healthResult, statusResult] = await Promise.allSettled([
+          fetchJson("/api/health", {timeoutMs: STATUS_FETCH_TIMEOUT_MS}),
+          fetchJson("/api/tuned-lens/status", {
+            timeoutMs: STATUS_FETCH_TIMEOUT_MS
+          })
+        ]);
+        if (pollId !== pollSequence) return;
+
+        if (healthResult.status === "fulfilled") {
+          applyHealth(healthResult.value);
+        } else {
+          markHealthUnavailable(healthResult.reason);
+        }
+
+        if (statusResult.status === "fulfilled") {
+          readerStatusAvailable = true;
+          readerStatusError = null;
+          readerFailure = null;
+          renderCalibration(statusResult.value);
+        } else {
+          markReaderUnavailable(statusResult.reason);
+        }
+
+        const bothAvailable = (
+          healthResult.status === "fulfilled" &&
+          statusResult.status === "fulfilled"
+        );
+        const identitiesMatch = bothAvailable && statusMatchesHealth();
+
+        if (!busy) {
+          if (!bothAvailable) {
+            const failures = [
+              healthResult.status === "rejected"
+                ? `model: ${healthResult.reason?.message || "nedostupný"}`
+                : null,
+              statusResult.status === "rejected"
+                ? `kalibrace: ${statusResult.reason?.message || "nedostupná"}`
+                : null
+            ].filter(Boolean);
+            setMessage(
+              `Stavové API není úplně dostupné (${failures.join("; ")}).`,
+              true,
+              "poll"
+            );
+          } else if (!identitiesMatch) {
+            setMessage(
+              "Model a kalibrace pocházejí z různých stavových snapshotů; výpočet je zablokovaný.",
+              true,
+              "poll"
+            );
+          } else if (pollMessageActive) {
+            setMessage("");
+          }
+        }
+
+        const ready = (
+          bothAvailable &&
+          identitiesMatch &&
+          health?.status === "ready" &&
+          effectiveCalibrationState() === "ready"
+        );
+        pollTimer = window.setTimeout(pollStatus, ready ? 5000 : 2200);
+      };
+
+      const showOverlay = () => {
+        let index = 0;
+        overlayReturnFocus = (
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : analyzeButton
+        );
+        computeDetail.textContent = progressMessages[index];
+        cancelComputeButton.disabled = false;
+        computeOverlay.hidden = false;
+        skipLink.setAttribute("inert", "");
+        workspace.setAttribute("inert", "");
+        document.body.classList.add("is-computing");
+        results.setAttribute("aria-busy", "true");
+        window.requestAnimationFrame(() => cancelComputeButton.focus());
+        progressTimer = window.setInterval(() => {
+          index = Math.min(index + 1, progressMessages.length - 1);
+          computeDetail.textContent = progressMessages[index];
+        }, 1500);
+      };
+
+      const hideOverlay = (restoreFocus = true) => {
+        window.clearInterval(progressTimer);
+        progressTimer = null;
+        computeOverlay.hidden = true;
+        skipLink.removeAttribute("inert");
+        workspace.removeAttribute("inert");
+        document.body.classList.remove("is-computing");
+        results.setAttribute("aria-busy", "false");
+        const returnTarget = overlayReturnFocus;
+        overlayReturnFocus = null;
+        if (restoreFocus && returnTarget?.isConnected) {
+          window.requestAnimationFrame(() => returnTarget.focus());
+        }
+      };
+
+      const cancelCompute = () => {
+        if (!computeController || computeController.signal.aborted) return;
+        cancelComputeButton.disabled = true;
+        computeDetail.textContent = "Ruším výpočet…";
+        computeOverlay.focus();
+        computeController.abort();
+      };
+
+      const trapComputeFocus = (event) => {
+        if (computeOverlay.hidden || event.key !== "Tab") return;
+        event.preventDefault();
+        if (cancelComputeButton.disabled) {
+          computeOverlay.focus();
+        } else {
+          cancelComputeButton.focus();
+        }
+      };
+
+      const topCandidate = (side) => (
+        asArray(side?.candidates)[0] ||
+        side?.top1 ||
+        side?.top_candidate ||
+        null
+      );
+
+      const sideJs = (side) => metricValue(side, [
+        "js_divergence_to_final_bits",
+        "js_to_final_bits",
+        "js_bits"
+      ]);
+
+      const sideKl = (side) => metricValue(side, [
+        "kl_divergence_to_final_bits",
+        "kl_to_final_bits",
+        "kl_bits"
+      ]);
+
+      const sideRank = (side) => metricValue(side, [
+        "final_top1_rank",
+        "final_token_rank"
+      ]);
+
+      const candidateHtml = (candidate) => `
+        <li class="candidate">
+          <code>${escapeHtml(
+            visibleToken(candidate?.display ?? candidate?.text)
+          )}</code>
+          <span class="candidate-token-id">#${escapeHtml(
+            candidate?.token_id ?? "—"
+          )}</span>
+          <span>${escapeHtml(formatProbability(candidate?.probability))}</span>
+        </li>
+      `;
+
+      const predictionHtml = (side, variant) => {
+        const top = topCandidate(side) || {};
+        const probability = finite(top.probability);
+        return `
+          <div class="prediction ${variant}">
+            <div class="prediction-head">
+              <span class="prediction-token-wrap">
+                <span class="prediction-token">${
+                  escapeHtml(visibleToken(top.display ?? top.text))
+                }</span>
+                <span class="prediction-token-id">#${escapeHtml(
+                  top.token_id ?? "—"
+                )}</span>
+              </span>
+              <span class="probability">${escapeHtml(formatProbability(probability))}</span>
+            </div>
+            <div
+              class="bar"
+              role="img"
+              aria-label="${variant === "tuned" ? "TUNED" : "RAW"} top jedna ${
+                escapeHtml(formatProbability(probability))
+              }"
+            >
+              <span style="--bar:${(clamp(probability) * 100).toFixed(4)}%"></span>
+            </div>
+            <details class="candidates">
+              <summary>Top ${asArray(side?.candidates).length} tokenů</summary>
+              <ol class="candidate-list">
+                ${asArray(side?.candidates).map(candidateHtml).join("") ||
+                  "<li class=\"candidate\"><span>Bez kandidátů</span></li>"}
+              </ol>
+            </details>
+          </div>
+        `;
+      };
+
+      const layerComparison = (layer) => {
+        const rawJs = sideJs(layer?.raw);
+        const tunedJs = sideJs(layer?.tuned);
+        const rawKl = sideKl(layer?.raw);
+        const tunedKl = sideKl(layer?.tuned);
+        return {
+          klDelta: (
+            metricValue(layer?.comparison, [
+              "kl_tuned_minus_raw_bits",
+              "kl_delta_bits",
+              "kl_divergence_delta_bits"
+            ]) ??
+            (rawKl !== null && tunedKl !== null ? tunedKl - rawKl : null)
+          ),
+          jsDelta: (
+            metricValue(layer?.comparison, [
+              "js_tuned_minus_raw_bits",
+              "js_delta_bits",
+              "js_divergence_delta_bits"
+            ]) ??
+            (rawJs !== null && tunedJs !== null ? tunedJs - rawJs : null)
+          ),
+          rawKl,
+          tunedKl,
+          rawJs,
+          tunedJs,
+          rawRank: sideRank(layer?.raw),
+          tunedRank: sideRank(layer?.tuned)
+        };
+      };
+
+      const renderTrajectory = (data) => {
+        const layers = asArray(data.layers);
+        trajectoryHelp.textContent = `${layers.length} kalibrovaných vrstev · top ${
+          formatInteger(data.top_k ?? topKSelect.value)
+        } na čtečku`;
+        trajectoryBody.innerHTML = layers.map((layer, index) => {
+          const comparison = layerComparison(layer);
+          const deltaClass = comparison.jsDelta === null
+            ? "same"
+            : comparison.jsDelta < 0
+              ? "closer"
+              : comparison.jsDelta > 0
+                ? "farther"
+                : "same";
+          const deltaLabel = comparison.jsDelta === null
+            ? "nelze porovnat"
+            : comparison.jsDelta < 0
+              ? "TUNED blíž"
+              : comparison.jsDelta > 0
+                ? "TUNED dál"
+                : "beze změny";
+          return `
+            <tr>
+              <td>
+                <span class="layer-number">L${escapeHtml(
+                  finite(layer.layer, index + 1)
+                )}</span>
+              </td>
+              <td>${predictionHtml(layer.raw, "raw")}</td>
+              <td>${predictionHtml(layer.tuned, "tuned")}</td>
+              <td>
+                <span class="paired-metric">
+                  <strong>#${escapeHtml(formatInteger(comparison.rawRank))} → #${
+                    escapeHtml(formatInteger(comparison.tunedRank))
+                  }</strong>
+                  <span>finální token</span>
+                </span>
+              </td>
+              <td>
+                <span class="paired-metric">
+                  <strong>${escapeHtml(formatBits(comparison.rawJs))} → ${
+                    escapeHtml(formatBits(comparison.tunedJs))
+                  }</strong>
+                  <span>k finální distribuci</span>
+                </span>
+              </td>
+              <td>
+                <span class="delta ${deltaClass}">
+                  <strong>${escapeHtml(formatBits(comparison.jsDelta, true))}</strong>
+                  <span>${escapeHtml(deltaLabel)}</span>
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      };
+
+      const renderTokenization = (data) => {
+        const tokens = asArray(data.input_tokens).length
+          ? asArray(data.input_tokens)
+          : asArray(data.token_ids).map((tokenId, position) => ({
+              position,
+              token_id: tokenId,
+              display: `#${tokenId}`,
+              is_special: false
+            }));
+        tokenCount.textContent = `${formatInteger(
+          data.token_count ?? tokens.length
+        )} tokenů`;
+        tokenization.innerHTML = tokens.map((token) => `
+          <li class="token-chip ${token.is_special ? "special" : ""}">
+            <span class="token-piece">${escapeHtml(
+              visibleToken(token.display ?? token.text)
+            )}</span>
+            <span class="token-id">#${escapeHtml(token.token_id)}</span>
+          </li>
+        `).join("");
+      };
+
+      const renderSummary = (data) => {
+        const layers = asArray(data.layers);
+        const final = data.final_top1 || {};
+        const comparisons = layers.map(layerComparison);
+        const comparable = comparisons.filter((item) => item.klDelta !== null);
+        const apiCloser = finite(data.summary?.tuned_closer_by_kl_count);
+        const apiLayerCount = finite(data.summary?.layer_count);
+        const closer = (
+          apiCloser ??
+          comparable.filter((item) => item.klDelta < 0).length
+        );
+        const comparedLayerCount = apiLayerCount ?? comparable.length;
+        const meanDelta = comparable.length
+          ? comparable.reduce((sum, item) => sum + item.klDelta, 0) / comparable.length
+          : null;
+        const timings = data.timing_ms || {};
+
+        resultContext.innerHTML = (
+          `<span class="experiment-text">„${escapeHtml(
+            data.text || promptInput.value.trim()
+          )}“</span> · ` +
+          `<span>${escapeHtml(
+            data.calibration?.calibration_id ||
+            data.calibration?.artifact_id ||
+            data.calibration?.id ||
+            calibrationId() ||
+            "kalibrace bez ID"
+          )}</span>`
+        );
+        finalToken.textContent = visibleToken(final.display ?? final.text);
+        finalTokenDetail.textContent = `${
+          formatProbability(final.probability)
+        } · token #${final.token_id ?? "—"}`;
+        layerSummary.textContent = formatInteger(layers.length);
+        layerDetail.textContent = layers.length
+          ? `L${layers.map((layer, index) => finite(layer.layer, index + 1)).join(" · L")}`
+          : "Server nevrátil vrstvy.";
+        closerSummary.textContent = `${
+          formatInteger(closer)
+        } / ${formatInteger(comparedLayerCount)}`;
+        closerDetail.textContent = meanDelta === null
+          ? "KL srovnání není dostupné."
+          : `Průměrné ΔKL ${formatBits(meanDelta, true)}.`;
+        timingTotal.textContent = formatMilliseconds(timings.total);
+        timingDetail.textContent = [
+          finite(timings.forward) !== null
+            ? `forward ${formatMilliseconds(timings.forward)}`
+            : null,
+          finite(timings.raw_projection) !== null
+            ? `RAW ${formatMilliseconds(timings.raw_projection)}`
+            : finite(timings.projection) !== null
+              ? `projekce ${formatMilliseconds(timings.projection)}`
+              : null,
+          finite(timings.tuned_projection) !== null
+            ? `TUNED ${formatMilliseconds(timings.tuned_projection)}`
+            : null,
+          data.cached ? "z cache" : null
+        ].filter(Boolean).join(" · ");
+      };
+
+      const renderResult = (data) => {
+        const layers = asArray(data.layers);
+        if (!layers.length) {
+          throw new Error("Server nevrátil žádnou kalibrovanou vrstvu.");
+        }
+        renderSummary(data);
+        renderTokenization(data);
+        renderValidation(data.validation || data.calibration?.held_out || validationObject());
+        renderTrajectory(data);
+        results.hidden = false;
+      };
+
+      const analyze = async () => {
+        if (busy || saveBusy) return;
+        let focusResultsAfterClose = false;
+        const rawText = promptInput.value;
+        const text = rawText.trimEnd();
+        if (!text) {
+          setMessage("Napiš prefix, který chceš porovnat.", true);
+          promptInput.focus();
+          return;
+        }
+        if (text !== rawText) promptInput.value = text;
+        if (!healthAvailable || health?.status !== "ready") {
+          setMessage("Model ještě není připraven.", true);
+          return;
+        }
+        if (!readerStatusAvailable || !statusMatchesHealth()) {
+          setMessage(
+            "Nelze ověřit společnou identitu modelu a kalibrace.",
+            true
+          );
+          return;
+        }
+        if (effectiveCalibrationState() !== "ready" || !calibrationId()) {
+          setMessage(
+            readerFailure?.message ||
+            readerStatusError ||
+            statusCopy[effectiveCalibrationState()] ||
+            statusCopy.error,
+            true
+          );
+          return;
+        }
+
+        const requestIdentity = {
+          modelId: health.active_model?.id,
+          modelGeneration: health.model_generation,
+          serverInstanceId: health.server_instance_id,
+          calibrationId: calibrationId()
+        };
+        currentResult = null;
+        currentCapturedAt = null;
+        pendingRecord = null;
+        savedRecordId = null;
+        busy = true;
+        computeController = new AbortController();
+        syncControls();
+        setMessage("");
+        showOverlay();
+
+        try {
+          const data = await fetchJson("/api/tuned-lens", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              text,
+              top_k: Number(topKSelect.value),
+              calibration_id: requestIdentity.calibrationId,
+              model_id: requestIdentity.modelId,
+              model_generation: requestIdentity.modelGeneration,
+              server_instance_id: requestIdentity.serverInstanceId
+            }),
+            signal: computeController.signal,
+            timeoutMs: COMPUTE_FETCH_TIMEOUT_MS
+          });
+          if (
+            !sameIdentity(data.model_id, requestIdentity.modelId) ||
+            !sameIdentity(
+              data.model_generation,
+              requestIdentity.modelGeneration
+            ) ||
+            !sameIdentity(
+              data.server_instance_id,
+              requestIdentity.serverInstanceId
+            ) ||
+            !sameIdentity(
+              resultCalibrationId(data),
+              requestIdentity.calibrationId
+            )
+          ) {
+            const identityError = new Error(
+              "Odpověď výpočtu neodpovídá odeslané identitě modelu a kalibrace."
+            );
+            identityError.code = "response_identity_mismatch";
+            throw identityError;
+          }
+          renderResult(data);
+          currentResult = data;
+          currentCapturedAt = new Date().toISOString();
+          tunedNote.value = "";
+          syncControls();
+          if (
+            (data.calibration || data.validation) &&
+            statusMatchesHealth() &&
+            sameIdentity(resultCalibrationId(data), calibrationId())
+          ) {
+            renderCalibration({
+              ...tunedStatus,
+              calibration: data.calibration || calibrationObject(),
+              validation: data.validation || data.calibration?.held_out
+            });
+          }
+          setMessage(
+            data.cached
+              ? "Hotovo — srovnání bylo načteno z mezipaměti."
+              : "Hotovo — RAW a TUNED čtečka byly vyhodnoceny nad týmž průchodem."
+          );
+          focusResultsAfterClose = true;
+        } catch (error) {
+          if (error.health) applyHealth(error.health);
+          const readerFailureCodes = [
+            "calibration_changed",
+            "calibration_incompatible",
+            "invalid_tuned_lens_artifact",
+            "tuned_lens_error"
+          ];
+          if (readerFailureCodes.includes(error.code)) {
+            readerFailure = {
+              code: error.code,
+              message: (
+                error.message ||
+                "Kalibrace selhala při kontrole integrity nebo kompatibility."
+              )
+            };
+            readerStatusError = null;
+          }
+          if (error.tunedStatus) {
+            readerStatusAvailable = true;
+            renderCalibration(error.tunedStatus);
+          } else if (readerFailure) {
+            renderCalibration(tunedStatus || {});
+          }
+
+          if (error.code === "request_cancelled") {
+            setMessage("Výpočet byl zrušen.");
+          } else {
+            setMessage(
+              error.message || "Srovnání čteček se nepodařilo dokončit.",
+              true
+            );
+          }
+
+          if ([
+            "model_changed",
+            "calibration_changed",
+            "calibration_incompatible",
+            "invalid_tuned_lens_artifact",
+            "tuned_lens_unavailable",
+            "tuned_lens_error"
+          ].includes(error.code)) {
+            pollSequence += 1;
+            window.clearTimeout(pollTimer);
+            pollTimer = window.setTimeout(pollStatus, 2200);
+          }
+        } finally {
+          computeController = null;
+          busy = false;
+          hideOverlay(!focusResultsAfterClose);
+          syncControls();
+          if (focusResultsAfterClose) {
+            window.requestAnimationFrame(() => {
+              results.scrollIntoView({behavior: "smooth", block: "start"});
+              resultsTitle.focus({preventScroll: true});
+            });
+          }
+        }
+      };
+
+      const newRecordId = () => {
+        if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        if (window.crypto?.getRandomValues) {
+          window.crypto.getRandomValues(bytes);
+        } else {
+          for (let index = 0; index < bytes.length; index += 1) {
+            bytes[index] = Math.floor(Math.random() * 256);
+          }
+        }
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(
+          bytes,
+          (byte) => byte.toString(16).padStart(2, "0")
+        );
+        return [
+          hex.slice(0, 4).join(""),
+          hex.slice(4, 6).join(""),
+          hex.slice(6, 8).join(""),
+          hex.slice(8, 10).join(""),
+          hex.slice(10, 16).join("")
+        ].join("-");
+      };
+
+      const buildProvenance = (data) => ({
+        application: {
+          id: "apertus-garden",
+          name: "Pravděpodobnostní zahrada",
+          surface: "raw_vs_tuned_lens"
+        },
+        source: "live_ui",
+        route: window.location.pathname,
+        model: {
+          id: data.model_id ?? null,
+          label: (
+            data.calibration?.model?.model_label ??
+            data.model ??
+            data.model_id ??
+            null
+          ),
+          name: data.model ?? null
+        },
+        execution: {
+          model_generation: data.model_generation ?? null,
+          server_instance_id: data.server_instance_id ?? null
+        },
+        calibration: {
+          id: (
+            data.calibration?.calibration_id ??
+            data.calibration?.artifact_id ??
+            data.calibration?.id ??
+            null
+          ),
+          artifact_sha256: (
+            data.calibration?.canonical_manifest_sha256 ??
+            data.calibration?.artifact_sha256 ??
+            null
+          ),
+          weights_sha256: data.calibration?.weights?.sha256 ?? null,
+          metrics_sha256: data.calibration?.metrics?.sha256 ?? null,
+          model_metadata_fingerprint: (
+            data.calibration?.model_metadata_fingerprint ??
+            data.calibration?.model?.metadata_fingerprint ??
+            null
+          )
+        },
+        server: data.provenance?.server ?? data.server_provenance ?? null,
+        storage: data.provenance?.storage ?? data.storage ?? null
+      });
+
+      const buildRecord = () => {
+        const data = currentResult;
+        const text = String(data?.text ?? "");
+        const calibration = data?.calibration || {};
+        return {
+          schema: "apertus.experiment-record",
+          schema_version: 1,
+          id: newRecordId(),
+          kind: "lens_trajectory",
+          captured_at: currentCapturedAt || new Date().toISOString(),
+          series_id: null,
+          annotation: {
+            title: `RAW × TUNED · ${text.slice(0, 100)}`,
+            notes: tunedNote.value.trim() || null,
+            tags: ["raw-vs-tuned", "tuned-lens"]
+          },
+          capture: {
+            status: "complete",
+            warnings: [
+              "TUNED lens je naučená aproximace finální distribuce, nikoli přímý dekodér významu mezistavu.",
+              "Archiv neobsahuje reziduální aktivace, váhy modelu ani váhy translatorů."
+            ]
+          },
+          provenance: buildProvenance(data),
+          payload: {
+            request: {
+              text,
+              token_ids: asArray(data.token_ids),
+              top_k: data.top_k ?? Number(topKSelect.value),
+              temperature: data.temperature ?? 1.0,
+              calibration_id: (
+                calibration?.calibration_id ??
+                calibration?.artifact_id ??
+                calibration?.id ??
+                null
+              ),
+              layers: asArray(data.layers).map((layer) => layer.layer)
+            },
+            reader: {
+              kind: "raw_vs_tuned_lens",
+              stream: "residual_post",
+              position: "last_input_token",
+              layer_numbering: "one_based",
+              raw: {
+                normalization: "final_model_norm",
+                projection: "final_lm_head"
+              },
+              tuned: {
+                calibration_id: (
+                  calibration?.calibration_id ??
+                  calibration?.artifact_id ??
+                  calibration?.id ??
+                  null
+                ),
+                artifact_sha256: (
+                  calibration?.canonical_manifest_sha256 ??
+                  calibration?.artifact_sha256 ??
+                  null
+                ),
+                weights_sha256: calibration?.weights?.sha256 ?? null,
+                metrics_sha256: calibration?.metrics?.sha256 ?? null,
+                translator_kind: (
+                  calibration?.translator_kind ??
+                  calibration?.reader?.translator_kind ??
+                  null
+                )
+              }
+            },
+            validation: data.validation || calibration?.validation || {},
+            result: data
+          },
+          diagnostics: {
+            cached: Boolean(data.cached),
+            timing_ms: data.timing_ms || null
+          }
+        };
+      };
+
+      const refreshArchiveCount = async () => {
+        try {
+          const data = await fetchJson(
+            "/api/experiments?kind=lens_trajectory&limit=1&offset=0"
+          );
+          const total = Number(data.total ?? data.count ?? 0);
+          archiveCount.textContent = total === 1
+            ? "V archivu je 1 lens trajektorie."
+            : `V archivu je ${formatInteger(total)} lens trajektorií.`;
+        } catch {
+          archiveCount.textContent = "Archiv zatím není dostupný.";
+        }
+      };
+
+      const saveResult = async () => {
+        if (!currentResult || savedRecordId || saveBusy) return;
+        if (!resultMatchesActiveState()) {
+          setMessage(
+            "Uložení je zablokované: aktivní model nebo kalibrace už neodpovídá vypočtenému výsledku.",
+            true
+          );
+          syncControls();
+          return;
+        }
+        if (!pendingRecord) pendingRecord = buildRecord();
+        saveBusy = true;
+        syncControls();
+        setMessage("Ukládám neměnné srovnání RAW × TUNED do lokálního archivu…");
+        try {
+          const response = await fetchJson("/api/experiments", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({record: pendingRecord}),
+            timeoutMs: SAVE_FETCH_TIMEOUT_MS
+          });
+          savedRecordId = response.record?.id || pendingRecord.id;
+          pendingRecord = null;
+          setMessage(
+            response.created === false
+              ? "Toto srovnání už v archivu je."
+              : "Srovnání RAW × TUNED bylo trvale uloženo do lokálního archivu."
+          );
+          await refreshArchiveCount();
+        } catch (error) {
+          setMessage(error.message || "Srovnání se nepodařilo uložit.", true);
+        } finally {
+          saveBusy = false;
+          syncControls();
+        }
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        analyze();
+      });
+
+      promptInput.addEventListener("input", syncControls);
+      promptInput.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          if (!analyzeButton.disabled) analyze();
+        }
+      });
+      saveResultButton.addEventListener("click", saveResult);
+      cancelComputeButton.addEventListener("click", cancelCompute);
+      computeOverlay.addEventListener("keydown", trapComputeFocus);
+
+      pollStatus();
+      refreshArchiveCount();
+    })();
+  </script>
+</body>
+</html>

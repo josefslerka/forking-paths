@@ -1,0 +1,4538 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interaktivní mapa skutečných next-token pravděpodobností modelu Apertus 8B.">
+  <title>Pravděpodobnostní zahrada · Apertus 8B</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09100d;
+      --surface: #111b16;
+      --surface-2: #17251d;
+      --text: #ecf6ef;
+      --muted: #9eb3a6;
+      --line: #31483a;
+      --leaf: #70d89b;
+      --leaf-bright: #9cf0bd;
+      --gold: #e6c978;
+      --danger: #f19a91;
+      --shadow: 0 22px 60px rgba(0, 0, 0, 0.3);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 12% -18%, rgba(57, 124, 83, 0.18), transparent 34rem),
+        radial-gradient(circle at 100% 45%, rgba(188, 149, 63, 0.06), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    body.is-computing {
+      overflow: hidden;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .shell {
+      width: min(1540px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 64px;
+    }
+
+    .masthead {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--leaf-bright);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 1180px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.5rem, 4.7vw, 4.5rem);
+      font-weight: 400;
+      letter-spacing: -0.045em;
+      line-height: 0.96;
+    }
+
+    .subtitle {
+      max-width: 720px;
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .masthead-actions {
+      display: grid;
+      justify-items: end;
+      gap: 10px;
+      flex: 0 0 auto;
+    }
+
+    .masthead-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .guide-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--leaf-bright);
+      text-decoration: none;
+      font-size: 0.78rem;
+      font-weight: 720;
+    }
+
+    .guide-link:hover,
+    .guide-link:focus-visible {
+      border-color: var(--leaf);
+      background: rgba(41, 79, 55, 0.28);
+    }
+
+    .model-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(17, 27, 22, 0.76);
+      color: var(--muted);
+      font-size: 0.82rem;
+      white-space: nowrap;
+    }
+
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 0 5px rgba(230, 201, 120, 0.08);
+    }
+
+    .model-state[data-state="ready"] .state-dot {
+      background: var(--leaf);
+      box-shadow: 0 0 0 5px rgba(112, 216, 155, 0.09);
+    }
+
+    .model-state[data-state="error"] .state-dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 5px rgba(241, 154, 145, 0.09);
+    }
+
+    .compute-overlay {
+      position: fixed;
+      z-index: 100;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(4, 10, 7, 0.72);
+      backdrop-filter: blur(4px);
+      cursor: wait;
+    }
+
+    .compute-overlay[hidden] {
+      display: none;
+    }
+
+    .compute-status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: min(420px, calc(100vw - 48px));
+      padding: 18px 20px;
+      border: 1px solid rgba(112, 216, 155, 0.54);
+      border-radius: 16px;
+      background: rgba(12, 21, 16, 0.96);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.46);
+    }
+
+    .compute-spinner {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+      border: 2px solid var(--line);
+      border-top-color: var(--leaf-bright);
+      border-radius: 50%;
+      animation: turn 820ms linear infinite;
+    }
+
+    .compute-copy {
+      display: grid;
+      gap: 2px;
+    }
+
+    .compute-title {
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 800;
+    }
+
+    .compute-detail {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .control-panel {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+      padding: 12px 2px;
+      border-block: 1px solid var(--line);
+      background: transparent;
+    }
+
+    .model-control {
+      flex: 0 0 210px;
+    }
+
+    .temperature-control {
+      flex: 1 1 420px;
+      max-width: 560px;
+    }
+
+    .control-panel > label[for="top-k"] {
+      flex: 0 0 190px;
+    }
+
+    .add-prompt-control {
+      display: grid;
+      flex: 0 0 auto;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 650;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 650;
+    }
+
+    .prompt-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      background: #0c1510;
+      color: var(--text);
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    input[type="text"] {
+      padding: 0 14px;
+    }
+
+    select {
+      padding: 0 34px 0 12px;
+    }
+
+    input[type="text"]:focus,
+    select:focus,
+    button:focus-visible,
+    input[type="range"]:focus-visible {
+      border-color: var(--leaf);
+      box-shadow: 0 0 0 3px rgba(112, 216, 155, 0.16);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--leaf);
+    }
+
+    .primary-button {
+      min-height: 46px;
+      padding: 0 18px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--leaf);
+      color: #092013;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 150ms ease, background 150ms ease;
+    }
+
+    .primary-button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      background: var(--leaf-bright);
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.52;
+    }
+
+    .temperature-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .temperature-value {
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .message {
+      min-height: 20px;
+      margin: 9px 4px 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    .path-label {
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .path-text {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.35rem, 3vw, 2.4rem);
+      font-weight: 400;
+      overflow-wrap: anywhere;
+    }
+
+    .path-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.83rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .search-panel {
+      margin: 34px 0 0;
+      padding: 22px 2px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .search-head,
+    .garden-head,
+    .search-result-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .search-head h2,
+    .garden-head h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .search-context,
+    .garden-count,
+    .search-help,
+    .search-result-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .search-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .secondary-button,
+    .focus-node {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(12, 21, 16, 0.86);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .secondary-button {
+      min-height: 46px;
+      padding: 0 17px;
+      font-weight: 750;
+    }
+
+    .secondary-button:hover:not(:disabled),
+    .focus-node:hover:not(:disabled) {
+      border-color: var(--leaf);
+      background: rgba(41, 79, 55, 0.42);
+    }
+
+    .search-help {
+      margin: 8px 2px 0;
+    }
+
+    .search-results {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .search-result {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(12, 21, 16, 0.78);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .search-result:hover:not(:disabled) {
+      border-color: var(--leaf);
+      background: rgba(23, 37, 29, 0.96);
+    }
+
+    .search-result .token {
+      display: block;
+    }
+
+    .search-result-rank {
+      color: var(--gold);
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .search-empty {
+      padding: 12px 2px 2px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .token-choices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .token-choice {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 9px;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: rgba(12, 21, 16, 0.78);
+      cursor: pointer;
+    }
+
+    .token-choice:hover:not(:disabled),
+    .token-choice[aria-pressed="true"] {
+      border-color: var(--leaf);
+      background: rgba(41, 79, 55, 0.42);
+    }
+
+    .comparison-wrap {
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--compare-columns), minmax(190px, 1fr));
+      gap: 10px;
+    }
+
+    .comparison-cell {
+      display: grid;
+      align-content: start;
+      gap: 6px;
+      min-height: 116px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(12, 21, 16, 0.78);
+    }
+
+    button.comparison-cell {
+      text-align: left;
+      cursor: pointer;
+    }
+
+    button.comparison-cell:hover:not(:disabled) {
+      border-color: var(--leaf);
+      background: rgba(23, 37, 29, 0.96);
+    }
+
+    .comparison-label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 750;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .comparison-value {
+      color: var(--leaf-bright);
+      font-size: 1.2rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .comparison-rank {
+      color: var(--gold);
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .experiment-panel {
+      margin: 34px 0 0;
+      padding: 22px 2px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .experiment-head,
+    .experiment-actions,
+    .experiment-result-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .experiment-head h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .experiment-context,
+    .experiment-help,
+    .experiment-records,
+    .experiment-prefix {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .experiment-toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+      margin-top: 14px;
+    }
+
+    .experiment-toolbar label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .experiment-toolbar select {
+      min-width: 0;
+    }
+
+    .experiment-actions {
+      justify-content: flex-start;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .experiment-note {
+      display: grid;
+      flex: 1 1 280px;
+      gap: 6px;
+      min-width: min(100%, 240px);
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .experiment-note input {
+      min-height: 46px;
+    }
+
+    .archive-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .archive-action:hover,
+    .archive-action:focus-visible {
+      border-color: var(--leaf);
+      background: rgba(41, 79, 55, 0.42);
+    }
+
+    .experiment-records {
+      margin-left: auto;
+    }
+
+    .experiment-records.error {
+      color: var(--danger);
+    }
+
+    .experiment-help {
+      margin: 9px 2px 0;
+    }
+
+    .experiment-result {
+      margin-top: 14px;
+    }
+
+    .experiment-result-card {
+      display: grid;
+      gap: 15px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(14, 24, 18, 0.72);
+    }
+
+    .experiment-prefixes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .experiment-prefix {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(49, 72, 58, 0.64);
+      border-radius: 11px;
+      background: rgba(12, 21, 16, 0.66);
+    }
+
+    .experiment-prefix strong {
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+
+    .experiment-metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 9px;
+    }
+
+    .experiment-metric {
+      display: grid;
+      gap: 5px;
+      min-height: 88px;
+      padding: 11px;
+      border: 1px solid rgba(49, 72, 58, 0.64);
+      border-radius: 11px;
+      background: rgba(12, 21, 16, 0.66);
+    }
+
+    .experiment-metric span {
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 750;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .experiment-metric strong {
+      color: var(--leaf-bright);
+      font-size: 1.12rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .experiment-metric small {
+      color: var(--muted);
+      font-size: 0.7rem;
+      line-height: 1.3;
+    }
+
+    .mover-columns {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mover-column {
+      display: grid;
+      align-content: start;
+      gap: 7px;
+    }
+
+    .mover-column h3 {
+      margin: 0 0 2px;
+      font-size: 0.82rem;
+    }
+
+    .mover-row {
+      display: grid;
+      grid-template-columns: minmax(72px, auto) minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: baseline;
+      padding: 8px 10px;
+      border: 1px solid rgba(49, 72, 58, 0.55);
+      border-radius: 10px;
+      background: rgba(12, 21, 16, 0.58);
+      font-size: 0.76rem;
+    }
+
+    .mover-row .token {
+      overflow-wrap: anywhere;
+    }
+
+    .mover-change {
+      color: var(--leaf-bright);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .mover-ranks {
+      color: var(--muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .experiment-stale {
+      color: var(--gold);
+      font-size: 0.78rem;
+    }
+
+    .garden-head {
+      margin: 28px 2px 12px;
+    }
+
+    .prompt-columns {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(620px, 1fr);
+      gap: 24px;
+      align-items: flex-start;
+      overflow-x: auto;
+      padding: 2px 2px 18px;
+      scroll-snap-type: x proximity;
+      scrollbar-color: var(--line) transparent;
+    }
+
+    .prompt-columns[data-count="1"] {
+      grid-auto-flow: row;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .prompt-columns[data-count="2"] {
+      grid-auto-flow: row;
+      grid-template-columns: repeat(2, minmax(620px, 1fr));
+    }
+
+    .prompt-column {
+      container-type: inline-size;
+      min-width: 0;
+      padding: 2px;
+      scroll-snap-align: start;
+    }
+
+    .column-header,
+    .column-garden-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .column-header {
+      margin-bottom: 10px;
+    }
+
+    .column-title {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .column-remove {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+
+    .column-remove:hover:not(:disabled) {
+      color: var(--danger);
+    }
+
+    .column-seed {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 650;
+    }
+
+    .column-seed-label {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .draft-label {
+      color: var(--gold);
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    .column-message {
+      min-height: 19px;
+      margin: 7px 2px 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .column-message.error {
+      color: var(--danger);
+    }
+
+    .column-path {
+      margin: 12px 2px 14px;
+      padding: 12px 0 14px;
+      border-bottom: 1px solid rgba(49, 72, 58, 0.55);
+    }
+
+    .column-path .path-text {
+      font-size: clamp(1.2rem, 1.8vw, 1.7rem);
+      line-height: 1.12;
+    }
+
+    .path-telemetry {
+      margin: -2px 2px 16px;
+      padding: 12px 0 15px;
+      border-bottom: 1px solid rgba(49, 72, 58, 0.55);
+    }
+
+    .path-telemetry-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 9px;
+    }
+
+    .path-telemetry-head strong {
+      color: var(--text);
+      font-size: 0.82rem;
+    }
+
+    .path-telemetry-head span,
+    .path-telemetry-fallback {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .path-telemetry-scroll {
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-color: var(--line) transparent;
+    }
+
+    .path-telemetry-grid {
+      display: grid;
+      grid-template-columns: minmax(108px, 0.9fr) repeat(
+        var(--telemetry-points),
+        minmax(104px, 1fr)
+      );
+      gap: 4px;
+    }
+
+    .telemetry-label,
+    .telemetry-cell {
+      min-height: 42px;
+      border: 1px solid rgba(49, 72, 58, 0.52);
+      background: rgba(12, 21, 16, 0.56);
+    }
+
+    .telemetry-label {
+      display: flex;
+      align-items: center;
+      padding: 7px 9px;
+      border-radius: 8px 3px 3px 8px;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .telemetry-cell {
+      position: relative;
+      display: grid;
+      align-content: center;
+      gap: 2px;
+      min-width: 0;
+      padding: 6px 8px;
+      overflow: hidden;
+      border-radius: 3px;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .telemetry-cell:hover:not(:disabled),
+    .telemetry-cell:focus-visible {
+      z-index: 1;
+      border-color: var(--leaf);
+      background: rgba(41, 79, 55, 0.42);
+    }
+
+    .telemetry-cell.current {
+      border-color: rgba(112, 216, 155, 0.74);
+    }
+
+    .telemetry-cell.missing {
+      color: var(--muted);
+    }
+
+    .telemetry-cell-value,
+    .telemetry-token {
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .telemetry-cell-value {
+      font-weight: 750;
+    }
+
+    .telemetry-token {
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.66rem;
+    }
+
+    .telemetry-bar {
+      position: absolute;
+      inset: auto 0 0;
+      height: 4px;
+      background: rgba(49, 72, 58, 0.35);
+    }
+
+    .telemetry-bar span {
+      display: block;
+      height: 100%;
+      background: var(--leaf);
+      opacity: 0.76;
+    }
+
+    .telemetry-row-gap .telemetry-bar span {
+      background: var(--gold);
+    }
+
+    .telemetry-row-surprisal .telemetry-bar span {
+      background: var(--danger);
+    }
+
+    .path-telemetry-fallback {
+      margin: 0;
+      padding: 9px 10px;
+      border: 1px dashed rgba(49, 72, 58, 0.68);
+      border-radius: 9px;
+    }
+
+    .column-garden-head {
+      margin: 0 2px 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .column-garden-head strong {
+      color: var(--text);
+      font-size: 0.86rem;
+    }
+
+    .empty-garden {
+      display: grid;
+      place-items: center;
+      min-height: 190px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font-size: 0.84rem;
+      text-align: center;
+    }
+
+    .garden {
+      margin-top: 0;
+    }
+
+    .level {
+      margin-bottom: 18px;
+      padding: 17px;
+      border: 1px solid rgba(49, 72, 58, 0.68);
+      border-radius: 15px;
+      background: rgba(14, 24, 18, 0.58);
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .level.active {
+      border-color: rgba(112, 216, 155, 0.82);
+      box-shadow: inset 3px 0 0 rgba(112, 216, 155, 0.72);
+    }
+
+    .level.stale {
+      border-style: dashed;
+    }
+
+    .level-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .level-heading {
+      display: grid;
+      min-width: 0;
+      gap: 3px;
+    }
+
+    .level-actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: 8px;
+    }
+
+    .level-number {
+      color: var(--leaf-bright);
+      font-weight: 750;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .level-prefix {
+      max-width: 760px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .node-origin {
+      color: var(--muted);
+      font-size: 0.74rem;
+    }
+
+    .focus-node {
+      padding: 7px 10px;
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .focus-node[aria-pressed="true"] {
+      border-color: var(--leaf);
+      color: var(--leaf-bright);
+    }
+
+    .distribution-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .metric {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 9px;
+      border: 1px solid rgba(49, 72, 58, 0.72);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .entropy-meter {
+      width: 42px;
+      height: 4px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: rgba(49, 72, 58, 0.52);
+    }
+
+    .entropy-meter span {
+      display: block;
+      height: 100%;
+      background: var(--gold);
+    }
+
+    .stale-label {
+      color: var(--gold);
+    }
+
+    .fan {
+      display: block;
+      width: 100%;
+      height: 72px;
+      overflow: visible;
+    }
+
+    .branch-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .branch {
+      display: grid;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      overflow: hidden;
+      background: rgba(12, 21, 16, 0.82);
+      transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+    }
+
+    .branch:hover:not(:disabled) {
+      transform: translateY(-2px);
+      border-color: rgba(112, 216, 155, 0.75);
+      background: rgba(23, 37, 29, 0.96);
+    }
+
+    .branch[aria-pressed="true"] {
+      border-color: var(--leaf);
+      background: rgba(41, 79, 55, 0.58);
+      box-shadow: 0 0 0 2px rgba(112, 216, 155, 0.14);
+    }
+
+    .branch.expanded:not([aria-pressed="true"]) {
+      border-color: rgba(112, 216, 155, 0.5);
+    }
+
+    .branch-main {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 12px 8px;
+    }
+
+    .token {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94rem;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .branch-status {
+      padding: 0 12px 8px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      text-align: left;
+    }
+
+    .probability {
+      color: var(--leaf-bright);
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .probability-bar {
+      height: 4px;
+      background: rgba(49, 72, 58, 0.42);
+    }
+
+    .probability-bar span {
+      display: block;
+      height: 100%;
+      background: var(--leaf);
+    }
+
+    .tail {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      border: 1px dashed var(--line);
+      border-radius: 13px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    .loading-level {
+      display: grid;
+      place-items: center;
+      min-height: 150px;
+      color: var(--muted);
+    }
+
+    .seed {
+      width: 24px;
+      height: 24px;
+      margin-bottom: 12px;
+      border: 2px solid var(--line);
+      border-top-color: var(--leaf);
+      border-radius: 50%;
+      animation: turn 900ms linear infinite;
+    }
+
+    @keyframes turn {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 1280px) {
+      .prompt-columns[data-count="2"] {
+        grid-auto-flow: column;
+        grid-template-columns: none;
+      }
+    }
+
+    @container (max-width: 700px) {
+      .fan {
+        display: none;
+      }
+
+      .branch-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 820px) {
+      .masthead {
+        display: grid;
+      }
+
+      .masthead-actions {
+        justify-items: start;
+      }
+
+      .masthead-links {
+        justify-content: flex-start;
+      }
+
+      .control-panel {
+        align-items: stretch;
+        flex-wrap: wrap;
+      }
+
+      .temperature-control {
+        max-width: none;
+      }
+
+      .control-panel > label[for="top-k"] {
+        flex: 1 1 180px;
+      }
+
+      .branch-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .fan {
+        display: none;
+      }
+
+      .level-header {
+        align-items: flex-start;
+      }
+
+      .prompt-columns {
+        grid-auto-columns: calc(100vw - 48px);
+      }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        width: calc(100% - 20px);
+        padding-top: 20px;
+      }
+
+      .control-panel,
+      .prompt-row,
+      .search-row,
+      .experiment-toolbar,
+      .experiment-prefixes,
+      .mover-columns {
+        grid-template-columns: 1fr;
+      }
+
+      .experiment-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .mover-row {
+        grid-template-columns: 1fr;
+      }
+
+      .mover-ranks {
+        text-align: left;
+      }
+
+      .control-panel {
+        display: grid;
+      }
+
+      .level {
+        padding: 14px;
+      }
+
+      .prompt-columns {
+        grid-auto-columns: calc(100vw - 24px);
+      }
+
+      .level-prefix {
+        max-width: 55vw;
+      }
+
+      .search-head,
+      .garden-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .path-telemetry-head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+</head>
+<body data-workbench-page="garden">
+  <a class="skip-link" href="#workspace">Přeskočit na obsah</a>
+  <div
+    id="compute-overlay"
+    class="compute-overlay"
+    role="status"
+    aria-live="assertive"
+    aria-label="Apertus právě počítá"
+    hidden
+  >
+    <div class="compute-status">
+      <span class="compute-spinner" aria-hidden="true"></span>
+      <span class="compute-copy">
+        <span id="compute-title" class="compute-title">Apertus počítá</span>
+        <span id="compute-detail" class="compute-detail">Úplné rozdělení dalšího tokenu…</span>
+      </span>
+    </div>
+  </div>
+
+  <main id="workspace" class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">Základní model · živé logity</p>
+        <h1>Pravděpodobnostní zahrada</h1>
+        <p class="subtitle">
+          Rozvětvuj distribuci libovolným směrem. Jednou otevřené cesty
+          zůstávají na ploše a každý uzel lze znovu zaměřit.
+        </p>
+      </div>
+      <div class="masthead-actions">
+        <div class="masthead-links">
+          <a
+            class="guide-link"
+            href="/vrstvy"
+            target="_blank"
+            rel="noopener"
+            aria-label="Otevřít Trajektorii vrstev v nové záložce"
+          >
+            Trajektorie vrstev <span aria-hidden="true">↗</span>
+          </a>
+          <a class="guide-link" href="/tuned-lens">
+            RAW × TUNED <span aria-hidden="true">→</span>
+          </a>
+          <a class="guide-link" href="/steering">
+            Steering <span aria-hidden="true">→</span>
+          </a>
+          <a class="guide-link" href="/jak-to-cist">
+            Průvodce workbenchem <span aria-hidden="true">→</span>
+          </a>
+        </div>
+        <div id="model-state" class="model-state" data-state="loading" role="status" aria-live="polite">
+          <span class="state-dot" aria-hidden="true"></span>
+          <span id="model-state-text">Model se načítá</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="control-panel" aria-label="Společné nastavení zahrad">
+      <label class="model-control" for="model-mode">
+        Model
+        <select id="model-mode" disabled aria-label="Aktivní model">
+          <option>Načítám modely…</option>
+        </select>
+      </label>
+
+      <label class="temperature-control" for="temperature">
+        <span class="temperature-head">
+          <span>Teplota</span>
+          <span id="temperature-value" class="temperature-value">1,00</span>
+        </span>
+        <input id="temperature" type="range" min="0.2" max="2" value="1" step="0.05">
+      </label>
+
+      <label for="top-k">
+        Počet větví
+        <select id="top-k">
+          <option value="5" selected>5 + zbytek</option>
+          <option value="8">8 + zbytek</option>
+          <option value="10">10 + zbytek</option>
+          <option value="12">12 + zbytek</option>
+        </select>
+      </label>
+
+      <div class="add-prompt-control">
+        <span>Promptové sloupce</span>
+        <button id="add-prompt" class="primary-button" type="button" disabled>
+          + Přidat prompt
+        </button>
+      </div>
+    </section>
+
+    <div id="message" class="message" aria-live="polite"></div>
+
+    <header class="garden-head">
+      <h2>Promptové zahrady</h2>
+      <span id="column-count" class="garden-count">1 sloupec</span>
+    </header>
+    <section
+      id="prompt-columns"
+      class="prompt-columns"
+      aria-label="Samostatné promptové zahrady"
+    ></section>
+
+    <section class="experiment-panel" aria-labelledby="experiment-title">
+      <header class="experiment-head">
+        <div>
+          <h2 id="experiment-title">Porovnání aktivních uzlů A → B</h2>
+          <p class="experiment-help">
+            Snapshot porovná celé distribuce při aktuální teplotě; nový výpočet modelu
+            není potřeba, dokud jsou oba uzly v cache.
+          </p>
+        </div>
+        <span id="experiment-context" class="experiment-context">
+          Zasaď alespoň dva prompty
+        </span>
+      </header>
+      <div class="experiment-toolbar">
+        <label for="experiment-left">
+          A
+          <select id="experiment-left" disabled aria-label="První aktivní uzel"></select>
+        </label>
+        <label for="experiment-right">
+          B
+          <select id="experiment-right" disabled aria-label="Druhý aktivní uzel"></select>
+        </label>
+        <button id="compare-active" class="secondary-button" type="button" disabled>
+          Porovnat aktivní uzly
+        </button>
+      </div>
+      <div id="experiment-result" class="experiment-result" aria-live="polite"></div>
+      <footer class="experiment-actions">
+        <label class="experiment-note" for="experiment-note">
+          Volitelná poznámka k uložení
+          <input
+            id="experiment-note"
+            type="text"
+            maxlength="2000"
+            placeholder="Například hypotéza, varianta promptu nebo očekávaný rozdíl"
+          >
+        </label>
+        <button id="save-measurement" class="secondary-button" type="button" disabled>
+          Uložit srovnání
+        </button>
+        <button id="save-garden" class="secondary-button" type="button" disabled>
+          Uložit zahradu
+        </button>
+        <a id="archive-link" class="secondary-button archive-action" href="/archiv">
+          Archiv · <span id="archive-count">…</span>
+        </a>
+        <a
+          id="export-measurements-json"
+          class="secondary-button archive-action"
+          href="/api/experiments/export.json"
+        >
+          Export JSON
+        </a>
+        <a
+          id="export-measurements-csv"
+          class="secondary-button archive-action"
+          href="/api/experiments/export.csv?kind=distribution_comparison"
+        >
+          Export CSV srovnání
+        </a>
+        <span id="experiment-records" class="experiment-records" role="status" aria-live="polite">
+          Archiv se načítá…
+        </span>
+      </footer>
+      <p class="experiment-help">
+        Rozdíl popisuje predikce modelu, ne pravdivost textu ani kauzální účinek
+        promptu.
+      </p>
+    </section>
+
+    <section class="search-panel" aria-labelledby="search-title">
+      <header class="search-head">
+        <h2 id="search-title">Vyhledat a porovnat token</h2>
+        <span id="search-context" class="search-context">Nejprve zasaď alespoň jeden prompt</span>
+      </header>
+      <div class="search-row">
+        <input
+          id="token-search"
+          type="text"
+          maxlength="64"
+          placeholder="Text tokenu nebo #ID, například Praha"
+          autocomplete="off"
+          disabled
+        >
+        <button id="search-button" class="secondary-button" type="button" disabled>Hledat</button>
+      </div>
+      <p class="search-help">
+        V jednom promptu token vyhledáš; ve více promptech porovnáš jeho
+        pravděpodobnost a globální pořadí.
+      </p>
+      <div id="search-results" class="search-results" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const stateElement = document.querySelector("#model-state");
+      const stateText = document.querySelector("#model-state-text");
+      const computeOverlay = document.querySelector("#compute-overlay");
+      const computeTitle = document.querySelector("#compute-title");
+      const computeDetail = document.querySelector("#compute-detail");
+      const modelMode = document.querySelector("#model-mode");
+      const temperatureInput = document.querySelector("#temperature");
+      const temperatureValue = document.querySelector("#temperature-value");
+      const topKSelect = document.querySelector("#top-k");
+      const addPromptButton = document.querySelector("#add-prompt");
+      const message = document.querySelector("#message");
+      const promptColumnsElement = document.querySelector("#prompt-columns");
+      const columnCount = document.querySelector("#column-count");
+      const experimentLeft = document.querySelector("#experiment-left");
+      const experimentRight = document.querySelector("#experiment-right");
+      const compareActiveButton = document.querySelector("#compare-active");
+      const experimentContext = document.querySelector("#experiment-context");
+      const experimentResult = document.querySelector("#experiment-result");
+      const experimentNote = document.querySelector("#experiment-note");
+      const saveMeasurementButton = document.querySelector("#save-measurement");
+      const saveGardenButton = document.querySelector("#save-garden");
+      const archiveCountElement = document.querySelector("#archive-count");
+      const experimentRecords = document.querySelector("#experiment-records");
+      const tokenSearch = document.querySelector("#token-search");
+      const searchButton = document.querySelector("#search-button");
+      const searchContext = document.querySelector("#search-context");
+      const searchResults = document.querySelector("#search-results");
+
+      const DEFAULT_PROMPT = "Hlavním městem České republiky je";
+      const GARDEN_HANDOFF_SCHEMA = "apertus.garden-handoff";
+      const GARDEN_HANDOFF_VERSION = 1;
+      const GARDEN_HANDOFF_STORAGE_PREFIX = "apertus-garden-handoff-v1:";
+      const GARDEN_HANDOFF_MAX_AGE_MS = 15 * 60 * 1000;
+      const EXPERIMENT_SCHEMA = "apertus.experiment-record";
+      const EXPERIMENT_SCHEMA_VERSION = 1;
+      const MAX_EXPERIMENT_RECORD_BYTES = 20_000_000;
+      const LEGACY_MEASUREMENT_STORAGE_KEY = "apertus-garden-measurements-v1";
+      const LEGACY_MIGRATION_MARKER_KEY =
+        "apertus-garden-measurements-v1-server-migration";
+      let modelReady = false;
+      let activeModelId = null;
+      let modelGeneration = null;
+      let serverInstanceId = null;
+      let availableModels = [];
+      let latestHealth = null;
+      let busy = false;
+      let searchBusy = false;
+      let experimentBusy = false;
+      let archiveBusy = false;
+      let archiveOperation = null;
+      let archiveCount = null;
+      let pendingGardenRecord = null;
+      let archiveInitialization = null;
+      let archiveStatus = "";
+      let archiveStatusError = false;
+      let columns = [];
+      let nextColumnId = 1;
+      let searchState = null;
+      let experimentState = null;
+      let experimentLeftColumnId = null;
+      let experimentRightColumnId = null;
+      let nextComparisonId = 1;
+      let refreshTimer = null;
+      let refreshPending = false;
+
+      const cleanHandoffQuery = () => {
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has("handoff")) return;
+        url.searchParams.delete("handoff");
+        window.history.replaceState(
+          null,
+          "",
+          `${url.pathname}${url.search}${url.hash}`
+        );
+      };
+
+      const validHandoffTokenIds = (value) => (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.length <= 512 &&
+        value.every(
+          (tokenId) => Number.isInteger(tokenId) && tokenId >= 0
+        )
+      );
+
+      const readInitialGardenSeed = () => {
+        const params = new URLSearchParams(window.location.search);
+        const handoffId = params.get("handoff");
+        if (handoffId) {
+          let raw = null;
+          try {
+            const key = `${GARDEN_HANDOFF_STORAGE_PREFIX}${handoffId}`;
+            raw = window.localStorage.getItem(key);
+            window.localStorage.removeItem(key);
+          } catch {
+            raw = null;
+          }
+          cleanHandoffQuery();
+          if (raw) {
+            try {
+              const payload = JSON.parse(raw);
+              const createdAt = Date.parse(payload?.created_at ?? "");
+              const fresh = (
+                Number.isFinite(createdAt) &&
+                Math.abs(Date.now() - createdAt) <= GARDEN_HANDOFF_MAX_AGE_MS
+              );
+              if (
+                payload?.schema === GARDEN_HANDOFF_SCHEMA &&
+                payload?.version === GARDEN_HANDOFF_VERSION &&
+                fresh &&
+                typeof payload?.text === "string" &&
+                payload.text.trim() &&
+                payload.text.length <= 20_000 &&
+                validHandoffTokenIds(payload?.token_ids)
+              ) {
+                return {
+                  prompt: payload.text,
+                  handoff: {
+                    ...payload,
+                    token_ids: payload.token_ids.map(Number)
+                  }
+                };
+              }
+            } catch {
+              // Invalid or expired one-shot handoff falls back to the URL prompt.
+            }
+          }
+        }
+        const queryPrompt = params.get("prompt");
+        return {
+          prompt: (
+            typeof queryPrompt === "string" &&
+            queryPrompt.trim() &&
+            queryPrompt.length <= 20_000
+          ) ? queryPrompt : DEFAULT_PROMPT,
+          handoff: null
+        };
+      };
+
+      const initialGardenSeed = readInitialGardenSeed();
+
+      const escapeHtml = (value) => String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+
+      const localizeDecimalString = (value) => (
+        window.ProbabilityGardenI18n?.language === "en"
+          ? String(value)
+          : String(value).replace(".", ",")
+      );
+
+      const formatPercent = (value) => {
+        const percent = Number(value) * 100;
+        if (!Number.isFinite(percent) || percent === 0) return "0 %";
+        if (percent < 0.001) {
+          return `${localizeDecimalString(percent.toExponential(2))} %`;
+        }
+        const digits = percent >= 10 ? 1 : percent >= 1 ? 2 : 3;
+        return `${localizeDecimalString(percent.toFixed(digits))} %`;
+      };
+
+      const formatNumber = (value, digits = 2) => new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+        maximumFractionDigits: digits
+      }).format(Number(value));
+
+      const nodeNoun = (count) => count === 1
+        ? "1 uzel"
+        : count >= 2 && count <= 4
+          ? `${count} uzly`
+          : `${count} uzlů`;
+
+      const columnNoun = (count) => count === 1
+        ? "1 sloupec"
+        : count >= 2 && count <= 4
+          ? `${count} sloupce`
+          : `${count} sloupců`;
+
+      const temperature = () => Number(temperatureInput.value);
+      const topK = () => Number(topKSelect.value);
+      const columnById = (columnId) => columns.find(
+        (column) => column.id === columnId
+      ) || null;
+      const nodeById = (column, nodeId) => column.nodes.find(
+        (node) => node.id === nodeId
+      ) || null;
+      const activeNode = (column) => nodeById(column, column.activeNodeId);
+      const activeColumns = () => columns.filter((column) => activeNode(column));
+      const experimentNoun = (count) => count === 1
+        ? "1 uložený experiment"
+        : count >= 2 && count <= 4
+          ? `${count} uložené experimenty`
+          : `${count} uložených experimentů`;
+      const childrenOf = (column, nodeId) => column.nodes.filter(
+        (node) => node.parentId === nodeId
+      );
+      const childFor = (column, nodeId, tokenId) => column.nodes.find(
+        (node) => node.parentId === nodeId && node.incomingTokenId === tokenId
+      ) || null;
+      const pinnedTokenIds = (column, nodeId) => childrenOf(column, nodeId).map(
+        (node) => node.incomingTokenId
+      );
+
+      const activeExperimentOptions = () => columns.flatMap((column, index) => {
+        const node = activeNode(column);
+        return node ? [{
+          column,
+          columnIndex: index,
+          node,
+          label: `Prompt ${index + 1} · uzel #${node.id} · ${node.prefix}`
+        }] : [];
+      });
+
+      const syncExperimentSelection = () => {
+        const options = activeExperimentOptions();
+        const ids = new Set(options.map(({column}) => column.id));
+        if (!ids.has(experimentLeftColumnId)) {
+          experimentLeftColumnId = options[0]?.column.id ?? null;
+        }
+        if (
+          !ids.has(experimentRightColumnId) ||
+          experimentRightColumnId === experimentLeftColumnId
+        ) {
+          experimentRightColumnId = options.find(
+            ({column}) => column.id !== experimentLeftColumnId
+          )?.column.id ?? null;
+        }
+        return options;
+      };
+
+      const selectedExperimentPair = () => {
+        const leftColumn = columnById(experimentLeftColumnId);
+        const rightColumn = columnById(experimentRightColumnId);
+        const leftNode = leftColumn ? activeNode(leftColumn) : null;
+        const rightNode = rightColumn ? activeNode(rightColumn) : null;
+        if (
+          !leftColumn ||
+          !rightColumn ||
+          !leftNode ||
+          !rightNode ||
+          leftColumn.id === rightColumn.id
+        ) return null;
+        return {leftColumn, leftNode, rightColumn, rightNode};
+      };
+
+      const experimentSignature = (pair = selectedExperimentPair()) => {
+        if (!pair) return null;
+        return JSON.stringify({
+          model_id: activeModelId,
+          model_generation: modelGeneration,
+          server_instance_id: serverInstanceId,
+          temperature: temperature(),
+          left: {
+            column_id: pair.leftColumn.id,
+            revision: pair.leftColumn.revision,
+            node_id: pair.leftNode.id,
+            token_ids: pair.leftNode.data.token_ids
+          },
+          right: {
+            column_id: pair.rightColumn.id,
+            revision: pair.rightColumn.revision,
+            node_id: pair.rightNode.id,
+            token_ids: pair.rightNode.data.token_ids
+          }
+        });
+      };
+
+      const comparisonIsStale = () => Boolean(
+        experimentState?.response &&
+        experimentState.signature !== experimentSignature()
+      );
+
+      const lineage = (column, node) => {
+        const result = [];
+        let cursor = node;
+        while (cursor) {
+          result.push(cursor);
+          cursor = cursor.parentId === null
+            ? null
+            : nodeById(column, cursor.parentId);
+        }
+        return result.reverse();
+      };
+
+      const archivedCopy = (value) => JSON.parse(JSON.stringify(value));
+
+      const uuidFromBytes = (sourceBytes, version = 4) => {
+        const bytes = Uint8Array.from(sourceBytes.slice(0, 16));
+        bytes[6] = (bytes[6] & 0x0f) | (version << 4);
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"));
+        return [
+          hex.slice(0, 4).join(""),
+          hex.slice(4, 6).join(""),
+          hex.slice(6, 8).join(""),
+          hex.slice(8, 10).join(""),
+          hex.slice(10, 16).join("")
+        ].join("-");
+      };
+
+      const randomExperimentId = () => {
+        if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        if (window.crypto?.getRandomValues) {
+          window.crypto.getRandomValues(bytes);
+        } else {
+          for (let index = 0; index < bytes.length; index += 1) {
+            bytes[index] = Math.floor(Math.random() * 256);
+          }
+        }
+        return uuidFromBytes(bytes, 4);
+      };
+
+      const deterministicLegacyId = async (identity) => {
+        const encoded = new TextEncoder().encode(identity);
+        if (window.crypto?.subtle) {
+          const digest = await window.crypto.subtle.digest("SHA-256", encoded);
+          return uuidFromBytes(new Uint8Array(digest), 5);
+        }
+        const bytes = new Uint8Array(16);
+        let hash = 2166136261;
+        encoded.forEach((byte, index) => {
+          hash ^= byte + index;
+          hash = Math.imul(hash, 16777619);
+          const slot = index % bytes.length;
+          bytes[slot] = (bytes[slot] + (hash >>> ((index % 4) * 8))) & 0xff;
+        });
+        return uuidFromBytes(bytes, 5);
+      };
+
+      const isUuid = (value) => (
+        typeof value === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+      );
+
+      const currentModelIdentity = () => ({
+        model_id: activeModelId,
+        model_label: activeModelLabel(),
+        model_generation: modelGeneration,
+        server_instance_id: serverInstanceId
+      });
+
+      const recordProvenance = (source = "live_ui") => {
+        const provenance = {
+          application: {
+            id: "apertus-garden",
+            name: "Pravděpodobnostní zahrada",
+            surface: "probability_garden"
+          },
+          source,
+          route: window.location.pathname,
+          model: {
+            id: activeModelId,
+            label: activeModelLabel(),
+            name: latestHealth?.model ?? null
+          },
+          execution: {
+            model_generation: modelGeneration,
+            server_instance_id: serverInstanceId
+          }
+        };
+        if (latestHealth?.provenance !== undefined) {
+          provenance.server = archivedCopy(latestHealth.provenance);
+        }
+        if (latestHealth?.storage !== undefined) {
+          provenance.storage = archivedCopy(latestHealth.storage);
+        }
+        return provenance;
+      };
+
+      const serializedNode = (column, node, activePathIds) => ({
+        session_node_id: node.id,
+        session_parent_id: node.parentId,
+        depth: node.depth,
+        prefix: node.prefix,
+        token_ids: [...(node.data?.token_ids || [])],
+        incoming: {
+          token_id: node.incomingTokenId,
+          display: node.incomingDisplay,
+          probability: node.incomingProbability,
+          raw_probability: node.incomingRawProbability
+        },
+        stale: Boolean(node.stale),
+        active: node.id === column.activeNodeId,
+        on_active_path: activePathIds.has(node.id),
+        distribution: archivedCopy(node.data)
+      });
+
+      const serializedLineage = (column, endpoint) => {
+        const nodes = lineage(column, endpoint);
+        const activePathIds = new Set(nodes.map((node) => node.id));
+        return {
+          session_column_id: column.id,
+          endpoint_session_node_id: endpoint.id,
+          nodes: nodes.map((node) => serializedNode(column, node, activePathIds))
+        };
+      };
+
+      const serializedGardenColumn = (column, columnIndex) => {
+        const endpoint = activeNode(column);
+        const activeNodes = endpoint ? lineage(column, endpoint) : [];
+        const activePathIds = new Set(activeNodes.map((node) => node.id));
+        return {
+          session_column_id: column.id,
+          column_index: columnIndex,
+          prompt: column.prompt,
+          planted_prompt: column.plantedPrompt,
+          revision: column.revision,
+          loading: Boolean(column.loading),
+          draft_changed: Boolean(
+            column.nodes.length &&
+            column.plantedPrompt !== null &&
+            column.prompt !== column.plantedPrompt
+          ),
+          active_session_node_id: column.activeNodeId,
+          active_path_session_node_ids: activeNodes.map((node) => node.id),
+          nodes: column.nodes.map(
+            (node) => serializedNode(column, node, activePathIds)
+          )
+        };
+      };
+
+      const shortArchiveText = (value, maximum = 62) => {
+        const text = String(value || "").replace(/\s+/g, " ").trim();
+        return text.length > maximum
+          ? `${text.slice(0, maximum - 1)}…`
+          : text;
+      };
+
+      const comparisonRecord = (state, notes) => {
+        if (!state?.snapshot || !state?.response || !state?.lineages) {
+          throw new Error(
+            "Aktuální srovnání neobsahuje úplný neměnný snapshot a obě cesty."
+          );
+        }
+        const warnings = [];
+        if (comparisonIsStale()) {
+          warnings.push(
+            "Srovnání bylo uloženo poté, co se změnil aktivní kontext stránky."
+          );
+        }
+        const lineageNodes = [
+          ...(state.lineages.left?.nodes || []),
+          ...(state.lineages.right?.nodes || [])
+        ];
+        if (lineageNodes.some((node) => !node.distribution?.raw_metrics)) {
+          warnings.push(
+            "Nejméně jeden uzel pochází ze staršího běhu bez syrové telemetrie při T=1."
+          );
+        }
+        if (lineageNodes.some((node) => node.stale)) {
+          warnings.push("Nejméně jeden zachycený uzel už byl mimo serverovou cache.");
+        }
+        const snapshot = archivedCopy(state.snapshot);
+        const provenance = recordProvenance();
+        provenance.model = {
+          id: snapshot.model_id,
+          label: snapshot.model_label,
+          name: snapshot.model_label
+        };
+        provenance.execution = {
+          model_generation: snapshot.model_generation,
+          server_instance_id: snapshot.server_instance_id
+        };
+        return {
+          schema: EXPERIMENT_SCHEMA,
+          schema_version: EXPERIMENT_SCHEMA_VERSION,
+          id: randomExperimentId(),
+          kind: "distribution_comparison",
+          captured_at: snapshot.captured_at || new Date().toISOString(),
+          annotation: {
+            title: `A → B · ${shortArchiveText(snapshot.left?.prefix)} / ${
+              shortArchiveText(snapshot.right?.prefix)
+            }`,
+            notes: notes.trim(),
+            tags: []
+          },
+          capture: {
+            status: warnings.length ? "partial" : "complete",
+            warnings
+          },
+          provenance,
+          payload: {
+            snapshot,
+            response: archivedCopy(state.response),
+            lineages: archivedCopy(state.lineages)
+          },
+          diagnostics: {
+            saved_after_context_changed: comparisonIsStale(),
+            lineage_node_counts: {
+              left: state.lineages.left.nodes.length,
+              right: state.lineages.right.nodes.length
+            },
+            session_ids_are_nonportable: true,
+            omitted_fields: []
+          }
+        };
+      };
+
+      const gardenRecord = (notes) => {
+        const capturedAt = new Date().toISOString();
+        const warnings = [];
+        const emptyColumns = columns.filter((column) => !column.nodes.length);
+        const staleNodes = columns.flatMap((column) => (
+          column.nodes.filter((node) => node.stale)
+        ));
+        const draftColumns = columns.filter((column) => (
+          column.nodes.length &&
+          column.plantedPrompt !== null &&
+          column.prompt !== column.plantedPrompt
+        ));
+        if (emptyColumns.length) {
+          warnings.push(`${emptyColumns.length} promptových sloupců nemá žádný uzel.`);
+        }
+        if (staleNodes.length) {
+          warnings.push(`${staleNodes.length} uzlů bylo při uložení mimo serverovou cache.`);
+        }
+        if (draftColumns.length) {
+          warnings.push(
+            `${draftColumns.length} promptových sloupců obsahuje nezasaženou změnu textu.`
+          );
+        }
+        const serializedColumns = columns.map(serializedGardenColumn);
+        return {
+          schema: EXPERIMENT_SCHEMA,
+          schema_version: EXPERIMENT_SCHEMA_VERSION,
+          id: randomExperimentId(),
+          kind: "garden_snapshot",
+          captured_at: capturedAt,
+          annotation: {
+            title: `Zahrada · ${columnNoun(columns.length)} · ${activeModelLabel()}`,
+            notes: notes.trim(),
+            tags: []
+          },
+          capture: {
+            status: warnings.length ? "partial" : "complete",
+            warnings
+          },
+          provenance: recordProvenance(),
+          payload: {
+            controls: {
+              temperature: temperature(),
+              top_k: topK()
+            },
+            model_identity: currentModelIdentity(),
+            columns: serializedColumns,
+            active_paths: serializedColumns.map((column) => ({
+              session_column_id: column.session_column_id,
+              endpoint_session_node_id: column.active_session_node_id,
+              session_node_ids: [...column.active_path_session_node_ids]
+            }))
+          },
+          diagnostics: {
+            column_count: columns.length,
+            node_count: columns.reduce(
+              (total, column) => total + column.nodes.length,
+              0
+            ),
+            stale_node_count: staleNodes.length,
+            draft_column_count: draftColumns.length,
+            session_ids_are_nonportable: true,
+            omitted_fields: [],
+            excluded_state: ["logits", "kv_cache"]
+          }
+        };
+      };
+
+      const updateArchiveStatus = () => {
+        archiveCountElement.textContent = archiveCount === null
+          ? "…"
+          : String(archiveCount);
+        experimentRecords.textContent = archiveStatus || (
+          archiveCount === null
+            ? "Archiv se načítá…"
+            : experimentNoun(archiveCount)
+        );
+        experimentRecords.classList.toggle("error", archiveStatusError);
+      };
+
+      const setArchiveStatus = (text = "", isError = false) => {
+        archiveStatus = text;
+        archiveStatusError = isError;
+        updateArchiveStatus();
+      };
+
+      const refreshArchiveCount = async () => {
+        const listing = await fetchJson("/api/experiments?limit=1&offset=0");
+        const total = Number(
+          listing.total ?? listing.count ?? listing.records?.length
+        );
+        if (!Number.isFinite(total) || total < 0) {
+          throw new Error("Server nevrátil platný počet záznamů v archivu.");
+        }
+        archiveCount = total;
+        updateArchiveStatus();
+        return total;
+      };
+
+      const isValidLegacyMeasurement = (record) => Boolean(
+        record &&
+        record.schema_version === 1 &&
+        record.snapshot?.left &&
+        record.snapshot?.right &&
+        record.response?.left &&
+        record.response?.right &&
+        record.response?.top_k_overlap
+      );
+
+      const legacyComparisonRecord = async (record, index) => {
+        const fallbackIdentity = [
+          LEGACY_MEASUREMENT_STORAGE_KEY,
+          record.id || "",
+          record.recorded_at || "",
+          record.snapshot?.captured_at || "",
+          index
+        ].join(":");
+        const id = isUuid(record.id)
+          ? record.id
+          : await deterministicLegacyId(fallbackIdentity);
+        const capturedAt = (
+          record.snapshot?.captured_at ||
+          record.recorded_at ||
+          new Date(0).toISOString()
+        );
+        const provenance = {
+          application: {
+            id: "apertus-garden",
+            name: "Pravděpodobnostní zahrada",
+            surface: "legacy_local_storage_migration"
+          },
+          source: "legacy_local_storage",
+          route: null,
+          model: {
+            id: record.snapshot?.model_id ?? record.response?.model_id ?? null,
+            label: record.snapshot?.model_label ?? null,
+            name: record.snapshot?.model_label ?? null
+          },
+          execution: {
+            model_generation: (
+              record.snapshot?.model_generation ??
+              record.response?.model_generation ??
+              null
+            ),
+            server_instance_id: (
+              record.snapshot?.server_instance_id ??
+              record.response?.server_instance_id ??
+              null
+            )
+          },
+          legacy: {
+            storage_key: LEGACY_MEASUREMENT_STORAGE_KEY,
+            record_id: record.id ?? null,
+            schema_version: record.schema_version
+          }
+        };
+        return {
+          schema: EXPERIMENT_SCHEMA,
+          schema_version: EXPERIMENT_SCHEMA_VERSION,
+          id,
+          kind: "distribution_comparison",
+          captured_at: capturedAt,
+          annotation: {
+            title: `A → B · ${shortArchiveText(record.snapshot.left.prefix)} / ${
+              shortArchiveText(record.snapshot.right.prefix)
+            }`,
+            notes: "",
+            tags: []
+          },
+          capture: {
+            status: "partial",
+            warnings: [
+              "Importováno ze starého lokálního úložiště.",
+              "Původní záznam neobsahoval úplné cesty ani syrovou telemetrii uzlů."
+            ]
+          },
+          provenance,
+          payload: {
+            snapshot: archivedCopy(record.snapshot),
+            response: archivedCopy(record.response),
+            lineages: {
+              left: {nodes: []},
+              right: {nodes: []}
+            }
+          },
+          diagnostics: {
+            legacy_recorded_at: record.recorded_at ?? null,
+            saved_after_context_changed: Boolean(
+              record.saved_after_context_changed
+            ),
+            lineage_unavailable: true,
+            session_ids_are_nonportable: true
+          }
+        };
+      };
+
+      const migrateLegacyMeasurements = async () => {
+        let marker;
+        let raw;
+        try {
+          marker = window.localStorage.getItem(LEGACY_MIGRATION_MARKER_KEY);
+          raw = window.localStorage.getItem(LEGACY_MEASUREMENT_STORAGE_KEY);
+        } catch (error) {
+          throw new Error(
+            `Staré lokální záznamy nelze zkontrolovat: ${error.message}`
+          );
+        }
+        if (raw === null) return null;
+        const archiveId = latestHealth?.storage?.archive_id ?? null;
+        let markerArchiveId = null;
+        if (marker) {
+          try {
+            markerArchiveId = JSON.parse(marker)?.archive_id ?? null;
+          } catch {
+            markerArchiveId = null;
+          }
+        }
+        if (archiveId && markerArchiveId === archiveId) return null;
+
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (error) {
+          throw new Error(
+            `Staré lokální záznamy mají neplatný JSON a zůstaly beze změny: ${
+              error.message
+            }`
+          );
+        }
+        if (!Array.isArray(parsed)) {
+          throw new Error(
+            "Staré lokální záznamy netvoří pole a zůstaly beze změny."
+          );
+        }
+
+        const validEntries = [];
+        let invalidCount = 0;
+        parsed.forEach((record, index) => {
+          if (isValidLegacyMeasurement(record)) {
+            validEntries.push({record, index});
+          } else {
+            invalidCount += 1;
+          }
+        });
+        if (!validEntries.length) {
+          if (invalidCount) {
+            throw new Error(
+              `${invalidCount} starých lokálních záznamů nesplňuje schéma; ${
+                invalidCount === 1 ? "záznam zůstal" : "záznamy zůstaly"
+              } beze změny.`
+            );
+          }
+          return null;
+        }
+
+        setArchiveStatus(
+          `Převádím ${validEntries.length} starých lokálních záznamů do archivu…`
+        );
+        const records = await Promise.all(validEntries.map(
+          ({record, index}) => legacyComparisonRecord(record, index)
+        ));
+        const result = await fetchJson("/api/experiments/import", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({records})
+        });
+        const confirmed = Number(
+          result.accepted ??
+          (
+            Number(result.imported ?? result.created ?? 0) +
+            Number(result.existing ?? 0)
+          )
+        );
+        if (confirmed < records.length) {
+          throw new Error(
+            `Server potvrdil pouze ${confirmed} z ${records.length} převáděných záznamů.`
+          );
+        }
+        try {
+          window.localStorage.setItem(
+            LEGACY_MIGRATION_MARKER_KEY,
+            JSON.stringify({
+              migrated_at: new Date().toISOString(),
+              archive_id: archiveId,
+              confirmed,
+              invalid: invalidCount
+            })
+          );
+        } catch (error) {
+          throw new Error(
+            `Server staré záznamy přijal, ale potvrzení migrace nelze uložit: ${
+              error.message
+            }. Příští pokus je díky UUID idempotentní.`
+          );
+        }
+        const invalidNote = invalidCount
+          ? ` ${invalidCount} neplatných záznamů zůstalo ve starém úložišti.`
+          : "";
+        setArchiveStatus(
+          `${confirmed} starých záznamů je bezpečně v archivu.${invalidNote}`,
+          invalidCount > 0
+        );
+        return {confirmed, invalidCount};
+      };
+
+      const initializeExperimentArchive = () => {
+        if (archiveInitialization) return archiveInitialization;
+        archiveInitialization = (async () => {
+          try {
+            await migrateLegacyMeasurements();
+          } catch (error) {
+            setArchiveStatus(`Migrace lokálních záznamů selhala: ${error.message}`, true);
+          }
+          try {
+            await refreshArchiveCount();
+          } catch (error) {
+            setArchiveStatus(`Archiv není dostupný: ${error.message}`, true);
+          }
+        })();
+        return archiveInitialization;
+      };
+
+      const cumulativeProbability = (column, node) => lineage(column, node).reduce(
+        (product, item) => product * (item.parentId === null ? 1 : item.incomingProbability),
+        1
+      );
+
+      const lineageHasCurrentTemperature = (column, node) => lineage(column, node).every(
+        (item) => Math.abs(Number(item.data.temperature) - temperature()) < 1e-9
+      );
+
+      const setGlobalMessage = (text, isError = false) => {
+        message.textContent = text;
+        message.classList.toggle("error", isError);
+      };
+
+      const setColumnMessage = (column, text, isError = false) => {
+        column.message = text;
+        column.messageError = isError;
+      };
+
+      const showComputeOverlay = (detail, title = "Apertus počítá") => {
+        computeTitle.textContent = title;
+        computeDetail.textContent = detail;
+        computeOverlay.hidden = false;
+        document.body.classList.add("is-computing");
+      };
+
+      const hideComputeOverlay = () => {
+        computeOverlay.hidden = true;
+        computeTitle.textContent = "Apertus počítá";
+        document.body.classList.remove("is-computing");
+      };
+
+      const syncControls = () => {
+        const locked = busy || searchBusy || experimentBusy;
+        const modelWorkerBusy = Boolean(latestHealth?.worker?.busy);
+        const modelTransitionBusy = ["loading", "switching"].includes(
+          latestHealth?.status
+        );
+        modelMode.disabled = (
+          locked ||
+          modelWorkerBusy ||
+          modelTransitionBusy ||
+          availableModels.filter((model) => model.available).length < 2
+        );
+        addPromptButton.disabled = locked || !modelReady;
+        temperatureInput.disabled = locked;
+        topKSelect.disabled = locked;
+        const searchDisabled = locked || activeColumns().length === 0;
+        tokenSearch.disabled = searchDisabled;
+        searchButton.disabled = searchDisabled;
+        promptColumnsElement.querySelectorAll("[data-column-prompt]").forEach((input) => {
+          input.disabled = locked;
+        });
+        promptColumnsElement.querySelectorAll("[data-plant-column]").forEach((button) => {
+          button.disabled = locked || !modelReady;
+        });
+        promptColumnsElement.querySelectorAll("[data-remove-column]").forEach((button) => {
+          button.disabled = locked || columns.length === 1;
+        });
+        promptColumnsElement.querySelectorAll("button").forEach((button) => {
+          if (
+            button.matches("[data-plant-column]") ||
+            button.matches("[data-remove-column]")
+          ) return;
+          button.disabled = locked || (
+            button.matches(".branch") &&
+            button.closest(".level")?.classList.contains("stale") &&
+            !button.classList.contains("expanded")
+          );
+        });
+        searchResults.querySelectorAll("button").forEach((button) => {
+          const staleUnopenedBranch = (
+            button.matches("[data-compare-column]") &&
+            button.dataset.compareStale === "true" &&
+            button.dataset.compareExpanded !== "true"
+          );
+          button.disabled = busy || searchBusy || staleUnopenedBranch;
+        });
+        const experimentPair = selectedExperimentPair();
+        const experimentDisabled = locked || activeExperimentOptions().length < 2;
+        experimentLeft.disabled = experimentDisabled;
+        experimentRight.disabled = experimentDisabled;
+        compareActiveButton.disabled = experimentDisabled || !experimentPair;
+        saveMeasurementButton.disabled = (
+          locked ||
+          archiveBusy ||
+          !experimentState?.response ||
+          !experimentState?.lineages ||
+          Boolean(experimentState.savedId)
+        );
+        saveGardenButton.disabled = (
+          locked ||
+          archiveBusy ||
+          !columns.some((column) => column.nodes.length)
+        );
+        experimentNote.disabled = archiveBusy;
+      };
+
+      const setBusy = (value) => {
+        busy = value;
+        syncControls();
+      };
+
+      const fetchJson = (...arguments_) => (
+        window.ProbabilityGardenApi.fetchJson(...arguments_)
+      );
+
+      const syncModelHealth = (health, selectedId = null) => {
+        latestHealth = health;
+        availableModels = health.available_models || [];
+        activeModelId = health.active_model?.id || activeModelId;
+        modelGeneration = health.model_generation ?? modelGeneration;
+        serverInstanceId = health.server_instance_id || serverInstanceId;
+        const options = availableModels.map((model) => `
+          <option value="${escapeHtml(model.id)}" ${model.available ? "" : "disabled"}>
+            ${escapeHtml(model.label)}${model.available ? "" : " · není na disku"}
+          </option>
+        `).join("");
+        if (options) modelMode.innerHTML = options;
+        const desired = selectedId || activeModelId;
+        if (desired && availableModels.some((model) => model.id === desired)) {
+          modelMode.value = desired;
+        }
+      };
+
+      const activeModelLabel = () => availableModels.find(
+        (model) => model.id === activeModelId
+      )?.label || activeModelId || "Apertus";
+
+      const activeModelMessage = () => ({
+        bf16: "BF16 režim zachovává referenční přesnost modelu.",
+        hybrid: "Hybrid používá 8bitové tělo a BF16 vstupní i výstupní slovník.",
+        "8bit": "8bit režim je kvantizovaný kompromis; přesná procenta ověřuj v BF16.",
+        "4bit": "4bit režim je rychlá aproximace; procenta se mohou výrazně lišit od BF16.",
+        mock: "Server běží v testovacím režimu bez modelu."
+      })[activeModelId] || "Model je připraven.";
+
+      const modelBadge = (modelId) => ({
+        bf16: {label: "BF16", note: ""},
+        hybrid: {label: "Hybrid", note: "· 8bit/BF16"},
+        "8bit": {label: "8bit", note: "· kvantizace"},
+        "4bit": {label: "4bit", note: "· aproximace"},
+        mock: {label: "simulace", note: ""}
+      })[modelId] || {label: availableModels.find((model) => model.id === modelId)?.label || modelId || "model", note: ""};
+
+      const delay = (milliseconds) => new Promise(
+        (resolve) => window.setTimeout(resolve, milliseconds)
+      );
+
+      const resetGardensForModel = () => {
+        window.clearTimeout(refreshTimer);
+        refreshPending = false;
+        clearSearch();
+        columns.forEach((column) => {
+          column.revision += 1;
+          column.nodes = [];
+          column.activeNodeId = null;
+          column.nextNodeId = 1;
+          column.loading = false;
+          column.plantedPrompt = null;
+          setColumnMessage(
+            column,
+            `Aktivní je ${activeModelLabel()}; prompt zůstal zachovaný. Zasaď ho znovu.`
+          );
+        });
+      };
+
+      const switchModel = async () => {
+        const requestedId = modelMode.value;
+        if (!requestedId || requestedId === activeModelId || busy || searchBusy) return;
+        const requested = availableModels.find(
+          (model) => model.id === requestedId
+        );
+        if (!requested?.available) {
+          modelMode.value = activeModelId || "";
+          return;
+        }
+
+        window.clearTimeout(refreshTimer);
+        refreshPending = false;
+        modelReady = false;
+        setBusy(true);
+        stateElement.dataset.state = "loading";
+        stateText.textContent = `Přepínám na ${requested.label}`;
+        showComputeOverlay(
+          "Uvolňuji současný model; v paměti bude vždy jen jedna varianta.",
+          "Přepínám model"
+        );
+
+        try {
+          const startingGeneration = Number(modelGeneration ?? -1);
+          const accepted = await fetchJson("/api/model", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({model_id: requestedId})
+          });
+          const expectedTransitionId = accepted.transition_id;
+
+          const started = Date.now();
+          while (Date.now() - started < 300_000) {
+            await delay(250);
+            const health = await fetchJson("/api/health");
+            syncModelHealth(health, requestedId);
+            if (health.status === "error") {
+              throw new Error(health.error || "Nový model se nepodařilo načíst.");
+            }
+            if (
+              health.status === "ready" &&
+              health.active_model?.id === requestedId &&
+              (
+                accepted.accepted === false ||
+                Number(health.model_generation) > startingGeneration
+              )
+            ) {
+              modelReady = true;
+              stateElement.dataset.state = "ready";
+              stateText.textContent = `${activeModelLabel()} je připraven`;
+              resetGardensForModel();
+              setGlobalMessage(
+                `${activeModelMessage()} Zahrady byly vyčištěny, texty promptů zůstaly.`
+              );
+              render();
+              return;
+            }
+            if (
+              expectedTransitionId !== undefined &&
+              health.transition_id !== expectedTransitionId
+            ) {
+              throw new Error(
+                "Během přepnutí se změnil jiný modelový běh. Obnov stránku a zkontroluj aktivní model."
+              );
+            }
+            computeDetail.textContent = health.phase === "unloading"
+              ? "Uvolňuji současný model z paměti…"
+              : health.phase === "queued"
+                ? "Čekám, až doběhne poslední výpočet…"
+                : `Načítám ${requested.label}…`;
+          }
+          throw new Error("Přepnutí modelu překročilo pětiminutový limit.");
+        } catch (error) {
+          try {
+            const health = await fetchJson("/api/health");
+            syncModelHealth(health);
+            modelReady = health.status === "ready";
+            stateElement.dataset.state = health.status;
+            stateText.textContent = modelReady
+              ? `${activeModelLabel()} je připraven`
+              : "Model se nepodařilo přepnout";
+          } catch {
+            modelReady = false;
+            stateElement.dataset.state = "error";
+            stateText.textContent = "Server není dostupný";
+          }
+          modelMode.value = activeModelId || "";
+          setGlobalMessage(error.message, true);
+          render();
+        } finally {
+          hideComputeOverlay();
+          setBusy(false);
+          render();
+        }
+      };
+
+      const getNext = (
+        text,
+        tokenIds = null,
+        retainedTokenIds = [],
+        cacheOnly = false
+      ) => fetchJson("/api/next", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          text,
+          temperature: temperature(),
+          top_k: topK(),
+          token_ids: tokenIds,
+          pinned_token_ids: retainedTokenIds,
+          cache_only: cacheOnly,
+          model_generation: modelGeneration,
+          server_instance_id: serverInstanceId
+        })
+      });
+
+      const searchTokens = (node, query) => fetchJson("/api/search", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          text: node.prefix,
+          token_ids: node.data.token_ids,
+          temperature: temperature(),
+          query,
+          model_generation: modelGeneration,
+          server_instance_id: serverInstanceId
+        })
+      });
+
+      const lookupTokens = (node, tokenIds) => fetchJson("/api/lookup", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          text: node.prefix,
+          token_ids: node.data.token_ids,
+          temperature: temperature(),
+          candidate_token_ids: tokenIds,
+          model_generation: modelGeneration,
+          server_instance_id: serverInstanceId
+        })
+      });
+
+      const compareDistributions = (pair) => fetchJson("/api/compare", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          left: {
+            text: pair.leftNode.prefix,
+            token_ids: pair.leftNode.data.token_ids
+          },
+          right: {
+            text: pair.rightNode.prefix,
+            token_ids: pair.rightNode.data.token_ids
+          },
+          temperature: temperature(),
+          mover_count: 6,
+          overlap_k: 10,
+          model_generation: modelGeneration,
+          server_instance_id: serverInstanceId
+        })
+      });
+
+      const combinedCandidates = (data) => [
+        ...(data.candidates || []),
+        ...(data.pinned_candidates || [])
+      ];
+
+      const visibleCandidates = (data) => {
+        const seen = new Set();
+        return combinedCandidates(data).filter((candidate) => {
+          if (seen.has(candidate.token_id)) return false;
+          seen.add(candidate.token_id);
+          return true;
+        });
+      };
+
+      const updateChildProbabilities = (column, parent) => {
+        const candidates = combinedCandidates(parent.data);
+        childrenOf(column, parent.id).forEach((child) => {
+          const candidate = candidates.find(
+            (item) => item.token_id === child.incomingTokenId
+          );
+          if (candidate) {
+            child.incomingProbability = candidate.probability;
+            const rawProbability = finiteMetric(candidate.raw_probability);
+            if (rawProbability !== null) {
+              child.incomingRawProbability = rawProbability;
+            }
+            child.incomingDisplay = candidate.display;
+          }
+        });
+      };
+
+      const fanSvg = (column, node, parentProbability, activeLineage) => {
+        const candidates = visibleCandidates(node.data);
+        const total = candidates.length + 1;
+        const paths = candidates.map((candidate, index) => {
+          const x = ((index + 0.5) / total) * 1000;
+          const width = 1.2 + candidate.probability * 28;
+          const cumulative = parentProbability * candidate.probability;
+          const opacity = Math.max(
+            0.19,
+            Math.min(0.94, 0.2 + Math.pow(cumulative, 0.22) * 0.72)
+          );
+          const child = childFor(column, node.id, candidate.token_id);
+          const stroke = child && activeLineage.has(child.id)
+            ? "var(--gold)"
+            : child
+              ? "var(--leaf-bright)"
+              : "var(--leaf)";
+          return `<path d="M500 2 C500 28 ${x} 28 ${x} 69" fill="none" stroke="${stroke}" stroke-width="${width.toFixed(2)}" stroke-linecap="round" opacity="${opacity.toFixed(2)}"/>`;
+        });
+        const tailX = ((candidates.length + 0.5) / total) * 1000;
+        paths.push(`<path d="M500 2 C500 28 ${tailX} 28 ${tailX} 69" fill="none" stroke="var(--line)" stroke-width="1.2" stroke-dasharray="5 6" opacity="0.8"/>`);
+        return `<svg class="fan" viewBox="0 0 1000 72" preserveAspectRatio="none" aria-hidden="true">${paths.join("")}</svg>`;
+      };
+
+      const finiteMetric = (value) => {
+        if (value === null || value === undefined || value === "") return null;
+        const number = Number(value);
+        return Number.isFinite(number) ? number : null;
+      };
+
+      const metricScale = (values, fixedMaximum = null) => {
+        const finiteValues = values.filter((value) => value !== null && value >= 0);
+        const maximum = fixedMaximum ?? Math.max(0, ...finiteValues);
+        return (value) => {
+          if (value === null || maximum <= 0) return 0;
+          return Math.max(0, Math.min(100, value / maximum * 100));
+        };
+      };
+
+      const renderPathTelemetry = (column, current) => {
+        if (!current) return "";
+        const points = lineage(column, current);
+        const hasRawMetrics = points.some((node) => node.data?.raw_metrics);
+        if (!hasRawMetrics) {
+          return `
+            <section class="path-telemetry" aria-label="Průběh aktivní cesty při teplotě 1,00">
+              <header class="path-telemetry-head">
+                <strong>Průběh cesty · distribuce při T 1,00</strong>
+                <span>${points.length} ${points.length === 1 ? "stav" : "stavů"}</span>
+              </header>
+              <p class="path-telemetry-fallback">
+                Telemetrie T 1,00 pro tuto starší cestu není uložená. Přepočítej její
+                uzly nebo zasaď nový kořen.
+              </p>
+            </section>
+          `;
+        }
+
+        const rows = [
+          {
+            key: "entropy",
+            label: "Entropie H",
+            className: "telemetry-row-entropy",
+            values: points.map((node) => finiteMetric(node.data?.raw_metrics?.entropy_bits)),
+            scaleValues: points.map((node) => finiteMetric(
+              node.data?.raw_metrics?.normalized_entropy
+            )),
+            fixedMaximum: 1,
+            scaleNote: "Proužek ukazuje H/log₂|V| v rámci celého slovníku.",
+            format: (value) => value === null ? "—" : `${formatNumber(value)} bitu`
+          },
+          {
+            key: "effective",
+            label: "Efektivní šířka 2ᴴ",
+            className: "telemetry-row-effective",
+            values: points.map((node) => finiteMetric(node.data?.raw_metrics?.effective_tokens)),
+            scaleValues: points.map((node) => finiteMetric(
+              node.data?.raw_metrics?.normalized_entropy
+            )),
+            fixedMaximum: 1,
+            scaleNote: "Proužek je logaritmický: log₂(efektivní šířky)/log₂|V|.",
+            format: (value) => value === null ? "—" : `${formatNumber(value, 1)} tokenu`
+          },
+          {
+            key: "gap",
+            label: "Náskok top‑1 log₂(p₁/p₂)",
+            className: "telemetry-row-gap",
+            values: points.map((node) => finiteMetric(
+              node.data?.raw_metrics?.top1_top2_gap_bits
+            )),
+            fixedMaximum: 8,
+            scaleNote: "Měřítko proužku je 0–8 bitů; vyšší hodnoty se vizuálně saturují.",
+            format: (value) => value === null ? "—" : `${formatNumber(value)} bitu`
+          },
+          {
+            key: "tail",
+            label: "Masa mimo top 10",
+            className: "telemetry-row-tail",
+            values: points.map((node) => finiteMetric(
+              node.data?.raw_metrics?.tail_probability
+            )),
+            fixedMaximum: 1,
+            format: (value) => value === null ? "—" : formatPercent(value)
+          },
+          {
+            key: "surprisal",
+            label: "Překvapení volby −log₂ p",
+            className: "telemetry-row-surprisal",
+            values: points.map((node, pointIndex) => {
+              const next = points[pointIndex + 1];
+              const probability = finiteMetric(next?.incomingRawProbability);
+              if (probability === null || probability < 0) return null;
+              return probability === 0 ? Infinity : -Math.log2(probability);
+            }),
+            fixedMaximum: 16,
+            scaleNote: "Měřítko proužku je 0–16 bitů; vyšší hodnoty se vizuálně saturují.",
+            format: (value) => value === null
+              ? "—"
+              : value === Infinity
+                ? "∞ bitů"
+                : `${formatNumber(value)} bitu`
+          }
+        ];
+
+        const pointTooltip = (node, pointIndex) => {
+          const next = points[pointIndex + 1];
+          const metrics = node.data?.raw_metrics;
+          const transition = next
+            ? `další zvolený token ${next.incomingDisplay}`
+            : "poslední vybraný stav bez dalšího přechodu";
+          const rawKind = metrics
+            ? `H ${formatNumber(metrics.entropy_bits)} bitu, efektivně ${formatNumber(metrics.effective_tokens, 1)} tokenu`
+            : "metriky T 1,00 nejsou uložené";
+          return `${node.prefix} · ${transition} · ${rawKind}`;
+        };
+
+        const pointCells = points.map((node, pointIndex) => {
+          const next = points[pointIndex + 1];
+          const token = next ? `→ ${next.incomingDisplay}` : "aktuální uzel";
+          const title = pointTooltip(node, pointIndex);
+          return `
+            <button
+              class="telemetry-cell${node.id === current.id ? " current" : ""}"
+              type="button"
+              data-telemetry-column="${column.id}"
+              data-telemetry-node="${node.id}"
+              ${node.id === current.id ? `aria-current="true"` : ""}
+              title="${escapeHtml(title)}"
+              aria-label="Zaměřit uzel ${node.id}, hloubka ${node.depth}. ${escapeHtml(title)}"
+            >
+              <span class="telemetry-cell-value">Hloubka ${node.depth}</span>
+              <span class="telemetry-token${next ? " observed-token" : ""}">${escapeHtml(token)}</span>
+            </button>
+          `;
+        }).join("");
+
+        const metricRows = rows.map((row) => {
+          const scale = metricScale(row.scaleValues || row.values, row.fixedMaximum);
+          const cells = row.values.map((value, pointIndex) => {
+            const node = points[pointIndex];
+            const next = points[pointIndex + 1];
+            const scaleValue = row.scaleValues?.[pointIndex] ?? value;
+            const transition = next
+              ? `Další zvolený token: ${next.incomingDisplay}.`
+              : "Tento bod nemá další zvolený přechod.";
+            const displayed = row.format(value);
+            const title = `${row.label}: ${displayed}. ${row.scaleNote || ""} ${transition} Prefix: ${node.prefix}`;
+            return `
+              <button
+                class="telemetry-cell ${row.className}${value === null ? " missing" : ""}${node.id === current.id ? " current" : ""}"
+                type="button"
+                data-telemetry-column="${column.id}"
+                data-telemetry-node="${node.id}"
+                ${node.id === current.id ? `aria-current="true"` : ""}
+                title="${escapeHtml(title)}"
+                aria-label="Zaměřit uzel ${node.id}. ${escapeHtml(title)}"
+              >
+                <span class="telemetry-cell-value">${displayed}</span>
+                <span class="telemetry-bar" aria-hidden="true">
+                  <span style="width:${scale(scaleValue).toFixed(1)}%"></span>
+                </span>
+              </button>
+            `;
+          }).join("");
+          return `
+            <div class="telemetry-label">${row.label}</div>
+            ${cells}
+          `;
+        }).join("");
+
+        return `
+          <section class="path-telemetry" aria-label="Průběh aktivní cesty při teplotě 1,00">
+            <header class="path-telemetry-head">
+              <strong>Průběh cesty · distribuce při T 1,00</strong>
+              <span>
+                ${points.length} ${points.length === 1 ? "stav" : "stavů"} ·
+                hodnoty nezávislé na slideru
+              </span>
+            </header>
+            <div
+              class="path-telemetry-scroll"
+              role="region"
+              aria-label="Telemetrie cesty; vodorovně posuvná tabulka"
+              tabindex="0"
+            >
+              <div
+                class="path-telemetry-grid"
+                style="--telemetry-points:${points.length};min-width:${108 + points.length * 104}px"
+              >
+                <div class="telemetry-label">Stav · další volba</div>
+                ${pointCells}
+                ${metricRows}
+              </div>
+            </div>
+          </section>
+        `;
+      };
+
+      const renderNode = (column, node, activeLineage) => {
+        const data = node.data;
+        const badge = modelBadge(data.model_id);
+        const nodePathComparable = lineageHasCurrentTemperature(column, node);
+        const nodeProbability = nodePathComparable
+          ? cumulativeProbability(column, node)
+          : 1;
+        const entropy = Number(data.entropy_bits || 0);
+        const effectiveTokens = Number(data.effective_tokens || 1);
+        const entropyWidth = Math.max(
+          0,
+          Math.min(100, Number(data.normalized_entropy || 0) * 100)
+        );
+        const topKMass = data.top_k_mass ?? (1 - data.other_probability);
+        const parent = node.parentId === null
+          ? null
+          : nodeById(column, node.parentId);
+        const origin = parent
+          ? `z uzlu #${parent.id} přes ${node.incomingDisplay}`
+          : "kořen zahrady";
+
+        const shownCandidates = visibleCandidates(data);
+        const topCandidateIds = new Set(
+          data.candidates.map((candidate) => candidate.token_id)
+        );
+        const pinnedOutsideTop = shownCandidates.filter(
+          (candidate) => !topCandidateIds.has(candidate.token_id)
+        );
+        const remainingProbability = Math.max(
+          0,
+          data.other_probability - pinnedOutsideTop.reduce(
+            (sum, candidate) => sum + candidate.probability,
+            0
+          )
+        );
+        const branches = shownCandidates.map((candidate) => {
+          const child = childFor(column, node.id, candidate.token_id);
+          const onActivePath = Boolean(child && activeLineage.has(child.id));
+          const width = Math.min(100, candidate.probability * 260);
+          const title = nodePathComparable
+            ? `${candidate.display}: ${formatPercent(candidate.probability)}; celá cesta ${formatPercent(nodeProbability * candidate.probability)}`
+            : `${candidate.display}: ${formatPercent(candidate.probability)}; cesta obsahuje jinou teplotu`;
+          return `
+            <button
+              class="branch${child ? " expanded" : ""}"
+              type="button"
+              data-branch-column="${column.id}"
+              data-node-id="${node.id}"
+              data-token-id="${candidate.token_id}"
+              aria-pressed="${onActivePath}"
+              aria-label="${escapeHtml(title)}"
+              ${busy || searchBusy || (node.stale && !child) ? "disabled" : ""}
+            >
+              <span class="branch-main">
+                <span class="token observed-token">${escapeHtml(candidate.display)}</span>
+                <span class="probability">${formatPercent(candidate.probability)}</span>
+              </span>
+              <span class="branch-status">${
+                candidate.handoff_selected
+                  ? (
+                    child
+                      ? `token z trajektorie · otevřeno jako uzel #${child.id}`
+                      : "token z trajektorie · otevřít větev"
+                  )
+                  : (
+                    child
+                      ? `otevřeno jako uzel #${child.id}`
+                      : "otevřít větev"
+                  )
+              }</span>
+              <span class="probability-bar" aria-hidden="true">
+                <span style="width:${width.toFixed(1)}%"></span>
+              </span>
+            </button>
+          `;
+        }).join("");
+
+        return `
+          <article
+            id="column-${column.id}-node-${node.id}"
+            class="level${node.id === column.activeNodeId ? " active" : ""}${node.stale ? " stale" : ""}"
+            aria-label="Uzel ${node.id}"
+          >
+            <header class="level-header">
+              <span class="level-heading">
+                <span class="level-number">Uzel #${node.id} · hloubka ${node.depth}</span>
+                <span class="level-prefix" title="${escapeHtml(node.prefix)}">${escapeHtml(node.prefix)}</span>
+                <span class="node-origin">${escapeHtml(origin)}</span>
+              </span>
+              <span class="level-actions">
+                ${node.stale ? `
+                  <button
+                    class="focus-node"
+                    type="button"
+                    data-recompute-column="${column.id}"
+                    data-recompute-node="${node.id}"
+                  >
+                    Přepočítat
+                  </button>
+                ` : ""}
+                <button
+                  class="focus-node"
+                  type="button"
+                  data-focus-column="${column.id}"
+                  data-focus-node="${node.id}"
+                  aria-pressed="${node.id === column.activeNodeId}"
+                >
+                  ${node.id === column.activeNodeId ? "Aktivní" : "Zaměřit"}
+                </button>
+              </span>
+            </header>
+            <div class="distribution-stats">
+              <span class="metric" title="Shannonova entropie celé distribuce">
+                H <strong>${formatNumber(entropy)} bitu</strong>
+                <span class="entropy-meter" aria-hidden="true">
+                  <span style="width:${entropyWidth.toFixed(1)}%"></span>
+                </span>
+              </span>
+              <span class="metric" title="Perplexita jednoho kroku: 2 na H">
+                efektivně <strong>${formatNumber(effectiveTokens, 1)} tokenu</strong>
+              </span>
+              <span class="metric">
+                top ${data.top_k} <strong>${formatPercent(topKMass)}</strong>
+              </span>
+              <span class="metric">
+                <strong>${Math.round(data.latency_ms)} ms</strong>${data.cached ? " · cache" : ""}
+              </span>
+              <span class="metric">
+                <strong>${escapeHtml(badge.label)}</strong>
+                ${escapeHtml(badge.note)}
+              </span>
+              ${node.stale ? `
+                <span class="metric stale-label">
+                  mimo cache · T ${localizeDecimalString(Number(data.temperature).toFixed(2))}
+                </span>
+              ` : ""}
+            </div>
+            ${fanSvg(column, node, nodeProbability, activeLineage)}
+            <div class="branch-grid" style="--columns:${shownCandidates.length + 1}">
+              ${branches}
+              <div class="tail">
+                ostatní tokeny<br>${formatPercent(remainingProbability)}
+              </div>
+            </div>
+          </article>
+        `;
+      };
+
+      const renderColumn = (column, index) => {
+        const current = activeNode(column);
+        const hasDraftChange = Boolean(
+          column.nodes.length &&
+          column.plantedPrompt !== null &&
+          column.prompt !== column.plantedPrompt
+        );
+        const activeLineage = new Set(
+          current ? lineage(column, current).map((node) => node.id) : []
+        );
+        const currentPathComparable = current
+          ? lineageHasCurrentTemperature(column, current)
+          : true;
+        const pathProbability = currentPathComparable
+          ? formatPercent(current ? cumulativeProbability(column, current) : 1)
+          : "— (smíšená teplota)";
+        const probabilityKind = !currentPathComparable
+          ? "Aktivní cesta obsahuje uzel z jiné teploty"
+          : temperature() === 1
+            ? "Teplota 1,00 = syrová distribuce modelu"
+            : "Procenta jsou přepočtena zvolenou teplotou";
+        const gardenHtml = column.nodes.length
+          ? column.nodes.map(
+            (node) => renderNode(column, node, activeLineage)
+          ).join("")
+          : column.loading
+            ? `
+              <div class="loading-level" role="status">
+                <div>
+                  <div class="seed" aria-hidden="true"></div>
+                  Apertus počítá první distribuci…
+                </div>
+              </div>
+            `
+            : `
+              <div class="empty-garden">
+                <span>Zadej začátek textu a zasaď první uzel.</span>
+              </div>
+            `;
+
+        return `
+          <article class="prompt-column" data-column="${column.id}">
+            <header class="column-header">
+              <h2 class="column-title">Prompt ${index + 1}</h2>
+              <button
+                class="column-remove"
+                type="button"
+                data-remove-column="${column.id}"
+                ${columns.length === 1 || busy || searchBusy ? "disabled" : ""}
+              >
+                Odebrat
+              </button>
+            </header>
+            <label class="column-seed">
+              <span class="column-seed-label">
+                <span>Začátek textu</span>
+                <span class="draft-label" data-draft-status="${column.id}">
+                  ${hasDraftChange ? "nezasažená změna" : ""}
+                </span>
+              </span>
+              <span class="prompt-row">
+                <input
+                  type="text"
+                  value="${escapeHtml(column.prompt)}"
+                  data-column-prompt="${column.id}"
+                  autocomplete="off"
+                  ${busy || searchBusy ? "disabled" : ""}
+                >
+                <button
+                  class="primary-button"
+                  type="button"
+                  data-plant-column="${column.id}"
+                  ${busy || searchBusy || !modelReady ? "disabled" : ""}
+                >
+                  Zasadit
+                </button>
+              </span>
+            </label>
+            <div class="column-message${column.messageError ? " error" : ""}" aria-live="polite">
+              ${escapeHtml(column.message || "")}
+            </div>
+            <section class="column-path" aria-label="Aktivní cesta promptu ${index + 1}">
+              <div class="path-label">Aktivní cesta</div>
+              <p class="path-text">${escapeHtml(current?.prefix || "—")}</p>
+              <div class="path-meta">
+                <span>Kumulativní pravděpodobnost: ${pathProbability}</span>
+                <span>Hloubka: ${current?.depth || 0} ${current?.depth === 1 ? "token" : "tokenů"}</span>
+                <span>${probabilityKind}</span>
+              </div>
+            </section>
+            ${renderPathTelemetry(column, current)}
+            <header class="column-garden-head">
+              <strong>Trvalá zahrada</strong>
+              <span>${nodeNoun(column.nodes.length)}</span>
+            </header>
+            <section class="garden" aria-label="Zahrada promptu ${index + 1}">
+              ${gardenHtml}
+            </section>
+          </article>
+        `;
+      };
+
+      const renderSearch = () => {
+        const readyColumns = activeColumns();
+        searchContext.textContent = readyColumns.length
+          ? `${columnNoun(readyColumns.length)} s aktivním uzlem`
+          : "Nejprve zasaď alespoň jeden prompt";
+
+        if (!searchState) {
+          searchResults.innerHTML = "";
+          syncControls();
+          return;
+        }
+        if (searchState.error) {
+          searchResults.innerHTML = `
+            <div class="search-empty">${escapeHtml(searchState.error)}</div>
+          `;
+          syncControls();
+          return;
+        }
+        if (searchState.phase === "resolving") {
+          searchResults.innerHTML = `<div class="search-empty">Hledám odpovídající tokeny…</div>`;
+          syncControls();
+          return;
+        }
+
+        const choices = searchState.choices || [];
+        const selectedId = searchState.selected?.token_id ?? null;
+        const choiceSummary = `
+          <div class="search-result-head">
+            <span class="search-result-meta">
+              ${searchState.matchesTotal} shod · vyber přesný token
+            </span>
+            <span class="search-result-meta">slovník Promptu ${searchState.referenceIndex + 1}</span>
+          </div>
+        `;
+        const choiceButtons = choices.map((candidate) => `
+          <button
+            class="token-choice"
+            type="button"
+            data-select-search-token="${candidate.token_id}"
+            aria-pressed="${candidate.token_id === selectedId}"
+            ${busy || searchBusy ? "disabled" : ""}
+          >
+            <span class="token observed-token">${escapeHtml(candidate.display)}</span>
+            <span class="search-result-meta">#${candidate.token_id}</span>
+          </button>
+        `).join("");
+
+        let comparison = "";
+        if (searchState.selected) {
+          const cells = columns.map((column, index) => {
+            const item = searchState.byColumn?.[column.id];
+            const node = activeNode(column);
+            if (!node) {
+              return `
+                <div class="comparison-cell">
+                  <span class="comparison-label">Prompt ${index + 1}</span>
+                  <span class="search-result-meta">Bez aktivního uzlu</span>
+                </div>
+              `;
+            }
+            if (!item || item.loading) {
+              return `
+                <div class="comparison-cell">
+                  <span class="comparison-label">Prompt ${index + 1} · uzel #${node.id}</span>
+                  <span class="search-result-meta">Počítám pravděpodobnost…</span>
+                </div>
+              `;
+            }
+            if (item.error || !item.candidate) {
+              return `
+                <div class="comparison-cell">
+                  <span class="comparison-label">Prompt ${index + 1} · uzel #${node.id}</span>
+                  <span class="search-result-meta">${escapeHtml(item.error || "Token není dostupný")}</span>
+                </div>
+              `;
+            }
+            const candidate = item.candidate;
+            const child = childFor(column, node.id, candidate.token_id);
+            return `
+              <button
+                class="comparison-cell"
+                type="button"
+                data-compare-column="${column.id}"
+                data-compare-token="${candidate.token_id}"
+                data-compare-stale="${node.stale}"
+                data-compare-expanded="${Boolean(child)}"
+                ${busy || searchBusy || (node.stale && !child) ? "disabled" : ""}
+              >
+                <span class="comparison-label">Prompt ${index + 1} · uzel #${node.id}</span>
+                <span class="comparison-value">${formatPercent(candidate.probability)}</span>
+                <span class="comparison-rank">globální pořadí #${candidate.rank}</span>
+                <span class="search-result-meta">${
+                  child ? `otevřít existující uzel #${child.id}` : "rozvětvit tento sloupec"
+                }</span>
+              </button>
+            `;
+          }).join("");
+          comparison = `
+            <div class="search-result-head">
+              <span>
+                <span class="token observed-token">${escapeHtml(searchState.selected.display)}</span>
+                <span class="search-result-meta"> token #${searchState.selected.token_id}</span>
+              </span>
+              <span class="search-result-meta">kliknutím rozvětvíš konkrétní sloupec</span>
+            </div>
+            <div class="comparison-wrap">
+              <div
+                class="comparison-grid"
+                style="--compare-columns:${columns.length};min-width:${Math.max(1, columns.length) * 190}px"
+              >
+                ${cells}
+              </div>
+            </div>
+          `;
+        }
+
+        searchResults.innerHTML = choiceSummary + (
+          choiceButtons
+            ? `<div class="token-choices">${choiceButtons}</div>${comparison}`
+            : `<div class="search-empty">Žádný odpovídající token.</div>`
+        );
+        syncControls();
+      };
+
+      const compactExperimentLabel = (option) => {
+        const prefix = option.node.prefix.length > 72
+          ? `${option.node.prefix.slice(0, 69)}…`
+          : option.node.prefix;
+        return `Prompt ${option.columnIndex + 1} · uzel #${option.node.id} · ${prefix}`;
+      };
+
+      const formatSignedNumber = (value, digits = 2) => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "—";
+        const sign = number > 0 ? "+" : number < 0 ? "−" : "";
+        return `${sign}${formatNumber(Math.abs(number), digits)}`;
+      };
+
+      const formatAdaptiveBits = (value) => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "—";
+        const absolute = Math.abs(number);
+        if (absolute === 0) return "0";
+        if (absolute < 0.00001) {
+          return localizeDecimalString(number.toExponential(2));
+        }
+        return formatNumber(number, absolute < 0.01 ? 5 : 3);
+      };
+
+      const renderMover = (mover) => `
+        <div class="mover-row">
+          <span class="token" title="token #${mover.token_id}">
+            <span class="observed-token">${escapeHtml(mover.display)}</span>
+            ${mover.is_special ? `<span class="search-result-meta">speciální</span>` : ""}
+            <span class="search-result-meta">#${mover.token_id}</span>
+          </span>
+          <span class="mover-change">
+            A ${formatPercent(mover.probability_left)} → B ${formatPercent(mover.probability_right)}
+            · ${formatSignedNumber(Number(mover.delta) * 100, 3)} p. b.
+          </span>
+          <span class="mover-ranks">
+            pořadí A #${mover.rank_left} → B #${mover.rank_right}
+          </span>
+        </div>
+      `;
+
+      const renderMovers = (title, movers) => `
+        <section class="mover-column">
+          <h3>${escapeHtml(title)}</h3>
+          ${movers.length
+            ? movers.map(renderMover).join("")
+            : `<div class="search-result-meta">Žádný posun v tomto směru.</div>`
+          }
+        </section>
+      `;
+
+      const renderExperiment = () => {
+        const options = syncExperimentSelection();
+        const optionHtml = (selectedId) => options.map((option) => `
+          <option
+            value="${option.column.id}"
+            ${option.column.id === selectedId ? "selected" : ""}
+          >${escapeHtml(compactExperimentLabel(option))}</option>
+        `).join("");
+        experimentLeft.innerHTML = optionHtml(experimentLeftColumnId);
+        experimentRight.innerHTML = optionHtml(experimentRightColumnId);
+        experimentContext.textContent = options.length >= 2
+          ? `${columnNoun(options.length)} připravené ke srovnání`
+          : "Zasaď alespoň dva prompty";
+        updateArchiveStatus();
+        saveMeasurementButton.textContent = archiveOperation === "comparison"
+          ? "Ukládám srovnání…"
+          : experimentState?.savedId
+            ? "Srovnání uloženo"
+            : comparisonIsStale()
+              ? "Uložit starší srovnání"
+              : "Uložit srovnání";
+        saveGardenButton.textContent = archiveOperation === "garden"
+          ? "Ukládám zahradu…"
+          : "Uložit zahradu";
+
+        if (experimentBusy || experimentState?.phase === "loading") {
+          experimentResult.innerHTML = `
+            <div class="experiment-result-card">
+              <span class="search-result-meta">
+                Porovnávám úplné distribuce A a B z cache…
+              </span>
+            </div>
+          `;
+          return;
+        }
+        if (experimentState?.error) {
+          experimentResult.innerHTML = `
+            <div class="experiment-result-card">
+              <span class="experiment-stale">${escapeHtml(experimentState.error)}</span>
+            </div>
+          `;
+          return;
+        }
+        if (!experimentState?.response) {
+          experimentResult.innerHTML = "";
+          return;
+        }
+
+        const data = experimentState.response;
+        const snapshot = experimentState.snapshot;
+        const stale = comparisonIsStale();
+        const overlap = data.top_k_overlap || {};
+        experimentResult.innerHTML = `
+          <article class="experiment-result-card">
+            <header class="experiment-result-head">
+              <strong>
+                Porovnání A → B · T ${localizeDecimalString(Number(data.temperature).toFixed(2))}
+              </strong>
+              <span class="${stale ? "experiment-stale" : "search-result-meta"}">
+                ${stale
+                  ? "Zastaralý: výběr, aktivní uzel, model nebo teplota se změnily."
+                  : `Aktuální · ${Math.round(data.latency_ms)} ms`
+                }
+              </span>
+            </header>
+            <p class="experiment-help">
+              P(další token | celý dosavadní text) · směr rozdílu B−A ·
+              ${data.probability_kind === "raw_model" ||
+                (
+                  !data.probability_kind &&
+                  Math.abs(Number(data.temperature) - 1) < 1e-9
+                )
+                ? "syrová distribuce modelu"
+                : "teplotně upravená distribuce pro vzorkování"
+              }
+            </p>
+            <div class="experiment-prefixes">
+              <div class="experiment-prefix">
+                <span class="search-result-meta">
+                  A · Prompt ${snapshot.left.column_index + 1} · uzel #${snapshot.left.node_id}
+                </span>
+                <strong>${escapeHtml(snapshot.left.prefix)}</strong>
+                <span class="search-result-meta">
+                  H ${formatNumber(data.left.entropy_bits)} bitu · efektivně
+                  ${formatNumber(data.left.effective_tokens, 1)} tokenu
+                </span>
+              </div>
+              <div class="experiment-prefix">
+                <span class="search-result-meta">
+                  B · Prompt ${snapshot.right.column_index + 1} · uzel #${snapshot.right.node_id}
+                </span>
+                <strong>${escapeHtml(snapshot.right.prefix)}</strong>
+                <span class="search-result-meta">
+                  H ${formatNumber(data.right.entropy_bits)} bitu · efektivně
+                  ${formatNumber(data.right.effective_tokens, 1)} tokenu
+                </span>
+              </div>
+            </div>
+            <div class="experiment-metrics">
+              <div class="experiment-metric">
+                <span>Δ entropie (B−A)</span>
+                <strong>${formatSignedNumber(data.delta_entropy_bits)} bitu</strong>
+                <small>Kladná hodnota znamená širší pole v B.</small>
+              </div>
+              <div class="experiment-metric">
+                <span>Efektivní šířka B/A</span>
+                <strong>${formatNumber(data.effective_support_ratio, 2)}×</strong>
+                <small>Poměr 2ᴴ obou distribucí.</small>
+              </div>
+              <div class="experiment-metric">
+                <span>JS divergence</span>
+                <strong>${formatAdaptiveBits(data.js_divergence_bits)} bitu</strong>
+                <small>Symetrická odlišnost distribucí, 0 až 1.</small>
+              </div>
+              <div class="experiment-metric">
+                <span>Přesunutá masa (TV)</span>
+                <strong>${formatPercent(data.total_variation)}</strong>
+                <small>Celková variační vzdálenost.</small>
+              </div>
+              <div class="experiment-metric">
+                <span>Shoda top ${overlap.k}</span>
+                <strong>${overlap.count ?? "—"}/${overlap.k ?? "—"}</strong>
+                <small>Společné tokeny v obou top seznamech.</small>
+              </div>
+            </div>
+            <div class="mover-columns">
+              ${renderMovers("Nejvíc posílily v B", data.gains || [])}
+              ${renderMovers("Nejvíc oslabily v B", data.losses || [])}
+            </div>
+          </article>
+        `;
+      };
+
+      const render = () => {
+        temperatureValue.textContent = localizeDecimalString(temperature().toFixed(2));
+        columnCount.textContent = columnNoun(columns.length);
+        promptColumnsElement.dataset.count = String(columns.length);
+        promptColumnsElement.innerHTML = columns.map(renderColumn).join("");
+        renderExperiment();
+        renderSearch();
+        syncControls();
+      };
+
+      const clearSearch = () => {
+        searchState = null;
+      };
+
+      const createColumn = (prompt = "", handoff = null) => ({
+        id: nextColumnId++,
+        prompt,
+        handoff,
+        nodes: [],
+        activeNodeId: null,
+        nextNodeId: 1,
+        revision: 0,
+        loading: false,
+        plantedPrompt: null,
+        message: "",
+        messageError: false
+      });
+
+      const addColumn = (prompt = "") => {
+        const column = createColumn(prompt);
+        columns.push(column);
+        clearSearch();
+        render();
+        window.requestAnimationFrame(() => {
+          const element = promptColumnsElement.querySelector(
+            `[data-column="${column.id}"]`
+          );
+          element?.scrollIntoView({behavior: "smooth", inline: "end", block: "nearest"});
+          element?.querySelector("[data-column-prompt]")?.focus();
+        });
+        return column;
+      };
+
+      const removeColumn = (columnId) => {
+        if (busy || searchBusy || columns.length === 1) return;
+        const column = columnById(columnId);
+        if (!column) return;
+        column.revision += 1;
+        columns = columns.filter((item) => item.id !== columnId);
+        clearSearch();
+        setGlobalMessage(`Promptový sloupec byl odebrán; jeho cache může Apertus znovu využít.`);
+        render();
+      };
+
+      const setActiveNode = (columnId, nodeId, announce = true) => {
+        const column = columnById(columnId);
+        const node = column ? nodeById(column, nodeId) : null;
+        if (!node) return;
+        column.activeNodeId = nodeId;
+        clearSearch();
+        if (announce) {
+          setColumnMessage(
+            column,
+            `Aktivní je uzel #${node.id}; ostatní větve zůstávají zachované.`
+          );
+        }
+        render();
+      };
+
+      const scrollToNode = (columnId, nodeId) => {
+        window.requestAnimationFrame(() => {
+          document.querySelector(`#column-${columnId}-node-${nodeId}`)?.scrollIntoView({
+            behavior: "smooth",
+            block: "center"
+          });
+        });
+      };
+
+      const plantColumn = async (columnId) => {
+        const column = columnById(columnId);
+        if (!column || !modelReady || busy || searchBusy) return;
+        const rawPrompt = column.prompt;
+        const exactTokenIds = validHandoffTokenIds(
+          column.handoff?.token_ids
+        ) ? [...column.handoff.token_ids] : null;
+        const selectedHandoffTokenId = (
+          exactTokenIds &&
+          column.handoff?.mode !== "after" &&
+          Number.isInteger(column.handoff?.selected_token_id) &&
+          column.handoff.selected_token_id >= 0
+        ) ? Number(column.handoff.selected_token_id) : null;
+        if (
+          column.handoff?.model_id &&
+          activeModelId &&
+          String(column.handoff.model_id) !== String(activeModelId)
+        ) {
+          setColumnMessage(
+            column,
+            (
+              `Předaný tokenový kontext patří modelu ${column.handoff.model_id}; ` +
+              `aktivní je ${activeModelId}. Přepni model nebo zasaď text bez handoffu.`
+            ),
+            true
+          );
+          render();
+          return;
+        }
+        const prompt = exactTokenIds ? rawPrompt : rawPrompt.trimEnd();
+        if (!prompt.trim()) return;
+        const trimmedEnd = prompt !== rawPrompt;
+        if (trimmedEnd) {
+          column.prompt = prompt;
+          const input = promptColumnsElement.querySelector(
+            `[data-column-prompt="${column.id}"]`
+          );
+          if (input) input.value = prompt;
+        }
+        const revision = ++column.revision;
+        column.loading = column.nodes.length === 0;
+        clearSearch();
+        setBusy(true);
+        showComputeOverlay(
+          column.nodes.length
+            ? "Počítám nový začátek a starou zahradu zatím zachovávám…"
+            : "Zakládám první distribuci tohoto promptu…"
+        );
+        setColumnMessage(column, "Apertus počítá úplné rozdělení dalšího tokenu…");
+        render();
+        try {
+          const data = await getNext(
+            prompt,
+            exactTokenIds,
+            selectedHandoffTokenId === null
+              ? []
+              : [selectedHandoffTokenId]
+          );
+          const currentColumn = columnById(columnId);
+          if (!currentColumn || currentColumn.revision !== revision) return;
+          if (selectedHandoffTokenId !== null) {
+            [
+              ...(data.candidates || []),
+              ...(data.pinned_candidates || [])
+            ].forEach((candidate) => {
+              if (candidate.token_id === selectedHandoffTokenId) {
+                candidate.handoff_selected = true;
+              }
+            });
+          }
+          const root = {
+            id: 1,
+            parentId: null,
+            incomingTokenId: null,
+            incomingProbability: 1,
+            incomingRawProbability: 1,
+            incomingDisplay: "",
+            prefix: data.text,
+            depth: 0,
+            data,
+            stale: false
+          };
+          currentColumn.nodes = [root];
+          currentColumn.activeNodeId = root.id;
+          currentColumn.nextNodeId = 2;
+          currentColumn.plantedPrompt = prompt;
+          const handoff = currentColumn.handoff;
+          currentColumn.handoff = null;
+          setColumnMessage(
+            currentColumn,
+            (
+              `Kořen hotový za ${Math.round(data.latency_ms)} ms · ` +
+              `${data.token_count} tokenů v prefixu` +
+              `${data.cached ? " · z cache" : ""}` +
+              `${trimmedEnd ? " · koncová mezera odstraněna" : ""}` +
+              `${handoff
+                ? ` · syrové pole ${handoff.mode === "after"
+                    ? "včetně zvoleného tokenu"
+                    : "před volbou tokenu"
+                  }`
+                : ""
+              }` +
+              `${selectedHandoffTokenId === null
+                ? ""
+                : " · token z trajektorie připnutý"
+              }`
+            )
+          );
+        } catch (error) {
+          const currentColumn = columnById(columnId);
+          if (currentColumn?.revision === revision) {
+            setColumnMessage(currentColumn, error.message, true);
+          }
+        } finally {
+          const currentColumn = columnById(columnId);
+          if (currentColumn?.revision === revision) {
+            currentColumn.loading = false;
+          }
+          hideComputeOverlay();
+          setBusy(false);
+          render();
+        }
+      };
+
+      const expandCandidate = async (columnId, nodeId, candidate) => {
+        if (busy || searchBusy) return;
+        const column = columnById(columnId);
+        const parent = column ? nodeById(column, nodeId) : null;
+        if (!column || !parent) return;
+
+        const existing = childFor(column, nodeId, candidate.token_id);
+        if (existing) {
+          setActiveNode(column.id, existing.id);
+          scrollToNode(column.id, existing.id);
+          return;
+        }
+        if (parent.stale) {
+          setColumnMessage(
+            column,
+            `Uzel #${parent.id} je mimo cache; před novým rozvětvením ho přepočítej.`,
+            true
+          );
+          render();
+          return;
+        }
+        if (candidate.is_special) {
+          setColumnMessage(column, "Tato větev končí speciálním tokenem modelu.");
+          render();
+          return;
+        }
+
+        const revision = column.revision;
+        clearSearch();
+        setBusy(true);
+        showComputeOverlay(`Dopočítávám větev „${candidate.display}“…`);
+        setColumnMessage(column, `Apertus dopočítává větev „${candidate.display}“…`);
+        render();
+        try {
+          const data = await getNext(candidate.next_text, candidate.next_token_ids);
+          const currentColumn = columnById(columnId);
+          if (!currentColumn || currentColumn.revision !== revision) return;
+          const currentParent = nodeById(currentColumn, nodeId);
+          if (!currentParent) return;
+          if (
+            !currentParent.data.candidates.some((item) => item.token_id === candidate.token_id) &&
+            !(currentParent.data.pinned_candidates || []).some(
+              (item) => item.token_id === candidate.token_id
+            )
+          ) {
+            currentParent.data.pinned_candidates = [
+              ...(currentParent.data.pinned_candidates || []),
+              candidate
+            ];
+          }
+          const child = {
+            id: currentColumn.nextNodeId++,
+            parentId: currentParent.id,
+            incomingTokenId: candidate.token_id,
+            incomingProbability: candidate.probability,
+            incomingRawProbability: finiteMetric(candidate.raw_probability),
+            incomingDisplay: candidate.display,
+            prefix: data.text,
+            depth: currentParent.depth + 1,
+            data,
+            stale: false
+          };
+          currentColumn.nodes.push(child);
+          currentColumn.activeNodeId = child.id;
+          setColumnMessage(
+            currentColumn,
+            `Vznikl uzel #${child.id} za ${Math.round(data.latency_ms)} ms${data.cached ? " · z cache" : ""}; ostatní větve zůstaly.`
+          );
+          scrollToNode(currentColumn.id, child.id);
+        } catch (error) {
+          const currentColumn = columnById(columnId);
+          if (currentColumn?.revision === revision) {
+            setColumnMessage(currentColumn, error.message, true);
+          }
+        } finally {
+          hideComputeOverlay();
+          setBusy(false);
+          render();
+        }
+      };
+
+      const scheduleRefresh = (delay = 260) => {
+        window.clearTimeout(refreshTimer);
+        refreshTimer = window.setTimeout(refreshAllNodes, delay);
+      };
+
+      const refreshAllNodes = async () => {
+        const jobs = columns.flatMap((column) => column.nodes.map((node) => ({
+          columnId: column.id,
+          revision: column.revision,
+          nodeId: node.id
+        })));
+        if (!jobs.length) {
+          refreshPending = false;
+          return;
+        }
+        if (busy || searchBusy) {
+          refreshPending = true;
+          scheduleRefresh(140);
+          return;
+        }
+        refreshPending = false;
+        clearSearch();
+        setBusy(true);
+        setGlobalMessage("Převážím uložené distribuce z cache…");
+        try {
+          let staleCount = 0;
+          let refreshError = null;
+          for (let index = 0; index < jobs.length; index += 1) {
+            const job = jobs[index];
+            const column = columnById(job.columnId);
+            const node = column ? nodeById(column, job.nodeId) : null;
+            if (!column || !node || column.revision !== job.revision) continue;
+            message.textContent = `Převážím uzel ${index + 1} z ${jobs.length}…`;
+            try {
+              const data = await getNext(
+                node.prefix,
+                node.data.token_ids,
+                pinnedTokenIds(column, node.id),
+                true
+              );
+              const currentColumn = columnById(job.columnId);
+              const currentNode = currentColumn
+                ? nodeById(currentColumn, job.nodeId)
+                : null;
+              if (
+                currentColumn &&
+                currentNode &&
+                currentColumn.revision === job.revision
+              ) {
+                currentNode.data = data;
+                currentNode.stale = false;
+              }
+            } catch (error) {
+              if (error.code === "logits_not_cached") {
+                node.stale = true;
+                staleCount += 1;
+              } else {
+                refreshError = error;
+                break;
+              }
+            }
+          }
+          columns.forEach((column) => {
+            column.nodes.forEach((node) => updateChildProbabilities(column, node));
+          });
+          if (refreshError) {
+            setGlobalMessage(`Převážení bylo přerušeno: ${refreshError.message}`, true);
+          } else {
+            setGlobalMessage(
+              staleCount
+                ? `Převáženo z cache; ${staleCount} starších uzlů vyžaduje ruční přepočet.`
+                : "Všechny uložené distribuce jsou převážené bez nové inference."
+            );
+          }
+        } finally {
+          setBusy(false);
+          render();
+        }
+      };
+
+      const recomputeNode = async (columnId, nodeId) => {
+        if (busy || searchBusy) return;
+        const column = columnById(columnId);
+        const node = column ? nodeById(column, nodeId) : null;
+        if (!column || !node) return;
+        const revision = column.revision;
+        clearSearch();
+        setBusy(true);
+        showComputeOverlay(`Znovu počítám uzel #${node.id}…`);
+        setColumnMessage(column, `Znovu počítám uzel #${node.id}…`);
+        render();
+        try {
+          const data = await getNext(
+            node.prefix,
+            node.data.token_ids,
+            pinnedTokenIds(column, node.id),
+            false
+          );
+          const currentColumn = columnById(columnId);
+          const currentNode = currentColumn
+            ? nodeById(currentColumn, nodeId)
+            : null;
+          if (
+            currentColumn &&
+            currentNode &&
+            currentColumn.revision === revision
+          ) {
+            currentNode.data = data;
+            currentNode.stale = false;
+            updateChildProbabilities(currentColumn, currentNode);
+            setColumnMessage(currentColumn, `Uzel #${currentNode.id} je znovu aktuální.`);
+          }
+        } catch (error) {
+          const currentColumn = columnById(columnId);
+          if (currentColumn?.revision === revision) {
+            setColumnMessage(currentColumn, error.message, true);
+          }
+        } finally {
+          hideComputeOverlay();
+          setBusy(false);
+          render();
+        }
+      };
+
+      const runExperimentComparison = async () => {
+        const pair = selectedExperimentPair();
+        if (!pair || busy || searchBusy || experimentBusy) return;
+        const signature = experimentSignature(pair);
+        const snapshot = {
+          captured_at: new Date().toISOString(),
+          model_id: activeModelId,
+          model_label: activeModelLabel(),
+          model_generation: modelGeneration,
+          server_instance_id: serverInstanceId,
+          temperature: temperature(),
+          left: {
+            column_id: pair.leftColumn.id,
+            column_index: columns.indexOf(pair.leftColumn),
+            revision: pair.leftColumn.revision,
+            node_id: pair.leftNode.id,
+            prefix: pair.leftNode.prefix,
+            token_ids: [...pair.leftNode.data.token_ids]
+          },
+          right: {
+            column_id: pair.rightColumn.id,
+            column_index: columns.indexOf(pair.rightColumn),
+            revision: pair.rightColumn.revision,
+            node_id: pair.rightNode.id,
+            prefix: pair.rightNode.prefix,
+            token_ids: [...pair.rightNode.data.token_ids]
+          }
+        };
+        const capturedLineages = {
+          left: serializedLineage(pair.leftColumn, pair.leftNode),
+          right: serializedLineage(pair.rightColumn, pair.rightNode)
+        };
+        experimentBusy = true;
+        experimentState = {
+          phase: "loading",
+          signature,
+          snapshot,
+          lineages: capturedLineages,
+          response: null,
+          error: null,
+          savedId: null,
+          pendingRecord: null
+        };
+        render();
+        try {
+          const response = await compareDistributions(pair);
+          experimentState = {
+            phase: "ready",
+            signature,
+            snapshot,
+            lineages: capturedLineages,
+            response,
+            error: null,
+            savedId: null,
+            pendingRecord: null
+          };
+        } catch (error) {
+          if (error.code === "logits_not_cached") {
+            if (error.side === "left") pair.leftNode.stale = true;
+            if (error.side === "right") pair.rightNode.stale = true;
+          }
+          const explanation = error.code === "logits_not_cached"
+            ? `Uzel ${error.side === "left" ? "A" : error.side === "right" ? "B" : "A nebo B"} už není v cache. Přepočítej označený uzel a srovnání spusť znovu.`
+            : error.code === "model_changed" || error.status === 409
+              ? "Model nebo server se během měření změnil. Vyber aktuální uzly a spusť nové srovnání."
+              : error.message;
+          experimentState = {
+            phase: "error",
+            signature,
+            snapshot,
+            lineages: capturedLineages,
+            response: null,
+            error: explanation,
+            savedId: null,
+            pendingRecord: null
+          };
+        } finally {
+          experimentBusy = false;
+          render();
+        }
+      };
+
+      const persistExperimentRecord = async (record) => {
+        const body = JSON.stringify({record});
+        const bodySize = new TextEncoder().encode(body).byteLength;
+        if (bodySize > MAX_EXPERIMENT_RECORD_BYTES) {
+          throw new Error(
+            `Snapshot má ${(bodySize / 1_000_000).toFixed(1)} MB; maximum je ${
+              (MAX_EXPERIMENT_RECORD_BYTES / 1_000_000).toFixed(0)
+            } MB. Exportuj menší zahradu.`
+          );
+        }
+        const result = await fetchJson("/api/experiments", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body
+        });
+        const stored = result.record || record;
+        if (stored.id !== record.id) {
+          throw new Error("Server vrátil jiný identifikátor uloženého záznamu.");
+        }
+        return {
+          record: stored,
+          created: result.created !== false
+        };
+      };
+
+      const refreshCountAfterSave = async (created) => {
+        if (created && archiveCount !== null) {
+          archiveCount += 1;
+          updateArchiveStatus();
+        }
+        try {
+          await refreshArchiveCount();
+          return null;
+        } catch (error) {
+          return error;
+        }
+      };
+
+      const saveCurrentMeasurement = async () => {
+        if (
+          archiveBusy ||
+          !experimentState?.response ||
+          !experimentState?.lineages ||
+          experimentState.savedId
+        ) return;
+        const stateAtSave = experimentState;
+        let record;
+        try {
+          if (!stateAtSave.pendingRecord) {
+            stateAtSave.pendingRecord = comparisonRecord(
+              stateAtSave,
+              experimentNote.value
+            );
+          }
+          record = stateAtSave.pendingRecord;
+        } catch (error) {
+          setArchiveStatus(`Srovnání nelze připravit k uložení: ${error.message}`, true);
+          return;
+        }
+
+        archiveBusy = true;
+        archiveOperation = "comparison";
+        setArchiveStatus("Ukládám neměnný snapshot srovnání do archivu…");
+        renderExperiment();
+        syncControls();
+        try {
+          const saved = await persistExperimentRecord(record);
+          if (experimentState === stateAtSave) {
+            experimentState.savedId = saved.record.id;
+            experimentState.pendingRecord = null;
+          }
+          experimentNote.value = "";
+          const countError = await refreshCountAfterSave(saved.created);
+          if (countError) {
+            setArchiveStatus(
+              `Srovnání je uložené, ale počet v archivu nelze načíst: ${
+                countError.message
+              }`,
+              true
+            );
+          } else {
+            setArchiveStatus("Srovnání bylo bezpečně uloženo do serverového archivu.");
+          }
+          setGlobalMessage(
+            `Srovnání je uložené pod UUID ${saved.record.id}; archivní kopie nepoužívá živé ID uzlů.`
+          );
+        } catch (error) {
+          setArchiveStatus(`Srovnání se nepodařilo uložit: ${error.message}`, true);
+          setGlobalMessage(`Srovnání se nepodařilo uložit: ${error.message}`, true);
+        } finally {
+          archiveBusy = false;
+          archiveOperation = null;
+          render();
+        }
+      };
+
+      const saveCurrentGarden = async () => {
+        if (
+          archiveBusy ||
+          busy ||
+          searchBusy ||
+          experimentBusy ||
+          !columns.some((column) => column.nodes.length)
+        ) return;
+        let candidate;
+        try {
+          candidate = gardenRecord(experimentNote.value);
+        } catch (error) {
+          setArchiveStatus(`Zahradu nelze připravit k uložení: ${error.message}`, true);
+          return;
+        }
+        const samePendingSnapshot = pendingGardenRecord && (
+          pendingGardenRecord.annotation?.notes === candidate.annotation?.notes &&
+          JSON.stringify(pendingGardenRecord.payload) === JSON.stringify(candidate.payload)
+        );
+        const record = samePendingSnapshot ? pendingGardenRecord : candidate;
+        pendingGardenRecord = record;
+
+        archiveBusy = true;
+        archiveOperation = "garden";
+        setArchiveStatus("Ukládám všechny zachované uzly a aktivní cesty…");
+        renderExperiment();
+        syncControls();
+        try {
+          const saved = await persistExperimentRecord(record);
+          pendingGardenRecord = null;
+          experimentNote.value = "";
+          const countError = await refreshCountAfterSave(saved.created);
+          if (countError) {
+            setArchiveStatus(
+              `Zahrada je uložená, ale počet v archivu nelze načíst: ${
+                countError.message
+              }`,
+              true
+            );
+          } else {
+            setArchiveStatus("Zahrada byla bezpečně uložena do serverového archivu.");
+          }
+          setGlobalMessage(
+            `Zahrada je uložená pod UUID ${saved.record.id}; logity ani KV cache se nearchivují.`
+          );
+        } catch (error) {
+          setArchiveStatus(`Zahradu se nepodařilo uložit: ${error.message}`, true);
+          setGlobalMessage(`Zahradu se nepodařilo uložit: ${error.message}`, true);
+        } finally {
+          archiveBusy = false;
+          archiveOperation = null;
+          render();
+        }
+      };
+
+      const compareToken = async (candidate) => {
+        if (!searchState || busy || searchBusy) return;
+        const snapshots = columns.map((column) => {
+          const node = activeNode(column);
+          return node
+            ? {
+              columnId: column.id,
+              revision: column.revision,
+              nodeId: node.id,
+              node
+            }
+            : {columnId: column.id, node: null};
+        });
+        const comparisonId = nextComparisonId++;
+        searchState.selected = {
+          token_id: candidate.token_id,
+          display: candidate.display
+        };
+        searchState.comparisonId = comparisonId;
+        searchState.byColumn = Object.fromEntries(
+          snapshots.map((snapshot) => [
+            snapshot.columnId,
+            snapshot.node ? {loading: true} : {error: "Bez aktivního uzlu"}
+          ])
+        );
+        searchBusy = true;
+        renderSearch();
+
+        const settled = await Promise.all(
+          snapshots.filter((snapshot) => snapshot.node).map(async (snapshot) => {
+            try {
+              const data = await lookupTokens(snapshot.node, [candidate.token_id]);
+              return {snapshot, data, error: null};
+            } catch (error) {
+              return {snapshot, data: null, error};
+            }
+          })
+        );
+        if (!searchState || searchState.comparisonId !== comparisonId) {
+          searchBusy = false;
+          render();
+          return;
+        }
+
+        settled.forEach(({snapshot, data, error}) => {
+          const column = columnById(snapshot.columnId);
+          const node = column ? nodeById(column, snapshot.nodeId) : null;
+          if (
+            !column ||
+            !node ||
+            column.revision !== snapshot.revision ||
+            column.activeNodeId !== snapshot.nodeId
+          ) {
+            return;
+          }
+          if (!error) {
+            if (data) {
+              searchState.byColumn[snapshot.columnId] = {
+                candidate: data.results[0] || null
+              };
+            }
+            return;
+          }
+          if (error.code === "logits_not_cached") node.stale = true;
+          searchState.byColumn[snapshot.columnId] = {
+            error: error.message
+          };
+        });
+        searchBusy = false;
+        render();
+      };
+
+      const runSearch = async () => {
+        const references = activeColumns().sort((left, right) => (
+          Number(Boolean(activeNode(left)?.stale)) -
+          Number(Boolean(activeNode(right)?.stale))
+        ));
+        const referenceColumn = references[0];
+        const node = referenceColumn ? activeNode(referenceColumn) : null;
+        const query = tokenSearch.value.trim();
+        if (!node || !query || busy || searchBusy) return;
+        searchBusy = true;
+        searchState = {
+          query,
+          phase: "resolving",
+          referenceColumnId: referenceColumn.id,
+          referenceNodeId: node.id,
+          referenceRevision: referenceColumn.revision,
+          referenceIndex: columns.indexOf(referenceColumn)
+        };
+        renderSearch();
+        let autoCandidate = null;
+        try {
+          let data = null;
+          let lastCacheError = null;
+          for (const candidateColumn of references) {
+            const candidateNode = activeNode(candidateColumn);
+            if (!candidateNode) continue;
+            searchState.referenceColumnId = candidateColumn.id;
+            searchState.referenceNodeId = candidateNode.id;
+            searchState.referenceRevision = candidateColumn.revision;
+            searchState.referenceIndex = columns.indexOf(candidateColumn);
+            try {
+              data = await searchTokens(candidateNode, query);
+              const currentReference = columnById(candidateColumn.id);
+              if (
+                !currentReference ||
+                currentReference.revision !== candidateColumn.revision ||
+                currentReference.activeNodeId !== candidateNode.id
+              ) {
+                return;
+              }
+              break;
+            } catch (error) {
+              if (error.code !== "logits_not_cached") throw error;
+              candidateNode.stale = true;
+              lastCacheError = error;
+            }
+          }
+          if (!data) throw lastCacheError || new Error("Žádný aktivní uzel není dostupný.");
+          const exactMatches = data.results.filter(
+            (candidate) => candidate.match_kind === "exact" ||
+              candidate.match_kind === "id"
+          );
+          searchState.phase = "choices";
+          searchState.matchesTotal = data.matches_total;
+          searchState.choices = data.results;
+          if (exactMatches.length === 1) {
+            autoCandidate = exactMatches[0];
+          } else if (data.results.length === 1) {
+            autoCandidate = data.results[0];
+          }
+        } catch (error) {
+          if (error.code === "logits_not_cached") node.stale = true;
+          searchState.phase = "error";
+          searchState.error = error.code === "logits_not_cached"
+            ? `${error.message} Uzel lze ručně přepočítat.`
+            : error.message;
+        } finally {
+          searchBusy = false;
+          render();
+        }
+        if (autoCandidate) await compareToken(autoCandidate);
+      };
+
+      const pollHealth = async () => {
+        try {
+          const health = await fetchJson("/api/health");
+          syncModelHealth(health);
+          void initializeExperimentArchive();
+          stateElement.dataset.state = health.status;
+          if (health.status === "ready") {
+            modelReady = true;
+            stateText.textContent = health.mock
+              ? "Vývojová simulace"
+              : `${activeModelLabel()} je připraven`;
+            syncControls();
+            setGlobalMessage(
+              health.mock
+                ? "Server běží v testovacím režimu bez modelu."
+                : `${activeModelMessage()} Model zůstává v paměti.`
+            );
+            const firstColumn = columns[0];
+            if (firstColumn && firstColumn.nodes.length === 0) {
+              await plantColumn(firstColumn.id);
+            }
+            return;
+          }
+          if (health.status === "error") {
+            modelReady = false;
+            stateText.textContent = "Model se nenačetl";
+            setGlobalMessage(health.error || "Neznámá chyba při načítání modelu.", true);
+            syncControls();
+            return;
+          }
+          modelReady = false;
+          stateText.textContent = health.status === "switching"
+            ? `Přepínám na ${health.target_model?.label || "jiný model"}`
+            : "Model se načítá";
+          syncControls();
+          window.setTimeout(pollHealth, 1200);
+        } catch (error) {
+          modelReady = false;
+          stateElement.dataset.state = "error";
+          stateText.textContent = "Server není dostupný";
+          setGlobalMessage(error.message, true);
+          syncControls();
+          window.setTimeout(pollHealth, 1800);
+        }
+      };
+
+      promptColumnsElement.addEventListener("input", (event) => {
+        const input = event.target.closest("[data-column-prompt]");
+        if (!input) return;
+        const column = columnById(Number(input.dataset.columnPrompt));
+        if (!column) return;
+        column.prompt = input.value;
+        if (column.handoff && input.value !== column.handoff.text) {
+          column.handoff = null;
+        }
+        const draftStatus = input.closest(".prompt-column")?.querySelector(
+          `[data-draft-status="${column.id}"]`
+        );
+        if (draftStatus) {
+          draftStatus.textContent = (
+            column.nodes.length &&
+            column.plantedPrompt !== null &&
+            column.prompt !== column.plantedPrompt
+          ) ? "nezasažená změna" : "";
+        }
+      });
+
+      promptColumnsElement.addEventListener("keydown", (event) => {
+        const input = event.target.closest("[data-column-prompt]");
+        if (input && event.key === "Enter") {
+          plantColumn(Number(input.dataset.columnPrompt));
+        }
+      });
+
+      promptColumnsElement.addEventListener("click", (event) => {
+        const removeButton = event.target.closest("[data-remove-column]");
+        if (removeButton) {
+          removeColumn(Number(removeButton.dataset.removeColumn));
+          return;
+        }
+        const plantButton = event.target.closest("[data-plant-column]");
+        if (plantButton) {
+          plantColumn(Number(plantButton.dataset.plantColumn));
+          return;
+        }
+        const focusButton = event.target.closest("button[data-focus-node]");
+        if (focusButton) {
+          setActiveNode(
+            Number(focusButton.dataset.focusColumn),
+            Number(focusButton.dataset.focusNode)
+          );
+          return;
+        }
+        const recomputeButton = event.target.closest("button[data-recompute-node]");
+        if (recomputeButton) {
+          recomputeNode(
+            Number(recomputeButton.dataset.recomputeColumn),
+            Number(recomputeButton.dataset.recomputeNode)
+          );
+          return;
+        }
+        const telemetryButton = event.target.closest(
+          "button[data-telemetry-column][data-telemetry-node]"
+        );
+        if (telemetryButton) {
+          setActiveNode(
+            Number(telemetryButton.dataset.telemetryColumn),
+            Number(telemetryButton.dataset.telemetryNode)
+          );
+          scrollToNode(
+            Number(telemetryButton.dataset.telemetryColumn),
+            Number(telemetryButton.dataset.telemetryNode)
+          );
+          return;
+        }
+        const branch = event.target.closest("button[data-branch-column][data-node-id][data-token-id]");
+        if (!branch) return;
+        const column = columnById(Number(branch.dataset.branchColumn));
+        const node = column ? nodeById(column, Number(branch.dataset.nodeId)) : null;
+        const candidate = node ? visibleCandidates(node.data).find(
+          (item) => item.token_id === Number(branch.dataset.tokenId)
+        ) : null;
+        if (column && node && candidate) {
+          expandCandidate(column.id, node.id, candidate);
+        }
+      });
+
+      searchResults.addEventListener("click", (event) => {
+        const choiceButton = event.target.closest("[data-select-search-token]");
+        if (choiceButton && searchState?.choices) {
+          const candidate = searchState.choices.find(
+            (item) => item.token_id === Number(choiceButton.dataset.selectSearchToken)
+          );
+          if (candidate) compareToken(candidate);
+          return;
+        }
+        const comparisonButton = event.target.closest("[data-compare-column][data-compare-token]");
+        if (!comparisonButton || !searchState?.byColumn) return;
+        const columnId = Number(comparisonButton.dataset.compareColumn);
+        const column = columnById(columnId);
+        const node = column ? activeNode(column) : null;
+        const candidate = searchState.byColumn[columnId]?.candidate;
+        if (column && node && candidate) {
+          expandCandidate(column.id, node.id, candidate);
+        }
+      });
+
+      addPromptButton.addEventListener("click", () => addColumn(""));
+      modelMode.addEventListener("change", switchModel);
+      experimentLeft.addEventListener("change", () => {
+        const previousLeft = experimentLeftColumnId;
+        experimentLeftColumnId = Number(experimentLeft.value);
+        if (experimentLeftColumnId === experimentRightColumnId) {
+          const previousStillActive = activeExperimentOptions().some(
+            ({column}) => column.id === previousLeft
+          );
+          experimentRightColumnId = previousStillActive &&
+            previousLeft !== experimentLeftColumnId
+            ? previousLeft
+            : activeExperimentOptions().find(
+              ({column}) => column.id !== experimentLeftColumnId
+            )?.column.id ?? null;
+        }
+        renderExperiment();
+        syncControls();
+      });
+      experimentRight.addEventListener("change", () => {
+        const previousRight = experimentRightColumnId;
+        experimentRightColumnId = Number(experimentRight.value);
+        if (experimentRightColumnId === experimentLeftColumnId) {
+          const previousStillActive = activeExperimentOptions().some(
+            ({column}) => column.id === previousRight
+          );
+          experimentLeftColumnId = previousStillActive &&
+            previousRight !== experimentRightColumnId
+            ? previousRight
+            : activeExperimentOptions().find(
+              ({column}) => column.id !== experimentRightColumnId
+            )?.column.id ?? null;
+        }
+        renderExperiment();
+        syncControls();
+      });
+      compareActiveButton.addEventListener("click", runExperimentComparison);
+      saveMeasurementButton.addEventListener("click", saveCurrentMeasurement);
+      saveGardenButton.addEventListener("click", saveCurrentGarden);
+      searchButton.addEventListener("click", runSearch);
+      tokenSearch.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") runSearch();
+      });
+      temperatureInput.addEventListener("input", () => {
+        temperatureValue.textContent = localizeDecimalString(temperature().toFixed(2));
+        renderExperiment();
+        syncControls();
+        refreshPending = true;
+        scheduleRefresh();
+      });
+      topKSelect.addEventListener("change", () => {
+        refreshPending = true;
+        scheduleRefresh(0);
+      });
+
+      columns.push(
+        createColumn(initialGardenSeed.prompt, initialGardenSeed.handoff)
+      );
+      render();
+      pollHealth();
+    })();
+  </script>
+</body>
+</html>

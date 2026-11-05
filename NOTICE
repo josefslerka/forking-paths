@@ -1,0 +1,8 @@
+Apertus Workbench
+Copyright 2026 Josef Šlerka and contributors.
+
+This independent research workbench is distributed under the Apache License,
+Version 2.0. Model-provider names identify compatible models, not endorsement.
+No model weights, private corpora, or trained research detector/lens artifacts
+are included. Dependencies and separately acquired weights retain their own
+licenses and notices; see THIRD_PARTY_NOTICES.md.

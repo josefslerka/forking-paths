@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "Please cite the workbench and separately cite the exact model checkpoint used."
+type: software
+title: Apertus Workbench
+version: 0.1.0a1
+date-released: 2026-11-05
+authors:
+  - family-names: Šlerka
+    given-names: Josef
+license: Apache-2.0
+abstract: "A local Czech/English research workbench for next-token probabilities, surprisal, context contrasts, and supported model internals."

@@ -1,0 +1,1687 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Deterministický pohled na byte-level BPE tokenizaci Apertusu."
+  >
+  <title>Tokenizace · Pravděpodobnostní zahrada</title>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07100b;
+      --panel: #0b1710;
+      --panel-soft: #0e1c14;
+      --line: #1d3b2a;
+      --line-strong: #2e6244;
+      --text: #edf5ed;
+      --muted: #91a89a;
+      --green: #70e0a0;
+      --green-strong: #49c984;
+      --yellow: #e4c76b;
+      --red: #ef8f83;
+      --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+    button, textarea, input { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    [hidden] { display: none !important; }
+
+    .skip-link {
+      position: fixed;
+      z-index: 1000;
+      top: 12px;
+      left: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--text);
+      color: var(--bg);
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+
+    .shell {
+      width: min(1520px, calc(100% - 64px));
+      margin: 0 auto;
+      padding: 58px 0 96px;
+    }
+
+    .eyebrow,
+    .section-kicker,
+    .card-kicker {
+      margin: 0;
+      color: var(--green);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 0.56fr);
+      gap: 70px;
+      align-items: end;
+      margin-bottom: 42px;
+    }
+    .hero h1 {
+      max-width: 900px;
+      margin: 14px 0 18px;
+      font-family: var(--serif);
+      font-size: clamp(4rem, 8vw, 7.8rem);
+      font-weight: 500;
+      letter-spacing: -0.055em;
+      line-height: 0.85;
+    }
+    .hero-lead {
+      max-width: 780px;
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 1.5vw, 1.28rem);
+      line-height: 1.55;
+    }
+    .thesis {
+      margin: 0 0 4px;
+      padding: 24px 0 24px 28px;
+      border-left: 3px solid var(--green);
+      color: #c9d8ce;
+      font-family: var(--serif);
+      font-size: clamp(1.38rem, 2.1vw, 2rem);
+      line-height: 1.35;
+    }
+
+    .method-note {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: 26px;
+      margin-bottom: 34px;
+      padding: 24px 28px;
+      border: 1px solid rgba(228, 199, 107, 0.38);
+      border-radius: 16px;
+      background: rgba(228, 199, 107, 0.055);
+    }
+    .method-note strong {
+      color: var(--yellow);
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .method-note p {
+      margin: 0;
+      color: #b6c7bb;
+      line-height: 1.65;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(11, 23, 16, 0.72);
+    }
+
+    .input-panel {
+      padding: 28px;
+      margin-bottom: 38px;
+    }
+    .panel-heading,
+    .section-heading,
+    .stream-heading,
+    .boundary-heading {
+      display: flex;
+      gap: 20px;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+    .panel-heading { margin-bottom: 22px; }
+    .panel-heading h2,
+    .section-heading h2,
+    .boundary-heading h2 {
+      margin: 5px 0 0;
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      font-weight: 500;
+      letter-spacing: -0.035em;
+      line-height: 1;
+    }
+    .panel-heading p {
+      max-width: 660px;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .sample-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 18px;
+    }
+    .sample-button {
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .sample-button:hover,
+    .sample-button:focus-visible {
+      border-color: var(--green);
+      color: var(--text);
+      outline: none;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .text-field {
+      display: grid;
+      gap: 9px;
+    }
+    .text-field > span {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+    .text-field em {
+      color: #62776a;
+      font-style: normal;
+      font-weight: 500;
+    }
+    textarea {
+      width: 100%;
+      min-height: 132px;
+      resize: vertical;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #07110b;
+      color: var(--text);
+      line-height: 1.55;
+      outline: none;
+      tab-size: 2;
+    }
+    textarea:focus {
+      border-color: var(--green-strong);
+      box-shadow: 0 0 0 3px rgba(73, 201, 132, 0.12);
+    }
+
+    .form-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .form-status {
+      min-height: 1.5em;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .form-status.error { color: var(--red); }
+    .primary-button,
+    .secondary-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 50px;
+      padding: 0 20px;
+      border-radius: 12px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .primary-button {
+      border: 0;
+      background: var(--green);
+      color: #07110b;
+      cursor: pointer;
+    }
+    .primary-button:hover { background: #85ecae; }
+    .primary-button:disabled {
+      cursor: wait;
+      opacity: 0.55;
+    }
+    .secondary-link {
+      border: 1px solid var(--line-strong);
+      background: transparent;
+      color: var(--text);
+    }
+    .secondary-link:hover,
+    .secondary-link:focus-visible {
+      border-color: var(--green);
+      outline: none;
+    }
+    .secondary-link[aria-disabled="true"] {
+      pointer-events: none;
+      opacity: 0.38;
+    }
+
+    .result-header {
+      margin: 0 0 22px;
+    }
+    .result-header h2 {
+      margin: 5px 0 8px;
+      font-family: var(--serif);
+      font-size: clamp(2.5rem, 5vw, 4.7rem);
+      font-weight: 500;
+      letter-spacing: -0.045em;
+      line-height: 1;
+    }
+    .result-context {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 1px;
+      overflow: hidden;
+      margin-bottom: 24px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--line);
+    }
+    .pipeline-stage {
+      min-height: 128px;
+      padding: 18px;
+      background: var(--panel);
+    }
+    .pipeline-stage span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .pipeline-stage strong {
+      display: block;
+      margin: 13px 0 6px;
+      font-family: var(--mono);
+      font-size: clamp(1rem, 1.5vw, 1.3rem);
+      overflow-wrap: anywhere;
+    }
+    .pipeline-stage small {
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .pipeline-stage.is-ok strong { color: var(--green); }
+    .pipeline-stage.is-warning strong { color: var(--yellow); }
+
+    .comparison-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 0 0 32px;
+    }
+    .comparison-card {
+      min-height: 118px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-soft);
+    }
+    .comparison-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .comparison-card strong {
+      display: block;
+      margin: 12px 0 5px;
+      font-family: var(--serif);
+      font-size: 1.55rem;
+      font-weight: 500;
+    }
+    .comparison-card small {
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .comparison-card.is-signal {
+      border-color: rgba(112, 224, 160, 0.55);
+      background: rgba(73, 201, 132, 0.07);
+    }
+    .comparison-card.is-signal strong { color: var(--green); }
+
+    .streams {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+    .stream-panel {
+      min-width: 0;
+      padding: 22px;
+    }
+    .stream-heading {
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .stream-heading h3 {
+      margin: 3px 0 0;
+      font-family: var(--serif);
+      font-size: 2rem;
+      font-weight: 500;
+    }
+    .stream-heading span {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.84rem;
+    }
+    .token-stream {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 9px;
+      min-height: 116px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .token-card {
+      display: grid;
+      grid-template-rows: auto auto auto;
+      gap: 5px;
+      min-width: 106px;
+      max-width: 220px;
+      padding: 13px 14px 11px;
+      border: 1px solid hsl(var(--token-hue, 145) 32% 28%);
+      border-radius: 12px;
+      background:
+        linear-gradient(
+          150deg,
+          hsl(var(--token-hue, 145) 35% 16% / 0.82),
+          #09130d
+        );
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
+    }
+    .token-card:hover,
+    .token-card:focus-visible {
+      border-color: var(--green);
+      outline: none;
+      transform: translateY(-1px);
+    }
+    .token-card[aria-pressed="true"] {
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(112, 224, 160, 0.18);
+    }
+    .token-card.is-special {
+      border-style: dashed;
+      background: rgba(228, 199, 107, 0.055);
+    }
+    .token-card.is-divergence {
+      border-color: var(--yellow);
+      box-shadow: inset 0 -3px 0 rgba(228, 199, 107, 0.72);
+    }
+    .token-display {
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: 1.05rem;
+      font-weight: 800;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .token-id {
+      color: var(--green);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+    }
+    .token-size {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .detail-panel {
+      display: grid;
+      grid-template-columns: 0.72fr 1.28fr;
+      gap: 28px;
+      margin: 18px 0 42px;
+      padding: 24px;
+    }
+    .detail-title {
+      margin: 5px 0 10px;
+      font-family: var(--mono);
+      font-size: clamp(1.5rem, 3vw, 2.5rem);
+      overflow-wrap: anywhere;
+    }
+    .detail-subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .detail-link {
+      display: inline-flex;
+      margin-top: 16px;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      margin: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--line);
+    }
+    .detail-grid div {
+      min-width: 0;
+      padding: 14px;
+      background: #08130c;
+    }
+    .detail-grid dt {
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .detail-grid dd {
+      margin: 0;
+      font-family: var(--mono);
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .boundary-panel {
+      padding: 28px;
+    }
+    .boundary-heading { margin-bottom: 24px; }
+    .boundary-heading p {
+      max-width: 620px;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .boundary-control {
+      display: grid;
+      grid-template-columns: auto minmax(180px, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+    .boundary-control label,
+    .boundary-control output {
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--green);
+    }
+    .boundary-sequence {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      min-height: 60px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #07110b;
+      font-family: var(--mono);
+    }
+    .boundary-sequence span {
+      padding: 5px 7px;
+      border-radius: 6px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .boundary-sequence .is-prefix { color: var(--text); }
+    .boundary-sequence .is-next {
+      color: var(--yellow);
+      outline: 1px solid rgba(228, 199, 107, 0.45);
+    }
+    .boundary-marker {
+      color: var(--green) !important;
+      background: transparent !important;
+      font-size: 1.45rem;
+      font-weight: 900;
+    }
+    .boundary-readout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 0.45fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .boundary-text,
+    .next-token {
+      min-height: 138px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel-soft);
+    }
+    .boundary-text span,
+    .next-token span {
+      display: block;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .boundary-text code,
+    .next-token code {
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 1rem;
+      line-height: 1.55;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+    .next-token code { color: var(--yellow); }
+    .boundary-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .boundary-note {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .footer-note {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px;
+      margin-top: 34px;
+      padding-top: 26px;
+      border-top: 1px solid var(--line);
+    }
+    .footer-note h3 {
+      margin: 0 0 9px;
+      font-size: 0.88rem;
+    }
+    .footer-note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1080px) {
+      .shell { width: min(100% - 36px, 980px); }
+      .hero { grid-template-columns: 1fr; gap: 28px; }
+      .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .comparison-summary { grid-template-columns: repeat(2, 1fr); }
+      .streams { grid-template-columns: 1fr; }
+      .detail-panel { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 24px, 680px); padding-top: 34px; }
+      .hero h1 { font-size: clamp(3.4rem, 19vw, 5.4rem); }
+      .method-note,
+      .input-grid,
+      .boundary-readout,
+      .footer-note {
+        grid-template-columns: 1fr;
+      }
+      .input-panel,
+      .boundary-panel { padding: 20px; }
+      .form-actions,
+      .panel-heading,
+      .section-heading,
+      .boundary-heading {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .primary-button { width: 100%; }
+      .pipeline,
+      .comparison-summary,
+      .detail-grid { grid-template-columns: 1fr; }
+      .boundary-control { grid-template-columns: 1fr; gap: 8px; }
+    }
+  </style>
+</head>
+<body data-workbench-page="tokenization">
+  <a class="skip-link" href="#analysis">Přeskočit k analýze</a>
+
+  <main class="shell" id="analysis">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Apertus · nulté patro workbenche</p>
+        <h1>Tokenizace</h1>
+        <p class="hero-lead">
+          Podívej se na přesné jednotky a ID, které pevný tokenizer vyrobí
+          ještě před prvním průchodem modelem. Porovnej i dva lidsky podobné
+          zápisy bez toho, abys jejich rozdíl schoval normalizací.
+        </p>
+      </div>
+      <blockquote class="thesis">
+        Tokenizace neurčuje význam. Určuje však elementární rozdíly a
+        posloupnosti, s nimiž může systém dále pracovat.
+      </blockquote>
+    </header>
+
+    <aside class="method-note">
+      <strong>Tři oddělené kroky</strong>
+      <p>
+        Slovník a pravidla vznikla při tréninku tokenizeru. Tato stránka pak
+        deterministicky převádí text na ID. Teprve jiné pohledy spouštějí
+        model a měří pravděpodobnosti. Zde nevzniká žádná „pravděpodobnost
+        tokenizace“.
+      </p>
+    </aside>
+
+    <form id="tokenization-form" class="panel input-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">Vstup</p>
+          <h2>Jeden text, nebo přesný pár</h2>
+        </div>
+        <p>
+          Nic se neořezává ani Unicode-normalizuje. Mezery, tabulátory,
+          zalomení a kombinující znaky zůstávají součástí měření.
+        </p>
+      </div>
+
+      <div class="sample-row" aria-label="Připravené minimální páry">
+        <button
+          class="sample-button"
+          type="button"
+          data-sample="unicode"
+          data-i18n-ignore
+        >Unicode: mám / mám</button>
+        <button
+          class="sample-button"
+          type="button"
+          data-sample="space"
+        >Úvodní mezera</button>
+        <button
+          class="sample-button"
+          type="button"
+          data-sample="ending"
+        >Koncovka: zavalil / zavalily</button>
+        <button
+          class="sample-button"
+          type="button"
+          data-sample="single"
+        >Jen jeden text</button>
+      </div>
+
+      <div class="input-grid">
+        <label class="text-field" for="text-a">
+          <span>Text A <em>povinný</em></span>
+          <textarea
+            id="text-a"
+            maxlength="8192"
+            spellcheck="false"
+          >Mám rád Prahu.</textarea>
+        </label>
+        <label class="text-field" for="text-b">
+          <span>Text B <em>volitelný</em></span>
+          <textarea
+            id="text-b"
+            maxlength="8192"
+            spellcheck="false"
+          >Mám rád Prahu.</textarea>
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <div id="form-status" class="form-status" role="status">
+          Čekám na tokenizer…
+        </div>
+        <button id="analyze" class="primary-button" type="submit" disabled>
+          Rozdělit přesně
+        </button>
+      </div>
+    </form>
+
+    <section id="results" hidden aria-live="polite">
+      <header class="result-header">
+        <p class="section-kicker">Deterministický řez</p>
+        <h2 id="results-title" tabindex="-1">Od textu k tokenovým ID</h2>
+        <p id="result-context" class="result-context"></p>
+      </header>
+
+      <section
+        id="pipeline"
+        class="pipeline"
+        aria-label="Transformace textu A"
+      ></section>
+
+      <section
+        id="comparison-summary"
+        class="comparison-summary"
+        aria-label="Souhrn porovnání"
+        hidden
+      ></section>
+
+      <section id="streams" class="streams"></section>
+
+      <section class="panel detail-panel" aria-labelledby="detail-title">
+        <div>
+          <p class="card-kicker">Vybraný token</p>
+          <h2 id="detail-title" class="detail-title">—</h2>
+          <p id="detail-subtitle" class="detail-subtitle">
+            Klikni na tokenovou kartu.
+          </p>
+          <a
+            id="open-embedding"
+            class="secondary-link detail-link"
+            href="/embeddingy"
+            aria-disabled="true"
+          >Sledovat tento token od embeddingu</a>
+        </div>
+        <dl id="detail-grid" class="detail-grid"></dl>
+      </section>
+
+      <section class="panel boundary-panel" aria-labelledby="boundary-title">
+        <header class="boundary-heading">
+          <div>
+            <p class="section-kicker">Hranice predikce</p>
+            <h2 id="boundary-title">Kde právě stojí model?</h2>
+          </div>
+          <p>
+            Posuvník nepočítá distribuci. Jen rozděluje přesnou posloupnost A
+            na dosavadní kontext a skutečný následující token.
+          </p>
+        </header>
+
+        <div class="boundary-control">
+          <label for="boundary-slider">Pozice v posloupnosti</label>
+          <input id="boundary-slider" type="range" min="0" max="1" value="0">
+          <output id="boundary-output" for="boundary-slider">0 / 0</output>
+        </div>
+
+        <div
+          id="boundary-sequence"
+          class="boundary-sequence"
+          aria-label="Tokenová posloupnost s vybranou hranicí"
+        ></div>
+
+        <div class="boundary-readout">
+          <div class="boundary-text">
+            <span>Dosavadní prefix</span>
+            <code id="boundary-prefix">—</code>
+          </div>
+          <div class="next-token">
+            <span>Skutečný další token</span>
+            <code id="boundary-next">—</code>
+          </div>
+        </div>
+
+        <div class="boundary-actions">
+          <a
+            id="open-garden"
+            class="secondary-link"
+            href="/"
+            aria-disabled="true"
+          >Otevřít pole po tomto prefixu</a>
+          <a
+            id="open-surprise"
+            class="secondary-link"
+            href="/prekvapeni"
+          >Změřit překvapení celého textu</a>
+        </div>
+        <p id="boundary-note" class="boundary-note"></p>
+      </section>
+
+      <footer class="footer-note">
+        <div>
+          <h3>Token není slovo</h3>
+          <p>
+            Karta je položka pevného slovníku. Může nést celé slovo, mezeru,
+            část slova, interpunkci nebo bajtový fragment.
+          </p>
+        </div>
+        <div>
+          <h3>Roundtrip je kontrola</h3>
+          <p>
+            Přesný návrat detokenizace potvrzuje zachování vstupního řetězce.
+            Neříká nic o jeho významu ani očekávatelnosti.
+          </p>
+        </div>
+        <div>
+          <h3>Tokenizer předchází modelu</h3>
+          <p>
+            Přepnutí BF16, Hybridu, 8bitu nebo 4bitu nemění segmentaci, pokud
+            jejich tokenizer.json zůstává bitově totožný.
+          </p>
+        </div>
+      </footer>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const form = document.querySelector("#tokenization-form");
+      const textA = document.querySelector("#text-a");
+      const textB = document.querySelector("#text-b");
+      const analyzeButton = document.querySelector("#analyze");
+      const formStatus = document.querySelector("#form-status");
+      const results = document.querySelector("#results");
+      const resultsTitle = document.querySelector("#results-title");
+      const resultContext = document.querySelector("#result-context");
+      const pipeline = document.querySelector("#pipeline");
+      const comparisonSummary = document.querySelector("#comparison-summary");
+      const streams = document.querySelector("#streams");
+      const detailTitle = document.querySelector("#detail-title");
+      const detailSubtitle = document.querySelector("#detail-subtitle");
+      const detailGrid = document.querySelector("#detail-grid");
+      const boundarySlider = document.querySelector("#boundary-slider");
+      const boundaryOutput = document.querySelector("#boundary-output");
+      const boundarySequence = document.querySelector("#boundary-sequence");
+      const boundaryPrefix = document.querySelector("#boundary-prefix");
+      const boundaryNext = document.querySelector("#boundary-next");
+      const boundaryNote = document.querySelector("#boundary-note");
+      const openGarden = document.querySelector("#open-garden");
+      const openSurprise = document.querySelector("#open-surprise");
+      const openEmbedding = document.querySelector("#open-embedding");
+
+      const GARDEN_HANDOFF_SCHEMA = "apertus.garden-handoff";
+      const GARDEN_HANDOFF_VERSION = 1;
+      const GARDEN_HANDOFF_STORAGE_PREFIX = "apertus-garden-handoff-v1:";
+      const EMBEDDING_HANDOFF_STORAGE_PREFIX =
+        "apertus-embedding-handoff-v1:";
+      const state = {
+        health: null,
+        ready: false,
+        busy: false,
+        result: null,
+        selected: {side: "a", index: 0},
+        autoRan: false,
+        pollTimer: null
+      };
+
+      const asArray = (value) => Array.isArray(value) ? value : [];
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+      const visibleText = (value, fallback = "∅") => {
+        const text = String(value ?? "");
+        if (!text) return fallback;
+        return text
+          .replaceAll(" ", "␠")
+          .replaceAll("\n", "↵")
+          .replaceAll("\t", "⇥")
+          .replaceAll("\r", "⏎");
+      };
+      const formatNumber = (value, digits = 0) => {
+        if (value === null || value === undefined || value === "") return "—";
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "—";
+        return new Intl.NumberFormat(
+          window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ",
+          {maximumFractionDigits: digits}
+        ).format(number);
+      };
+      const countLabel = (value, one, few, many) => {
+        const number = Number(value);
+        const form = number === 1
+          ? one
+          : Number.isInteger(number) && number >= 2 && number <= 4
+            ? few
+            : many;
+        return `${formatNumber(number)} ${form}`;
+      };
+      const formatMs = (value) => {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return "—";
+        return number < 10
+          ? `${formatNumber(number, 2)} ms`
+          : `${formatNumber(number, 0)} ms`;
+      };
+      const codePreview = (value, limit = 46) => {
+        const text = String(value ?? "");
+        return text.length > limit ? `${text.slice(0, limit)}…` : text;
+      };
+      const activeModel = () => (
+        state.health?.active_model?.label ??
+        state.health?.active_model?.id ??
+        "Apertus"
+      );
+
+      const workbenchState = () => ({
+        model: activeModel(),
+        run: state.health?.model_generation === undefined
+          ? "lokální"
+          : `generace ${state.health.model_generation}`,
+        status: !state.ready
+          ? "Čekám na tokenizer"
+          : state.busy
+            ? "Dělím text na tokeny"
+            : state.result
+              ? "Tokenová posloupnost je připravena"
+              : "Tokenizer je připraven",
+        statusKind: !state.ready || state.busy
+          ? "running"
+          : "ready"
+      });
+      const dispatchWorkbenchState = () => window.dispatchEvent(
+        new CustomEvent("probability-garden:workbench-state", {
+          detail: {context: workbenchState()}
+        })
+      );
+
+      const setStatus = (message, error = false) => {
+        formStatus.textContent = message;
+        formStatus.classList.toggle("error", error);
+        formStatus.setAttribute("role", error ? "alert" : "status");
+      };
+
+      const fetchJson = (...arguments_) => (
+        window.ProbabilityGardenApi.fetchJson(...arguments_)
+      );
+
+      const syncControls = () => {
+        analyzeButton.disabled = !state.ready || state.busy || textA.value === "";
+        analyzeButton.textContent = state.busy
+          ? "Rozděluji…"
+          : "Rozdělit přesně";
+        dispatchWorkbenchState();
+      };
+
+      const samplePairs = {
+        unicode: {
+          a: "Mám rád Prahu.",
+          b: "Mám rád Prahu."
+        },
+        space: {
+          a: "Praha",
+          b: " Praha"
+        },
+        ending: {
+          a: "Déšť zavalil cestu.",
+          b: "Deště zavalily cestu."
+        },
+        single: {
+          a: "Hlavním městem České republiky je Praha.",
+          b: ""
+        }
+      };
+
+      const tokenCard = (token, side, options = {}) => {
+        const special = Boolean(options.special || token.is_special);
+        const divergence = Boolean(options.divergence);
+        const index = special ? -1 : Number(token.index);
+        const display = special
+          ? (token.tokenizer_token || token.display || "<s>")
+          : (token.display || visibleText(token.source_text));
+        const hue = 120 + ((Number(token.token_id) * 47) % 88);
+        return `
+          <li>
+            <button
+              class="token-card${special ? " is-special" : ""}${
+                divergence ? " is-divergence" : ""
+              }"
+              type="button"
+              style="--token-hue:${hue}"
+              data-token-side="${escapeHtml(side)}"
+              data-token-index="${index}"
+              aria-pressed="false"
+            >
+              <span class="token-display observed-token">${escapeHtml(display)}</span>
+              <span class="token-id">#${escapeHtml(token.token_id)}</span>
+              <span class="token-size">${
+                special
+                  ? "speciální · bez znaků"
+                  : token.splits_unicode_code_point
+                    ? (
+                        "část UTF‑8 znaku · " +
+                        countLabel(
+                          token.utf8_byte_count,
+                          "bajt",
+                          "bajty",
+                          "bajtů"
+                        )
+                      )
+                  : `${
+                      countLabel(
+                        token.character_count,
+                        "znak",
+                        "znaky",
+                        "znaků"
+                      )
+                    } · ${
+                      countLabel(
+                        token.utf8_byte_count,
+                        "bajt",
+                        "bajty",
+                        "bajtů"
+                      )
+                    }`
+              }</span>
+            </button>
+          </li>
+        `;
+      };
+
+      const renderPipeline = (trace) => {
+        const ids = trace.token_ids.map((id) => `#${id}`).join(" ");
+        const roundtrip = trace.roundtrip_exact;
+        pipeline.innerHTML = `
+          <article class="pipeline-stage">
+            <span>1 · Text</span>
+            <strong class="observed-token">${escapeHtml(
+              codePreview(visibleText(trace.text), 34)
+            )}</strong>
+            <small>${countLabel(
+              trace.unicode.code_point_count,
+              "Unicode kódový bod",
+              "Unicode kódové body",
+              "Unicode kódových bodů"
+            )}</small>
+          </article>
+          <article class="pipeline-stage">
+            <span>2 · UTF‑8</span>
+            <strong>${escapeHtml(
+              codePreview(trace.unicode.utf8_hex, 34)
+            )}</strong>
+            <small>${countLabel(
+              trace.unicode.utf8_byte_count,
+              "bajt",
+              "bajty",
+              "bajtů"
+            )}</small>
+          </article>
+          <article class="pipeline-stage">
+            <span>3 · Tokenové jednotky</span>
+            <strong>${formatNumber(trace.token_count)}</strong>
+            <small>bez přidaného BOS</small>
+          </article>
+          <article class="pipeline-stage">
+            <span>4 · Tokenová ID</span>
+            <strong>${escapeHtml(codePreview(ids, 34))}</strong>
+            <small>${formatNumber(
+              trace.encoded_with_special_token_ids.length
+            )} ID včetně speciálních</small>
+          </article>
+          <article class="pipeline-stage ${
+            roundtrip ? "is-ok" : "is-warning"
+          }">
+            <span>5 · Zpětné složení</span>
+            <strong>${roundtrip ? "Přesná shoda" : "Neshoda"}</strong>
+            <small>decode(encode(text)) ${
+              roundtrip ? "=" : "≠"
+            } původní text</small>
+          </article>
+        `;
+      };
+
+      const renderComparison = (data) => {
+        const comparison = data.comparison;
+        if (!comparison) {
+          comparisonSummary.hidden = true;
+          comparisonSummary.innerHTML = "";
+          return;
+        }
+        const divergence = comparison.first_token_divergence;
+        const divergenceText = divergence
+          ? `pozice ${divergence.index + 1}`
+          : "žádná";
+        const canonicalSignal = (
+          comparison.canonically_equivalent_nfc &&
+          !comparison.same_text
+        );
+        comparisonSummary.hidden = false;
+        comparisonSummary.innerHTML = `
+          <article class="comparison-card ${
+            canonicalSignal ? "is-signal" : ""
+          }">
+            <span>Unicode řetězec</span>
+            <strong>${
+              comparison.same_text ? "Shodný" : "Odlišný"
+            }</strong>
+            <small>${
+              canonicalSignal
+                ? "jiné kódové body, ale stejná NFC podoba"
+                : comparison.canonically_equivalent_nfc
+                  ? "NFC ekvivalence se shoduje"
+                  : "liší se i po NFC normalizaci"
+            }</small>
+          </article>
+          <article class="comparison-card">
+            <span>Tokenů A / B</span>
+            <strong>${formatNumber(
+              comparison.token_count_a
+            )} / ${formatNumber(comparison.token_count_b)}</strong>
+            <small>Δ B − A = ${
+              comparison.token_count_delta_b_minus_a >= 0 ? "+" : ""
+            }${formatNumber(
+              comparison.token_count_delta_b_minus_a
+            )}</small>
+          </article>
+          <article class="comparison-card">
+            <span>Společný tokenový prefix</span>
+            <strong>${formatNumber(
+              comparison.common_token_prefix_count
+            )}</strong>
+            <small>tokenů před prvním rozdílem</small>
+          </article>
+          <article class="comparison-card ${
+            divergence ? "is-signal" : ""
+          }">
+            <span>První tokenová divergence</span>
+            <strong>${escapeHtml(divergenceText)}</strong>
+            <small>${
+              divergence
+                ? `<span class="observed-token">${escapeHtml(
+                    divergence.a?.display ?? "∅"
+                  )}</span> × <span class="observed-token">${escapeHtml(
+                    divergence.b?.display ?? "∅"
+                  )}</span>`
+                : "tokenová ID jsou totožná"
+            }</small>
+          </article>
+        `;
+      };
+
+      const renderStreams = (data) => {
+        const commonPrefix = Number(
+          data.comparison?.common_token_prefix_count ?? -1
+        );
+        const streamMarkup = (trace, side) => {
+          const special = asArray(trace.special_prefix_tokens)
+            .map((token) => tokenCard(token, side, {special: true}))
+            .join("");
+          const ordinary = asArray(trace.tokens).map((token) => tokenCard(
+            token,
+            side,
+            {
+              divergence: (
+                data.comparison &&
+                Number(token.index) === commonPrefix
+              )
+            }
+          )).join("");
+          return `
+            <article class="panel stream-panel">
+              <header class="stream-heading">
+                <div>
+                  <p class="card-kicker">${escapeHtml(trace.label)}</p>
+                  <h3>${countLabel(
+                    trace.token_count,
+                    "textový token",
+                    "textové tokeny",
+                    "textových tokenů"
+                  )}</h3>
+                </div>
+                <span>${countLabel(
+                  trace.unicode.code_point_count,
+                  "znak",
+                  "znaky",
+                  "znaků"
+                )} · ${formatNumber(
+                  trace.unicode.utf8_byte_count
+                )} B</span>
+              </header>
+              <ol class="token-stream" data-token-stream="${side}">
+                ${special}${ordinary}
+              </ol>
+            </article>
+          `;
+        };
+        streams.innerHTML = streamMarkup(data.a, "a") + (
+          data.b ? streamMarkup(data.b, "b") : ""
+        );
+      };
+
+      const selectedToken = () => {
+        const trace = state.result?.[state.selected.side];
+        if (!trace) return null;
+        if (state.selected.index === -1) {
+          return trace.special_prefix_tokens?.[0] ?? null;
+        }
+        return trace.tokens?.[state.selected.index] ?? null;
+      };
+
+      const renderDetail = () => {
+        streams.querySelectorAll("[data-token-side]").forEach((button) => {
+          button.setAttribute(
+            "aria-pressed",
+            (
+              button.dataset.tokenSide === state.selected.side &&
+              Number(button.dataset.tokenIndex) === state.selected.index
+            ) ? "true" : "false"
+          );
+        });
+        const token = selectedToken();
+        if (!token) return;
+        const side = state.selected.side.toUpperCase();
+        detailTitle.textContent = token.display || token.tokenizer_token || "∅";
+        detailSubtitle.textContent = (
+          `${side} · token #${token.token_id} · ${
+            token.is_special
+              ? "speciální token"
+            : `pozice ${Number(token.index) + 1}`
+          }`
+        );
+        if (token.is_special || Number(token.index) < 0) {
+          openEmbedding.setAttribute("aria-disabled", "true");
+        } else {
+          openEmbedding.removeAttribute("aria-disabled");
+          openEmbedding.href = "/embeddingy";
+        }
+        const range = token.character_start === null
+          ? (
+              token.splits_unicode_code_point
+                ? (
+                    `token dělí kódový bod; kryje znaky [${
+                      token.covering_character_start
+                    }, ${token.covering_character_end})`
+                  )
+                : "není spolehlivě určeno"
+            )
+          : `[${token.character_start}, ${token.character_end})`;
+        const byteRange = token.utf8_byte_start === null
+          ? "není spolehlivě určeno"
+          : `[${token.utf8_byte_start}, ${token.utf8_byte_end})`;
+        const values = [
+          ["Přesné ID", `#${token.token_id}`, false, false],
+          ["Syrová položka slovníku", token.tokenizer_token ?? "—", false, true],
+          [
+            "Úsek vstupního textu",
+            token.source_text ?? (
+              token.source_text_cover
+                ? `${token.source_text_cover} (pouze krytí)`
+                : "∅"
+            ),
+            true,
+            true
+          ],
+          ["Samostatně dekódováno", token.decoded_text || "∅", true, true],
+          ["Znakový rozsah", range, false, false],
+          ["UTF‑8 bajtový rozsah", byteRange, false, false],
+          [
+            token.splits_unicode_code_point
+              ? "Dotčené kódové body"
+              : "Kódové body",
+            asArray(token.code_points).join(" ") || "—",
+            false,
+            false
+          ],
+          [
+            "Dělí UTF‑8 uvnitř znaku",
+            token.splits_unicode_code_point ? "ano" : "ne",
+            false,
+            false
+          ],
+          ["UTF‑8 hex", token.utf8_hex || "—", false, false]
+        ];
+        detailGrid.innerHTML = values.map(([name, value, showWhitespace, protect]) => `
+          <div>
+            <dt>${escapeHtml(name)}</dt>
+            <dd class="${protect ? "observed-token" : ""}">${escapeHtml(
+              showWhitespace
+                ? visibleText(value, "—")
+                : String(value ?? "—")
+            )}</dd>
+          </div>
+        `).join("");
+      };
+
+      const boundary = () => {
+        const boundaries = state.result?.a?.boundaries ?? [];
+        const index = Math.min(
+          Math.max(0, Number(boundarySlider.value)),
+          Math.max(0, boundaries.length - 1)
+        );
+        return boundaries[index] ?? null;
+      };
+
+      const gardenFallbackUrl = (prefix) => {
+        const url = new URL("/", window.location.href);
+        url.searchParams.set("prompt", prefix);
+        return url.toString();
+      };
+
+      const prepareGardenHandoff = () => {
+        const point = boundary();
+        if (!point?.prefix_text) return;
+        openGarden.href = gardenFallbackUrl(point.prefix_text);
+        try {
+          const handoffId = globalThis.crypto?.randomUUID?.() ?? (
+            `${Date.now()}-${Math.random().toString(16).slice(2)}`
+          );
+          const payload = {
+            schema: GARDEN_HANDOFF_SCHEMA,
+            version: GARDEN_HANDOFF_VERSION,
+            source: "tokenization_boundary",
+            mode: "after",
+            text: point.prefix_text,
+            token_ids: point.prefix_token_ids,
+            selected_token_id: point.next_token?.token_id ?? null,
+            model_id: state.health?.active_model?.id ?? null,
+            model_generation: state.health?.model_generation ?? null,
+            server_instance_id: state.health?.server_instance_id ?? null,
+            created_at: new Date().toISOString()
+          };
+          window.localStorage.setItem(
+            `${GARDEN_HANDOFF_STORAGE_PREFIX}${handoffId}`,
+            JSON.stringify(payload)
+          );
+          const url = new URL("/", window.location.href);
+          url.searchParams.set("handoff", handoffId);
+          openGarden.href = url.toString();
+        } catch {
+          // URL fallback remains a deterministic retokenization of the prefix.
+        }
+      };
+
+      const prepareEmbeddingHandoff = () => {
+        const token = selectedToken();
+        const sourceTrace = state.result?.[state.selected.side];
+        if (!token || !sourceTrace || Number(token.index) < 0) return;
+        const otherSide = state.selected.side === "a" ? "b" : "a";
+        const otherTrace = state.result?.[otherSide];
+        const matchingIndex = otherTrace?.tokens?.findIndex(
+          (candidate) => Number(candidate.token_id) === Number(token.token_id)
+        ) ?? -1;
+        try {
+          const handoffId = globalThis.crypto?.randomUUID?.() ?? (
+            `${Date.now()}-${Math.random().toString(16).slice(2)}`
+          );
+          const payload = {
+            schema: "apertus.embedding-handoff",
+            version: 1,
+            source: "tokenization_selected_token",
+            text_a: sourceTrace.text,
+            text_b: otherTrace?.text ?? sourceTrace.text,
+            index_a: Number(token.index),
+            index_b: matchingIndex >= 0 ? matchingIndex : Number(token.index),
+            token_id: Number(token.token_id),
+            created_at: new Date().toISOString()
+          };
+          window.localStorage.setItem(
+            `${EMBEDDING_HANDOFF_STORAGE_PREFIX}${handoffId}`,
+            JSON.stringify(payload)
+          );
+          const url = new URL("/embeddingy", window.location.href);
+          url.searchParams.set("handoff", handoffId);
+          openEmbedding.href = url.toString();
+        } catch {
+          openEmbedding.href = "/embeddingy";
+        }
+      };
+
+      const renderBoundary = () => {
+        const trace = state.result?.a;
+        const point = boundary();
+        if (!trace || !point) return;
+        const selectedIndex = Number(point.index);
+        boundaryOutput.textContent = `${selectedIndex} / ${trace.token_count}`;
+        boundarySequence.classList.add("observed-token");
+        boundarySequence.innerHTML = [
+          ...asArray(trace.special_prefix_tokens).map(
+            (token) => `<span class="is-prefix">${
+              escapeHtml(token.tokenizer_token || "<s>")
+            }</span>`
+          ),
+          ...asArray(trace.tokens).flatMap((token, index) => {
+            const parts = [];
+            if (index === selectedIndex) {
+              parts.push('<span class="boundary-marker">|</span>');
+            }
+            parts.push(
+              `<span class="${
+                index < selectedIndex
+                  ? "is-prefix"
+                  : index === selectedIndex
+                    ? "is-next"
+                    : ""
+              }">${escapeHtml(token.display)}</span>`
+            );
+            return parts;
+          }),
+          ...(selectedIndex === trace.token_count
+            ? ['<span class="boundary-marker">|</span>']
+            : [])
+        ].join("");
+        boundaryPrefix.classList.toggle("observed-token", Boolean(point.prefix_text));
+        boundaryPrefix.textContent = point.prefix_text || "⟨pouze BOS⟩";
+        boundaryNext.classList.toggle("observed-token", Boolean(point.next_token));
+        boundaryNext.textContent = point.next_token
+          ? `${point.next_token.display} · #${point.next_token.token_id}`
+          : "⟨za koncem zadaného textu⟩";
+        boundaryNote.textContent = (
+          `${formatNumber(point.prefix_token_ids.length)} kontextových ID ` +
+          `včetně BOS · ${formatNumber(
+            point.utf8_byte_offset ?? 0
+          )} UTF‑8 bajtů prefixu. ` +
+          "Pole se otevře nad přesnými ID této hranice." +
+          (
+            point.prefix_roundtrip_exact
+              ? ""
+              : (
+                  " Hranice leží uvnitř vícebajtového znaku; viditelný " +
+                  "prefix je jen dekódovaný náhled, rozhodující jsou ID."
+                )
+          )
+        );
+        if (point.prefix_text) {
+          openGarden.removeAttribute("aria-disabled");
+          openGarden.href = gardenFallbackUrl(point.prefix_text);
+        } else {
+          openGarden.setAttribute("aria-disabled", "true");
+          openGarden.href = "/";
+        }
+        const surpriseUrl = new URL("/prekvapeni", window.location.href);
+        surpriseUrl.searchParams.set("text", trace.text);
+        surpriseUrl.searchParams.set("run", "1");
+        openSurprise.href = surpriseUrl.toString();
+      };
+
+      const assertResponse = (data) => {
+        if (
+          data?.analysis_kind !== "tokenization" ||
+          !data.a ||
+          !Array.isArray(data.a.tokens) ||
+          !Array.isArray(data.a.boundaries)
+        ) {
+          throw new Error("Server vrátil neplatný tokenizační řez.");
+        }
+      };
+
+      const renderResult = (data) => {
+        state.result = data;
+        state.selected = {side: "a", index: 0};
+        renderPipeline(data.a);
+        renderComparison(data);
+        renderStreams(data);
+        const boundaryDefault = data.a.token_count > 1
+          ? data.a.token_count - 1
+          : data.a.token_count;
+        boundarySlider.max = String(data.a.token_count);
+        boundarySlider.value = String(boundaryDefault);
+        resultContext.innerHTML = (
+          `<span>${escapeHtml(data.tokenizer?.algorithm === "byte_level_bpe"
+            ? "byte-level BPE"
+            : data.tokenizer?.algorithm ?? "tokenizer")}</span> · ` +
+          `<span>${escapeHtml(formatNumber(
+            data.tokenizer?.vocab_size
+          ))} položek slovníku</span> · ` +
+          `<span>${escapeHtml(formatMs(data.timing_ms?.total))}</span> · ` +
+          "<span>0 forwardů</span>"
+        );
+        results.hidden = false;
+        renderDetail();
+        renderBoundary();
+      };
+
+      const analyze = async ({focus = true} = {}) => {
+        if (!state.ready || state.busy || textA.value === "") return;
+        state.busy = true;
+        syncControls();
+        setStatus("Převádím text na UTF‑8, tokenové jednotky a ID…");
+        try {
+          const request = {text_a: textA.value};
+          if (textB.value !== "") request.text_b = textB.value;
+          const data = await fetchJson("/api/tokenization", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(request)
+          });
+          assertResponse(data);
+          renderResult(data);
+          const tokenizer = data.tokenizer ?? {};
+          const shared = tokenizer.shared_across_model_modes;
+          const boundaryWarnings = asArray(data.warnings)
+            .filter((warning) => (
+              warning?.code === "tokens_split_utf8_code_point"
+            ))
+            .map((warning) => warning.message);
+          setStatus(
+            (
+              shared
+              ? (
+                  "Hotovo — dostupné modelové režimy mají bitově totožný " +
+                  "tokenizer.json."
+                )
+              : "Hotovo — tokenizace byla načtena z aktivního tokenizeru."
+            ) + (
+              boundaryWarnings.length
+                ? ` ${boundaryWarnings.join(" ")}`
+                : ""
+            )
+          );
+          if (focus) {
+            window.requestAnimationFrame(() => {
+              results.scrollIntoView({behavior: "smooth", block: "start"});
+              resultsTitle.focus({preventScroll: true});
+            });
+          }
+        } catch (error) {
+          setStatus(error.message || "Tokenizace se nezdařila.", true);
+        } finally {
+          state.busy = false;
+          syncControls();
+        }
+      };
+
+      const pollHealth = async () => {
+        window.clearTimeout(state.pollTimer);
+        try {
+          const health = await fetchJson("/api/health");
+          state.health = health;
+          state.ready = health.status === "ready";
+          if (!state.ready) {
+            setStatus(
+              health.status === "error"
+                ? "Tokenizer se nepodařilo načíst."
+                : "Čekám na načtení společného tokenizeru…",
+              health.status === "error"
+            );
+          } else if (!state.result) {
+            setStatus(
+              "Tokenizer je připraven. Analýza nepoužije váhy modelu."
+            );
+          }
+          syncControls();
+          if (state.ready && !state.autoRan) {
+            state.autoRan = true;
+            await analyze({focus: false});
+          }
+          state.pollTimer = window.setTimeout(
+            pollHealth,
+            state.ready ? 8000 : 1400
+          );
+        } catch {
+          state.ready = false;
+          setStatus("Server není dostupný.", true);
+          syncControls();
+          state.pollTimer = window.setTimeout(pollHealth, 2600);
+        }
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        analyze();
+      });
+      form.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          analyze();
+        }
+      });
+      [textA, textB].forEach((input) => {
+        input.addEventListener("input", syncControls);
+      });
+      document.querySelectorAll("[data-sample]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const sample = samplePairs[button.dataset.sample];
+          if (!sample) return;
+          textA.value = sample.a;
+          textB.value = sample.b;
+          syncControls();
+          analyze();
+        });
+      });
+      streams.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-token-side]");
+        if (!button) return;
+        state.selected = {
+          side: button.dataset.tokenSide,
+          index: Number(button.dataset.tokenIndex)
+        };
+        renderDetail();
+      });
+      boundarySlider.addEventListener("input", renderBoundary);
+      openGarden.addEventListener("click", (event) => {
+        if (openGarden.getAttribute("aria-disabled") === "true") {
+          event.preventDefault();
+          return;
+        }
+        prepareGardenHandoff();
+      });
+      openEmbedding.addEventListener("click", (event) => {
+        if (openEmbedding.getAttribute("aria-disabled") === "true") {
+          event.preventDefault();
+          return;
+        }
+        prepareEmbeddingHandoff();
+      });
+      window.addEventListener(
+        "probability-garden:request-workbench-state",
+        dispatchWorkbenchState
+      );
+      window.addEventListener("pagehide", () => {
+        window.clearTimeout(state.pollTimer);
+      });
+
+      syncControls();
+      pollHealth();
+    })();
+  </script>
+</body>
+</html>

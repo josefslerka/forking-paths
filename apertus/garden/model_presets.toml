@@ -1,0 +1,45 @@
+# Only metadata is distributed. No model is downloaded on application startup.
+# Run `apertus-workbench models list` to see the resolved local paths.
+schema_version = 1
+backend = "mlx"
+default_model = "bf16"
+enable_research_artifacts = false
+
+[models.bf16]
+label = "Apertus 8B · BF16"
+adapter = "apertus"
+repository = "swiss-ai/Apertus-8B-2509"
+revision = "3162c99675aa588097cecd4a24b9aa1f712af477"
+
+[models."8bit"]
+label = "Apertus 8B · 8bit"
+adapter = "apertus"
+convert_from = "bf16"
+bits = 8
+group_size = 64
+
+[models."4bit"]
+label = "Apertus 8B · 4bit"
+adapter = "apertus"
+convert_from = "bf16"
+bits = 4
+group_size = 64
+
+[models.hybrid]
+label = "Apertus 8B · Hybrid 8bit/BF16"
+kind = "apertus-hybrid"
+adapter = "apertus"
+
+# Official F32 weights are only an intermediate source, not a menu option.
+[models.eurollm9-source]
+label = "EuroLLM 9B · official F32 source"
+kind = "source"
+repository = "utter-project/EuroLLM-9B-2512"
+revision = "3f5bacd0762eb45170985d6b699035f6a385ee3e"
+
+[models.eurollm9]
+label = "EuroLLM 9B · 6bit"
+adapter = "llama-full-attention"
+convert_from = "eurollm9-source"
+bits = 6
+group_size = 64

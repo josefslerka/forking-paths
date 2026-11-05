@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=77.0.3", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apertus-workbench"
+version = "0.1.0a1"
+description = "A local, bilingual research workbench for inspecting language-model expectations"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{name = "Josef Šlerka"}]
+dependencies = ["numpy>=1.26,<3"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+]
+
+[project.optional-dependencies]
+mlx = ["mlx>=0.32,<0.33; sys_platform == 'darwin' and platform_machine == 'arm64'", "mlx-lm>=0.31,<0.32; sys_platform == 'darwin' and platform_machine == 'arm64'", "huggingface-hub>=1.0,<2"]
+torch = ["torch>=2.8,<3", "transformers>=5.14,<5.15", "accelerate>=1.6,<2", "safetensors>=0.6,<1", "huggingface-hub>=1.0,<2"]
+download = ["huggingface-hub>=1.0,<2"]
+dev = ["pytest>=8.3,<9", "beautifulsoup4>=4.11,<5", "build>=1.2,<2"]
+
+[project.scripts]
+apertus-workbench = "apertus.garden.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["apertus", "apertus.garden", "apertus.garden.api", "apertus.garden.core", "apertus.garden.domains", "apertus.garden.static"]
+
+[tool.setuptools.package-data]
+"apertus.garden" = ["static/*.html", "static/*.js", "static/*.css", "*.toml", "*protocol.json", "model_comparison_examples.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["apertus/garden/tests"]
+pythonpath = [".", "apertus/garden"]
+markers = ["contract: frontend and API contract checks", "integration: optional numerical backend tests"]

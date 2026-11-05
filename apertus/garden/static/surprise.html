@@ -1,0 +1,5033 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Překvapení hotového textu: pravděpodobnost, surprisal a entropie každého tokenu modelu Apertus."
+  >
+  <title>Překvapení textu · Apertus</title>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--pg-sans);
+      line-height: 1.55;
+    }
+
+    body.is-computing {
+      overflow: hidden;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(116, 224, 166, 0.56);
+      outline-offset: 3px;
+    }
+
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 130;
+      top: 8px;
+      left: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-weight: 800;
+      transform: translateY(-160%);
+      transition: transform 140ms ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .shell {
+      width: min(1420px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 80px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 42px;
+    }
+
+    .topbar a {
+      color: var(--muted);
+    }
+
+    .hero {
+      max-width: 980px;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--leaf);
+      font-size: 0.68rem;
+      font-weight: 760;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 0;
+      font-family: var(--pg-serif);
+      font-size: clamp(3rem, 5vw, 5.4rem);
+      font-weight: 400;
+      letter-spacing: -0.05em;
+      line-height: 0.94;
+    }
+
+    .lede {
+      max-width: 720px;
+      margin: 15px 0 0;
+      color: var(--muted);
+      font-size: clamp(0.92rem, 1.2vw, 1.02rem);
+      line-height: 1.62;
+    }
+
+    .methodology-drawer {
+      margin-bottom: 30px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .methodology-drawer summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 13px 2px;
+      color: #d8e5dc;
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-weight: 750;
+      letter-spacing: 0.11em;
+      list-style: none;
+      text-transform: uppercase;
+    }
+
+    .methodology-drawer summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .method-summary-action {
+      color: #7d9187;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .method-copy {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 22px;
+      padding: 5px 2px 20px;
+    }
+
+    .method-copy p {
+      margin: 0;
+      color: #84998d;
+      font-size: 0.76rem;
+      line-height: 1.58;
+    }
+
+    .method-copy strong {
+      color: var(--text);
+    }
+
+    .analysis-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 150px auto;
+      gap: 14px;
+      align-items: end;
+      padding: 22px;
+      border: 1px solid #25382e;
+      border-radius: 12px;
+      background: rgba(10, 16, 12, 0.76);
+    }
+
+    .primary-text-input {
+      display: grid;
+      gap: 9px;
+      min-width: 0;
+    }
+
+    .add-text-button {
+      justify-self: start;
+      min-height: 36px;
+      padding-inline: 12px;
+      font-size: 0.72rem;
+    }
+
+    .comparison-inputs {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+      gap: 14px;
+      align-items: end;
+      padding-top: 16px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .comparison-inputs[hidden],
+    .comparison-view[hidden],
+    .psycholinguistic-view[hidden] {
+      display: none;
+    }
+
+    .comparison-inputs .comparison-text-b {
+      grid-column: 1 / -2;
+    }
+
+    .comparison-inputs textarea {
+      min-height: 112px;
+    }
+
+    .comparison-label-input {
+      min-width: 0;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    textarea,
+    select,
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #08100c;
+      color: var(--text);
+    }
+
+    textarea {
+      min-height: 126px;
+      padding: 13px 14px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    select,
+    input {
+      min-height: 46px;
+      padding: 0 12px;
+    }
+
+    textarea:disabled,
+    select:disabled,
+    input:disabled,
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.46;
+    }
+
+    .primary-button,
+    .secondary-button {
+      min-height: 46px;
+      padding: 0 15px;
+      border-radius: 9px;
+      font-weight: 760;
+      cursor: pointer;
+    }
+
+    .primary-button {
+      border: 1px solid var(--leaf);
+      background: var(--leaf);
+      color: var(--ink);
+    }
+
+    .primary-button:hover:not(:disabled) {
+      background: var(--leaf-bright);
+    }
+
+    .secondary-button {
+      border: 1px solid var(--line);
+      background: #0b1510;
+      color: var(--text);
+    }
+
+    .secondary-button:hover:not(:disabled) {
+      border-color: var(--leaf);
+      color: var(--leaf-bright);
+    }
+
+    .form-foot {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      color: #71867a;
+      font-size: 0.7rem;
+    }
+
+    .message {
+      min-height: 24px;
+      margin: 11px 2px 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    .results {
+      display: grid;
+      gap: 34px;
+      margin-top: 44px;
+    }
+
+    .results[hidden] {
+      display: none;
+    }
+
+    .results[data-stale="true"] {
+      opacity: 0.58;
+    }
+
+    .results[data-mode="comparison"] .single-result-block {
+      display: none;
+    }
+
+    .results[data-display-mode="words"] .token-native-view {
+      display: none !important;
+    }
+
+    .result-mode-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+      padding: 17px 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #0b130f;
+    }
+
+    .result-mode-copy {
+      display: grid;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .result-mode-copy strong {
+      color: var(--text);
+      font-size: 0.8rem;
+    }
+
+    .result-mode-copy span {
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .result-mode-switch {
+      display: inline-flex;
+      flex: 0 0 auto;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line-soft);
+      border-radius: 10px;
+      background: #08100c;
+    }
+
+    .result-mode-button {
+      min-height: 38px;
+      padding: 7px 12px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 760;
+      cursor: pointer;
+    }
+
+    .result-mode-button[aria-pressed="true"] {
+      border-color: #41704f;
+      background: #18311f;
+      color: #d6efdc;
+    }
+
+    .results-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .results-head h2 {
+      margin: 0;
+      font-family: var(--pg-serif);
+      font-size: clamp(2rem, 3.5vw, 3.2rem);
+      font-weight: 400;
+      line-height: 1;
+    }
+
+    .result-context {
+      max-width: 860px;
+      margin: 9px 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      overflow-wrap: anywhere;
+    }
+
+    .result-badge {
+      padding: 6px 10px;
+      border: 1px solid #315d43;
+      border-radius: 999px;
+      color: var(--leaf-bright);
+      font-size: 0.66rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .result-badge.stale {
+      border-color: #5b4821;
+      color: var(--gold);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      border-top: 1px solid #1c2a23;
+      border-bottom: 1px solid #1c2a23;
+    }
+
+    .summary-card {
+      min-width: 0;
+      min-height: 118px;
+      padding: 16px;
+      border-right: 1px solid #1c2a23;
+    }
+
+    .summary-card:last-child {
+      border-right: 0;
+    }
+
+    .summary-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .summary-card > span:first-child {
+      font-weight: 760;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .summary-card strong {
+      display: block;
+      margin: 8px 0 5px;
+      font-family: var(--pg-serif);
+      font-size: clamp(1.35rem, 2.2vw, 1.9rem);
+      font-weight: 400;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.08;
+    }
+
+    .interpretive-note {
+      max-width: 980px;
+      margin: -10px 0 0;
+      padding-left: 14px;
+      border-left: 3px solid var(--gold);
+      color: #a9baaf;
+      font-size: 0.8rem;
+    }
+
+    .psycholinguistic-view {
+      display: grid;
+      gap: 20px;
+      padding: 22px;
+      border: 1px solid #263a30;
+      border-radius: 12px;
+      background: #0b130f;
+    }
+
+    .psych-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin: 0;
+    }
+
+    .psych-summary div {
+      min-width: 0;
+      padding: 12px 13px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #09110d;
+    }
+
+    .psych-summary dt {
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-weight: 760;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .psych-summary dd {
+      margin: 5px 0 0;
+      color: var(--text);
+      font-family: var(--pg-serif);
+      font-size: 1.15rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .psych-method-note {
+      margin: 0;
+      padding: 13px 15px;
+      border-left: 3px solid var(--gold);
+      background: rgba(62, 53, 21, 0.13);
+      color: #a9baaf;
+      font-size: 0.74rem;
+    }
+
+    .psych-word-columns,
+    .psych-word-summary {
+      display: grid;
+      grid-template-columns: minmax(150px, 1.35fr) repeat(3, minmax(115px, 0.7fr)) minmax(96px, 0.5fr);
+      gap: 14px;
+      align-items: center;
+    }
+
+    .psych-word-columns {
+      padding: 0 14px;
+      color: var(--muted);
+      font-size: 0.61rem;
+      font-weight: 760;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .psych-word-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .psych-word-row {
+      border: 1px solid var(--line-soft);
+      border-radius: 9px;
+      background: #09110d;
+      overflow: hidden;
+    }
+
+    .psych-word-row[open] {
+      border-color: #41704f;
+    }
+
+    .psych-word-row.psych-punctuation-row {
+      border-style: dashed;
+      background: #0b1510;
+    }
+
+    .psych-word-summary {
+      min-height: 64px;
+      padding: 11px 14px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .psych-word-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .psych-word-summary::after {
+      content: "+";
+      justify-self: end;
+      color: var(--leaf-bright);
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .psych-word-row[open] .psych-word-summary::after {
+      content: "−";
+    }
+
+    .psych-word-surface {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 9px;
+      align-items: baseline;
+      min-width: 0;
+    }
+
+    .psych-word-index {
+      color: var(--muted);
+      font-family: var(--pg-mono);
+      font-size: 0.66rem;
+    }
+
+    .psych-word-surface strong {
+      min-width: 0;
+      color: var(--text);
+      font-family: var(--pg-serif);
+      font-size: 1.08rem;
+      overflow-wrap: anywhere;
+    }
+
+    .psych-unit-label {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .psych-unit-kind {
+      color: var(--muted);
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .psych-metric {
+      color: var(--text);
+      font-size: 0.76rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .psych-metric small {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 0.6rem;
+    }
+
+    .psych-surprisal-badge {
+      display: inline-block;
+      min-width: 76px;
+      padding: 5px 7px;
+      border: 1px solid var(--token-border);
+      border-radius: 7px;
+      background: var(--token-bg);
+      color: var(--token-text);
+      text-align: center;
+    }
+
+    .psych-word-detail {
+      display: grid;
+      gap: 14px;
+      padding: 15px 16px 17px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .psych-word-detail > p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .psych-subword-groups {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .psych-subword-groups-single {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .psych-subword-group h4 {
+      margin: 0 0 7px;
+      color: var(--text);
+      font-size: 0.72rem;
+    }
+
+    .psych-subword-table-wrap {
+      overflow-x: auto;
+    }
+
+    .psych-subword-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.68rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .psych-subword-table th,
+    .psych-subword-table td {
+      padding: 8px 9px;
+      border-bottom: 1px solid var(--line-soft);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .psych-incomplete {
+      color: var(--gold);
+    }
+
+    .comparison-view {
+      display: grid;
+      gap: 28px;
+    }
+
+    .comparison-method-note {
+      margin: 0;
+      padding: 15px 17px;
+      border: 1px solid #5b512a;
+      border-radius: 10px;
+      background: rgba(62, 53, 21, 0.16);
+      color: #b7c4bc;
+      font-size: 0.76rem;
+    }
+
+    .comparison-method-note strong {
+      color: var(--text);
+    }
+
+    .comparison-metrics {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .comparison-metrics th,
+    .comparison-metrics td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line-soft);
+      text-align: right;
+      vertical-align: top;
+    }
+
+    .comparison-metrics th:first-child,
+    .comparison-metrics td:first-child {
+      text-align: left;
+    }
+
+    .comparison-metrics thead th {
+      color: var(--muted);
+      font-size: 0.64rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .comparison-total-grid,
+    .comparison-traces {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .comparison-total {
+      padding: 13px 15px;
+      border: 1px solid var(--line-soft);
+      border-radius: 9px;
+      background: #09110d;
+    }
+
+    .comparison-total span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .comparison-total strong {
+      display: block;
+      margin-top: 4px;
+      font-family: var(--pg-serif);
+      font-size: 1.45rem;
+      font-weight: 400;
+    }
+
+    .comparison-card {
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid #263a30;
+      border-radius: 12px;
+      background: #0b130f;
+    }
+
+    .comparison-card h3 {
+      margin-bottom: 4px;
+      font-family: var(--pg-serif);
+      font-size: 1.55rem;
+      font-weight: 400;
+    }
+
+    .comparison-card-context {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .comparison-card .token-stream {
+      min-height: 72px;
+    }
+
+    .comparison-detail {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .comparison-detail[hidden] {
+      display: none;
+    }
+
+    .comparison-detail .metric-grid {
+      margin-top: 10px;
+    }
+
+    .comparison-aggregation-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: end;
+    }
+
+    .comparison-aggregation {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .comparison-aggregation-summary {
+      margin: 0 0 12px;
+      color: #8fa398;
+      font-size: 0.7rem;
+    }
+
+    .comparison-aggregation-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .comparison-aggregation-list li {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      padding: 8px 9px;
+      border: 1px solid var(--line-soft);
+      border-radius: 7px;
+      font-size: 0.68rem;
+    }
+
+    .comparison-aggregation-list span:first-child {
+      font-family: var(--pg-mono);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .comparison-aggregation-list span:last-child {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .legend-panel {
+      padding: 18px 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+
+    .section-head h3 {
+      margin: 0;
+      font-size: 0.82rem;
+      font-weight: 780;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.72rem;
+      text-align: right;
+    }
+
+    .fixed-legend {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .legend-stop {
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--token-border);
+      border-radius: 8px;
+      background: var(--token-bg);
+      color: var(--token-text);
+      font-size: 0.68rem;
+    }
+
+    .legend-stop strong {
+      display: block;
+      color: var(--text);
+      font-size: 0.76rem;
+    }
+
+    .token-workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .token-panel,
+    .detail-panel {
+      min-width: 0;
+      border: 1px solid #263a30;
+      border-radius: 12px;
+      background: #0b130f;
+    }
+
+    .token-panel {
+      padding: 18px;
+    }
+
+    .token-stream {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 5px;
+      min-height: 90px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .token-chip {
+      min-height: 34px;
+      padding: 6px 8px;
+      border: 1px solid var(--token-border);
+      border-radius: 7px;
+      background: var(--token-bg);
+      color: var(--token-text);
+      font-family: var(--pg-mono);
+      font-size: 0.76rem;
+      font-weight: 650;
+      line-height: 1.2;
+      white-space: pre-wrap;
+      cursor: pointer;
+    }
+
+    .token-chip:hover,
+    .token-chip[aria-pressed="true"] {
+      border-color: #e8f4ec;
+      box-shadow: 0 0 0 2px rgba(238, 246, 240, 0.12);
+    }
+
+    .surprise-0 {
+      --token-bg: #10261a;
+      --token-border: #28563b;
+      --token-text: #b9edca;
+    }
+
+    .surprise-1 {
+      --token-bg: #18311f;
+      --token-border: #41704f;
+      --token-text: #d6efdc;
+    }
+
+    .surprise-2 {
+      --token-bg: #352f18;
+      --token-border: #716330;
+      --token-text: #f0dfae;
+    }
+
+    .surprise-3 {
+      --token-bg: #452716;
+      --token-border: #8f502e;
+      --token-text: #f4c09e;
+    }
+
+    .surprise-4 {
+      --token-bg: #4a211d;
+      --token-border: #9b4f47;
+      --token-text: #f4b6ae;
+    }
+
+    .tokenizer-note {
+      margin: 14px 0 0;
+      color: #7f9388;
+      font-size: 0.7rem;
+    }
+
+    .aggregation-panel {
+      padding: 20px;
+      border: 1px solid #263a30;
+      border-radius: 12px;
+      background: #0b130f;
+    }
+
+    .aggregation-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 20px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .aggregation-explanation {
+      margin: 0;
+      color: #879b90;
+      font-size: 0.73rem;
+      line-height: 1.55;
+    }
+
+    .aggregation-summary {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 20px;
+    }
+
+    .aggregation-summary div {
+      min-width: 0;
+      padding: 11px 12px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #09110d;
+    }
+
+    .aggregation-summary dt {
+      color: var(--muted);
+      font-size: 0.62rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .aggregation-summary dd {
+      margin: 5px 0 0;
+      color: var(--text);
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+
+    .aggregation-empty {
+      margin: 0;
+      padding: 16px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .aggregation-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .aggregation-span {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) repeat(3, minmax(100px, auto));
+      gap: 14px;
+      align-items: baseline;
+      padding: 12px 14px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: #09110d;
+    }
+
+    .aggregation-span-text {
+      min-width: 0;
+      margin: 0;
+      color: #dce8e0;
+      font-family: var(--pg-mono);
+      font-size: 0.76rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .aggregation-span-metric {
+      color: #879b90;
+      font-size: 0.67rem;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .aggregation-span-metric strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .aggregation-caveat {
+      margin: 16px 0 0;
+      padding-left: 13px;
+      border-left: 2px solid #56655d;
+      color: #7f9388;
+      font-size: 0.7rem;
+      line-height: 1.55;
+    }
+
+    .detail-panel {
+      position: sticky;
+      top: 18px;
+      overflow: hidden;
+    }
+
+    .detail-empty {
+      margin: 0;
+      padding: 22px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .detail-content {
+      padding: 18px;
+    }
+
+    .detail-content[hidden] {
+      display: none;
+    }
+
+    .detail-token {
+      margin: 0;
+      font-family: var(--pg-mono);
+      font-size: 1.45rem;
+      overflow-wrap: anywhere;
+    }
+
+    .detail-meta {
+      margin: 3px 0 16px;
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0;
+    }
+
+    .metric-grid div {
+      min-width: 0;
+      padding: 9px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+    }
+
+    .metric-grid dt {
+      color: var(--muted);
+      font-size: 0.62rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .metric-grid dd {
+      margin: 4px 0 0;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+
+    .alternatives-title {
+      margin: 18px 0 8px;
+      font-size: 0.72rem;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .alternative-list {
+      display: grid;
+      gap: 5px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .alternative-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 9px;
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--line-soft);
+      font-size: 0.69rem;
+    }
+
+    .alternative-row span:first-child {
+      font-family: var(--pg-mono);
+      overflow-wrap: anywhere;
+    }
+
+    .alternative-row span:not(:first-child) {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .workbench-export {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      padding: 16px 0;
+      border-top: 1px solid #1c2a23;
+      border-bottom: 1px solid #1c2a23;
+    }
+
+    .workbench-export-copy {
+      display: grid;
+      flex: 1 1 auto;
+    }
+
+    .workbench-export-copy strong {
+      font-size: 0.8rem;
+    }
+
+    .workbench-export-copy span {
+      margin-top: 3px;
+      color: #71867a;
+      font-size: 0.7rem;
+    }
+
+    .export-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .save-panel {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.7fr) minmax(280px, 1fr) auto;
+      gap: 18px;
+      align-items: end;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .save-copy h3 {
+      margin: 0;
+      font-size: 0.82rem;
+    }
+
+    .save-copy p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 0.7rem;
+    }
+
+    .save-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .archive-link {
+      color: var(--leaf-bright);
+      font-size: 0.72rem;
+    }
+
+    .compute-overlay {
+      position: fixed;
+      z-index: 120;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(4, 8, 6, 0.78);
+      backdrop-filter: blur(8px);
+    }
+
+    .compute-overlay[hidden] {
+      display: none;
+    }
+
+    .compute-status {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: min(620px, 100%);
+      padding: 20px;
+      border: 1px solid #31503e;
+      border-radius: 12px;
+      background: #0b1510;
+    }
+
+    .compute-spinner {
+      width: 26px;
+      height: 26px;
+      flex: 0 0 auto;
+      border: 3px solid rgba(116, 224, 166, 0.16);
+      border-top-color: var(--leaf);
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+
+    .compute-copy {
+      display: grid;
+      flex: 1 1 auto;
+    }
+
+    .compute-copy strong {
+      font-size: 0.86rem;
+    }
+
+    .compute-copy span {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .analysis-form {
+        grid-template-columns: 1fr 140px;
+      }
+
+      .analysis-form .primary-button {
+        grid-column: 1 / -1;
+      }
+
+      .method-copy,
+      .token-workspace,
+      .comparison-traces {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .aggregation-summary {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .psych-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .aggregation-span {
+        grid-template-columns: minmax(0, 1fr) repeat(2, minmax(100px, auto));
+      }
+
+      .aggregation-span-metric:last-child {
+        grid-column: 2 / -1;
+      }
+
+      .summary-card {
+        border-bottom: 1px solid #1c2a23;
+      }
+
+      .detail-panel {
+        position: static;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .shell {
+        width: calc(100% - 28px);
+      }
+
+      .analysis-form,
+      .summary-grid,
+      .fixed-legend,
+      .save-panel,
+      .aggregation-controls,
+      .aggregation-summary,
+      .comparison-inputs,
+      .comparison-total-grid,
+      .comparison-aggregation-controls,
+      .psych-summary,
+      .psych-word-summary,
+      .psych-subword-groups {
+        grid-template-columns: 1fr;
+      }
+
+      .result-mode-panel {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .result-mode-switch {
+        width: 100%;
+      }
+
+      .result-mode-button {
+        flex: 1 1 50%;
+      }
+
+      .psych-word-columns {
+        display: none;
+      }
+
+      .psych-word-summary::after {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+      }
+
+      .psych-word-summary {
+        position: relative;
+        padding-right: 42px;
+      }
+
+      .comparison-inputs .comparison-text-b,
+      .comparison-inputs .remove-text-button {
+        grid-column: auto;
+      }
+
+      .analysis-form .primary-button {
+        grid-column: auto;
+      }
+
+      .form-foot,
+      .results-head,
+      .section-head,
+      .workbench-export {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .section-head p {
+        text-align: left;
+      }
+
+      .summary-card {
+        border-right: 0;
+      }
+
+      .aggregation-span {
+        grid-template-columns: 1fr;
+      }
+
+      .aggregation-span-text {
+        grid-column: auto;
+      }
+
+      .aggregation-span-metric,
+      .aggregation-span-metric:last-child {
+        grid-column: auto;
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
+      .comparison-metrics {
+        display: block;
+        overflow-x: auto;
+      }
+
+      .export-actions,
+      .save-actions {
+        width: 100%;
+      }
+
+      .export-actions button,
+      .save-actions button {
+        flex: 1 1 auto;
+      }
+
+      .compute-status {
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body data-workbench-page="surprise">
+  <a class="skip-link" href="#workspace">Přeskočit na obsah</a>
+
+  <div
+    id="compute-overlay"
+    class="compute-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="compute-title"
+    aria-describedby="compute-detail compute-note"
+    hidden
+  >
+    <div class="compute-status">
+      <span class="compute-spinner" aria-hidden="true"></span>
+      <span class="compute-copy">
+        <strong id="compute-title">Apertus čte hotový text</strong>
+        <span id="compute-detail" role="status" aria-live="polite">
+          Připravuji tokenovou cestu…
+        </span>
+        <span id="compute-note">
+          Skrytí okna výpočet nezastaví; formulář zůstane zamčený.
+        </span>
+      </span>
+      <button id="hide-wait" class="secondary-button" type="button">
+        Skrýt čekání
+      </button>
+    </div>
+  </div>
+
+  <main id="workspace" class="shell">
+    <header class="topbar">
+      <a href="/">← Pravděpodobnostní zahrada</a>
+      <div id="model-state" data-state="loading" role="status">
+        <span id="model-state-text">Zjišťuji stav modelu…</span>
+      </div>
+    </header>
+
+    <header class="hero">
+      <p class="eyebrow">Apertus · teacher-forced čtení</p>
+      <h1>Překvapení textu</h1>
+      <p class="lede">
+        Projdi už napsaný text token po tokenu a sleduj, jak pravděpodobný byl
+        každý skutečně následující token v okamžiku, kdy jej model ještě
+        neviděl. Barva ukazuje překvapení v pevné škále — nikoli pravdivost,
+        kvalitu ani důležitost výrazu.
+      </p>
+    </header>
+
+    <details class="methodology-drawer">
+      <summary>
+        <span>Co přesně se měří</span>
+        <span class="method-summary-action">rozbalit metodickou poznámku</span>
+      </summary>
+      <div class="method-copy">
+        <p>
+          <strong>Realizované překvapení I = −log₂ p(token).</strong>
+          Vztahuje se k tokenu, který v textu opravdu následoval. Vysoké I
+          říká, že byl pod daným prefixem málo pravděpodobný.
+        </p>
+        <p>
+          <strong>Entropie H popisuje celé pole možností před tokenem.</strong>
+          Vysoké I při nízkém H je silnější porušení sevřeného očekávání než
+          stejně vysoké I při vysokém H, kdy model čekal mnoho možností.
+        </p>
+        <p>
+          <strong>Tokenová predikce není pravda.</strong> Token může být
+          překvapivý kvůli stylu, pravopisu, jazyku či tokenizaci. Čteš
+          distribuci modelu, nikoli faktickou správnost textu nebo lidské
+          porozumění.
+        </p>
+        <p>
+          <strong>První token má k dispozici pouze BOS.</strong> Jeho
+          překvapení proto popisuje začátek dokumentu bez dalšího kontextu
+          a často není přímo srovnatelné s pozdějšími místy věty.
+        </p>
+        <p>
+          <strong>Agregace mění jednotku souhrnu, ne samotný výpočet.</strong>
+          Překvapení tokenů se v úseku sčítá a I na nebílý znak umožňuje
+          opatrnější srovnání různě dlouhých úseků. Robustní souhrn používá
+          jen úplně pokryté úseky. Ani jejich disperze však neměří
+          strukturovanost nebo poetičnost textu. Token se přiřadí, pokud
+          jeho spolehlivý znakový rozsah protíná právě jeden úsek; může proto
+          nést i přilehlé bílé místo.
+        </p>
+        <p>
+          <strong>Srovnání A/B je popisné, nikoli vysvětlující.</strong>
+          Ukáže dvě nezávislé tokenové stopy a rozdíl normalizovaných metrik,
+          ale neurčuje příčinu rozdílu ani neposuzuje, zda jsou vložené texty
+          věcně, žánrově či délkou srovnatelné.
+        </p>
+        <p>
+          <strong>Psycholingvistický pohled mění zobrazení, ne model.</strong>
+          Surprisal slova je přesný součet surprisal jeho tokenových střepů.
+          Entropie dalšího tokenu před slovem je entropie tokenového slovníku
+          před prvním střepem slova, nikoli entropie nad kandidátními celými
+          slovy. Interpunkce zůstává viditelná jako samostatná jednotka, ale
+          nevstupuje do statistik slov. Nečistě pokryté hranice se neodhadují
+          a zůstávají bez hodnoty.
+        </p>
+      </div>
+    </details>
+
+    <form id="surprise-form" class="analysis-form" novalidate>
+      <div class="primary-text-input">
+        <label for="source-text">
+          <span id="source-text-label">Hotový text</span>
+          <textarea
+            id="source-text"
+            maxlength="8192"
+            spellcheck="true"
+          >Za oknem pomalu přestávalo pršet a na mokré ulici se rozsvítily lampy.</textarea>
+        </label>
+        <button
+          id="add-text-b"
+          class="secondary-button add-text-button"
+          type="button"
+        >
+          + Přidat text B
+        </button>
+      </div>
+      <label for="top-k">
+        Alternativy
+        <select id="top-k">
+          <option value="3">Top 3</option>
+          <option value="5" selected>Top 5</option>
+          <option value="8">Top 8</option>
+          <option value="12">Top 12</option>
+        </select>
+      </label>
+      <button id="analyze" class="primary-button" type="submit" disabled>
+        Analyzovat text
+      </button>
+      <div id="comparison-inputs" class="comparison-inputs" hidden>
+        <label class="comparison-label-input" for="label-a">
+          Popisek A (volitelný)
+          <input id="label-a" maxlength="80" placeholder="Text A">
+        </label>
+        <label class="comparison-label-input" for="label-b">
+          Popisek B (volitelný)
+          <input id="label-b" maxlength="80" placeholder="Text B">
+        </label>
+        <label class="comparison-text-b" for="source-text-b">
+          Text B
+          <textarea
+            id="source-text-b"
+            maxlength="8192"
+            spellcheck="true"
+          ></textarea>
+        </label>
+        <button
+          id="remove-text-b"
+          class="secondary-button remove-text-button"
+          type="button"
+        >
+          Odebrat text B
+        </button>
+      </div>
+      <div class="form-foot">
+        <span id="control-reason">Čekám na model.</span>
+        <span>Klávesově: Ctrl/⌘ + Enter</span>
+      </div>
+    </form>
+
+    <p id="message" class="message" role="status" aria-live="polite"></p>
+
+    <section
+      id="results"
+      class="results"
+      aria-labelledby="results-title"
+      aria-busy="false"
+      data-stale="false"
+      data-display-mode="tokens"
+      hidden
+    >
+      <header class="results-head">
+        <div>
+          <p id="result-eyebrow" class="eyebrow">Hotový text · syrová distribuce T = 1</p>
+          <h2 id="results-title" tabindex="-1">Kde text porušil očekávání</h2>
+          <p id="result-context" class="result-context"></p>
+        </div>
+        <span id="result-badge" class="result-badge">aktuální</span>
+      </header>
+
+      <section class="result-mode-panel" aria-labelledby="result-mode-title">
+        <div class="result-mode-copy">
+          <strong id="result-mode-title">Jednotka čtení výsledku</strong>
+          <span>
+            Přepnutí nic nepřepočítává: stejnou stopu lze číst jako tokeny
+            modelu nebo jako slova pro psycholingvistickou analýzu.
+          </span>
+        </div>
+        <div class="result-mode-switch" role="group" aria-label="Jednotka zobrazení">
+          <button
+            id="display-mode-tokens"
+            class="result-mode-button"
+            type="button"
+            aria-pressed="true"
+          >Tokeny · model</button>
+          <button
+            id="display-mode-words"
+            class="result-mode-button"
+            type="button"
+            aria-pressed="false"
+          >Slova · psycholingvistika</button>
+        </div>
+      </section>
+
+      <div class="summary-grid single-result-block token-native-view" aria-label="Souhrn překvapení textu">
+        <article class="summary-card">
+          <span>Průměrné I</span>
+          <strong id="summary-surprisal">—</strong>
+          <span>Realizované překvapení na token.</span>
+        </article>
+        <article class="summary-card">
+          <span>Perplexita textu</span>
+          <strong id="summary-perplexity">—</strong>
+          <span>2 umocněné na průměrné I.</span>
+        </article>
+        <article class="summary-card">
+          <span>Průměrná H</span>
+          <strong id="summary-entropy">—</strong>
+          <span>Šířka celého pole před tokenem.</span>
+        </article>
+        <article class="summary-card">
+          <span>Maximum I</span>
+          <strong id="summary-maximum">—</strong>
+          <span id="summary-maximum-detail">Nejpřekvapivější token.</span>
+        </article>
+        <article class="summary-card">
+          <span>Rozsah</span>
+          <strong id="summary-count">—</strong>
+          <span id="summary-count-detail">Tokeny a znaky.</span>
+        </article>
+      </div>
+
+      <p class="interpretive-note single-result-block token-native-view">
+        I a H odpovídají na různé otázky: I hodnotí skutečný další token,
+        zatímco H měří, kolik alternativ bylo před jeho příchodem otevřených.
+        Proto je vysoké I + nízké H silnější ruptura očekávání než vysoké I + vysoké H.
+      </p>
+
+      <section class="legend-panel" aria-labelledby="legend-title">
+        <div class="section-head">
+          <h3 id="legend-title">Pevná barevná škála překvapení I</h3>
+          <p>Stejné barvy znamenají stejné bity napříč texty; škála se nepřizpůsobuje běhu.</p>
+        </div>
+        <div class="fixed-legend" aria-label="Legenda překvapení v bitech">
+          <div class="legend-stop surprise-0">
+            <strong>0–1 bit</strong>
+            velmi očekávané
+          </div>
+          <div class="legend-stop surprise-1">
+            <strong>1–3 bity</strong>
+            očekávané
+          </div>
+          <div class="legend-stop surprise-2">
+            <strong>3–6 bitů</strong>
+            méně očekávané
+          </div>
+          <div class="legend-stop surprise-3">
+            <strong>6–10 bitů</strong>
+            překvapivé
+          </div>
+          <div class="legend-stop surprise-4">
+            <strong>10+ bitů</strong>
+            silně překvapivé
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="psycholinguistic-view"
+        class="psycholinguistic-view"
+        aria-labelledby="psycholinguistic-title"
+        hidden
+      >
+        <div class="section-head">
+          <h3 id="psycholinguistic-title">Psycholingvistické čtení textu</h3>
+          <p>
+            Slova jsou hlavní jednotky; interpunkce zůstává vidět ve vlastních
+            řádcích a tokenové střepy se ukážou po rozkliknutí.
+          </p>
+        </div>
+        <dl id="psych-summary" class="psych-summary" aria-label="Slovní souhrn"></dl>
+        <p id="psych-method-note" class="psych-method-note"></p>
+        <div id="psych-word-columns" class="psych-word-columns" aria-hidden="true"></div>
+        <ol id="psych-word-list" class="psych-word-list"></ol>
+        <p id="psych-status" class="visually-hidden" role="status" aria-live="polite"></p>
+      </section>
+
+      <section
+        id="comparison-view"
+        class="comparison-view token-native-view"
+        aria-labelledby="comparison-title"
+        hidden
+      >
+        <div class="section-head">
+          <h3 id="comparison-title">Popisné srovnání A/B</h3>
+          <p>Δ je vždy B − A a pochází přímo ze serverového párového výpočtu.</p>
+        </div>
+        <p class="comparison-method-note">
+          <strong>Dvě samostatná měření, žádné zarovnávání.</strong>
+          App neposuzuje, zda jsou texty srovnatelné, a pozorovaný rozdíl
+          nevysvětluje jeho příčinu. Nejde o klasifikaci žánru, poetičnosti,
+          strukturovanosti, kvality ani o určení „lepšího“ textu.
+        </p>
+        <div class="comparison-metric-panel">
+          <table class="comparison-metrics">
+            <caption class="visually-hidden">
+              Normalizované metriky textů A a B a rozdíl B minus A
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Normalizovaná metrika</th>
+                <th id="comparison-label-a" scope="col">Text A</th>
+                <th id="comparison-label-b" scope="col">Text B</th>
+                <th scope="col">Δ B − A</th>
+              </tr>
+            </thead>
+            <tbody id="comparison-metric-body"></tbody>
+          </table>
+        </div>
+        <div>
+          <div class="section-head">
+            <h3>Celkové I</h3>
+            <p>Délkově závislé hodnoty se uvádějí zvlášť, bez Δ a bez vítěze.</p>
+          </div>
+          <div id="comparison-totals" class="comparison-total-grid"></div>
+        </div>
+        <div class="comparison-aggregation-controls">
+          <label for="comparison-aggregation-unit">
+            Jednotka seskupení obou stop
+            <select id="comparison-aggregation-unit">
+              <option value="orthographic_word">Ortografické slovo</option>
+              <option value="punctuation">Interpunkční jednotka</option>
+              <option value="whitespace_span" selected>Mezerový úsek</option>
+              <option value="line">Řádek</option>
+              <option value="sentence_like">Větný úsek (pravidlový)</option>
+            </select>
+          </label>
+          <p id="comparison-aggregation-description" class="aggregation-explanation">
+            Jediná volba seskupení se použije nezávisle na text A i text B.
+          </p>
+        </div>
+        <div id="comparison-traces" class="comparison-traces"></div>
+        <p
+          id="comparison-status"
+          class="visually-hidden"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
+      </section>
+
+      <section class="token-workspace single-result-block token-native-view" aria-labelledby="tokens-title">
+        <article class="token-panel">
+          <div class="section-head">
+            <h3 id="tokens-title">Syrové tokeny</h3>
+            <p id="token-help">Klikni na token pro přesné metriky a alternativy.</p>
+          </div>
+          <ol id="token-stream" class="token-stream"></ol>
+          <p id="tokenizer-note" class="tokenizer-note">
+            Zobrazení záměrně zachovává tokenovou rovinu. ␠ je mezera,
+            ↵ nový řádek a ⇥ tabulátor. Agregované úseky níže jsou odvozený
+            souhrn; syrové tokeny zůstávají primárním měřením modelu.
+          </p>
+        </article>
+
+        <aside class="detail-panel" aria-labelledby="detail-title">
+          <p id="detail-empty" class="detail-empty">
+            Vyber barevný token. Zde se ukáže jeho skutečná
+            pravděpodobnost, překvapení i šířka pole před ním.
+          </p>
+          <div id="detail-content" class="detail-content" hidden>
+            <h3 id="detail-title" class="detail-token">—</h3>
+            <p id="detail-meta" class="detail-meta"></p>
+            <dl id="metric-grid" class="metric-grid"></dl>
+            <h4 class="alternatives-title">Nejpravděpodobnější alternativy</h4>
+            <ol id="alternative-list" class="alternative-list"></ol>
+          </div>
+        </aside>
+      </section>
+
+      <section
+        class="aggregation-panel single-result-block token-native-view"
+        aria-labelledby="aggregation-title"
+      >
+        <div class="section-head">
+          <h3 id="aggregation-title">Agregované úseky</h3>
+          <p>Stejné tokenové měření seskupené do pozorovatelných částí textu.</p>
+        </div>
+
+        <div class="aggregation-controls">
+          <label for="aggregation-unit">
+            Jednotka seskupení
+            <select id="aggregation-unit">
+              <option value="orthographic_word">Ortografické slovo</option>
+              <option value="punctuation">Interpunkční jednotka</option>
+              <option value="whitespace_span" selected>Mezerový úsek</option>
+              <option value="line">Řádek</option>
+              <option value="sentence_like">Větný úsek (pravidlový)</option>
+            </select>
+          </label>
+          <p id="aggregation-description" class="aggregation-explanation">
+            Mezerový úsek je pozorovatelný řetězec oddělený bílým místem,
+            nikoli autoritativně určené slovo.
+          </p>
+        </div>
+
+        <dl
+          id="aggregation-summary"
+          class="aggregation-summary"
+          aria-label="Souhrn vybraného seskupení"
+        ></dl>
+        <p id="aggregation-empty" class="aggregation-empty" hidden>
+          Tento výsledek neobsahuje agregované úseky. Syrová tokenová stopa
+          výše zůstává plně dostupná.
+        </p>
+        <p
+          id="aggregation-status"
+          class="visually-hidden"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        ></p>
+        <ol
+          id="aggregation-list"
+          class="aggregation-list"
+          aria-describedby="aggregation-caveat"
+        ></ol>
+
+        <p id="aggregation-caveat" class="aggregation-caveat">
+          Medián, IQR a MAD popisují pouze disperzi překvapení mezi úseky.
+          Neměří jejich pořadí, strukturovanost, poetičnost ani kvalitu textu.
+          Mezerové hranice nejsou jazykově autoritativní a větný úsek vzniká
+          pravidlovým dělením. I / nebílý znak používá pouze nebílé znaky;
+          robustní souhrn zahrnuje jen úplně pokryté úseky. Token se přiřadí
+          podle jediného průniku svého spolehlivého znakového rozsahu, takže
+          může nést i přilehlé bílé místo.
+        </p>
+      </section>
+
+      <section class="workbench-export" aria-labelledby="export-title">
+        <div class="workbench-export-copy">
+          <strong id="export-title">Export měření</strong>
+          <span>
+            JSON obsahuje kanonický záznam včetně přesné odpovědi serveru.
+            CSV rozepisuje souhrn, tokeny, alternativy, agregované úseky
+            a provenienci. Psycholingvistická tabulka je úzký export slov
+            a samostatné interpunkce; slovní souhrny zůstávají bez interpunkce.
+          </span>
+        </div>
+        <div class="export-actions">
+          <button id="export-json" class="secondary-button" type="button">
+            Export JSON
+          </button>
+          <button id="export-csv" class="secondary-button" type="button">
+            Export CSV
+          </button>
+          <button id="export-word-csv" class="secondary-button" type="button">
+            Export psycholingvistické tabulky
+          </button>
+        </div>
+      </section>
+
+      <section class="save-panel" aria-labelledby="save-title">
+        <div class="save-copy">
+          <h3 id="save-title">Uložit experiment</h3>
+          <p>
+            Úplný neměnný záznam se uloží do lokálního SQLite archivu.
+          </p>
+        </div>
+        <label for="experiment-note">
+          Poznámka
+          <input
+            id="experiment-note"
+            type="text"
+            maxlength="1000"
+            placeholder="Například: vlastní odstavec, kontrola češtiny"
+          >
+        </label>
+        <div class="save-actions">
+          <button id="save-experiment" class="secondary-button" type="button">
+            Uložit experiment
+          </button>
+          <a class="archive-link" href="/archiv?kind=text_surprisal">
+            Otevřít archiv
+          </a>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const ANALYSIS_TIMEOUT_MS = 600_000;
+      const HEALTH_TIMEOUT_MS = 12_000;
+      const SAVE_TIMEOUT_MS = 20_000;
+      const DISPLAY_MODE_STORAGE_KEY = (
+        "probability-garden:surprisal-display-mode"
+      );
+      const form = document.querySelector("#surprise-form");
+      const sourceText = document.querySelector("#source-text");
+      const sourceTextLabel = document.querySelector("#source-text-label");
+      const sourceTextB = document.querySelector("#source-text-b");
+      const labelA = document.querySelector("#label-a");
+      const labelB = document.querySelector("#label-b");
+      const addTextBButton = document.querySelector("#add-text-b");
+      const removeTextBButton = document.querySelector("#remove-text-b");
+      const comparisonInputs = document.querySelector("#comparison-inputs");
+      const topK = document.querySelector("#top-k");
+      const analyzeButton = document.querySelector("#analyze");
+      const controlReason = document.querySelector("#control-reason");
+      const modelState = document.querySelector("#model-state");
+      const modelStateText = document.querySelector("#model-state-text");
+      const message = document.querySelector("#message");
+      const overlay = document.querySelector("#compute-overlay");
+      const computeDetail = document.querySelector("#compute-detail");
+      const hideWaitButton = document.querySelector("#hide-wait");
+      const results = document.querySelector("#results");
+      const resultEyebrow = document.querySelector("#result-eyebrow");
+      const resultsTitle = document.querySelector("#results-title");
+      const resultContext = document.querySelector("#result-context");
+      const resultBadge = document.querySelector("#result-badge");
+      const summarySurprisal = document.querySelector("#summary-surprisal");
+      const summaryPerplexity = document.querySelector("#summary-perplexity");
+      const summaryEntropy = document.querySelector("#summary-entropy");
+      const summaryMaximum = document.querySelector("#summary-maximum");
+      const summaryMaximumDetail = document.querySelector(
+        "#summary-maximum-detail"
+      );
+      const summaryCount = document.querySelector("#summary-count");
+      const summaryCountDetail = document.querySelector(
+        "#summary-count-detail"
+      );
+      const tokenStream = document.querySelector("#token-stream");
+      const detailEmpty = document.querySelector("#detail-empty");
+      const detailContent = document.querySelector("#detail-content");
+      const detailTitle = document.querySelector("#detail-title");
+      const detailMeta = document.querySelector("#detail-meta");
+      const metricGrid = document.querySelector("#metric-grid");
+      const alternativeList = document.querySelector("#alternative-list");
+      const aggregationUnit = document.querySelector("#aggregation-unit");
+      const aggregationDescription = document.querySelector(
+        "#aggregation-description"
+      );
+      const aggregationSummary = document.querySelector(
+        "#aggregation-summary"
+      );
+      const aggregationEmpty = document.querySelector("#aggregation-empty");
+      const aggregationStatus = document.querySelector(
+        "#aggregation-status"
+      );
+      const aggregationList = document.querySelector("#aggregation-list");
+      const comparisonView = document.querySelector("#comparison-view");
+      const comparisonMetricBody = document.querySelector(
+        "#comparison-metric-body"
+      );
+      const comparisonLabelA = document.querySelector("#comparison-label-a");
+      const comparisonLabelB = document.querySelector("#comparison-label-b");
+      const comparisonTotals = document.querySelector("#comparison-totals");
+      const comparisonAggregationUnit = document.querySelector(
+        "#comparison-aggregation-unit"
+      );
+      const comparisonAggregationDescription = document.querySelector(
+        "#comparison-aggregation-description"
+      );
+      const comparisonTraces = document.querySelector("#comparison-traces");
+      const comparisonStatus = document.querySelector("#comparison-status");
+      const displayModeTokens = document.querySelector(
+        "#display-mode-tokens"
+      );
+      const displayModeWords = document.querySelector(
+        "#display-mode-words"
+      );
+      const psycholinguisticView = document.querySelector(
+        "#psycholinguistic-view"
+      );
+      const psychSummary = document.querySelector("#psych-summary");
+      const psychMethodNote = document.querySelector("#psych-method-note");
+      const psychWordColumns = document.querySelector("#psych-word-columns");
+      const psychWordList = document.querySelector("#psych-word-list");
+      const psychStatus = document.querySelector("#psych-status");
+      const exportJsonButton = document.querySelector("#export-json");
+      const exportCsvButton = document.querySelector("#export-csv");
+      const exportWordCsvButton = document.querySelector(
+        "#export-word-csv"
+      );
+      const experimentNote = document.querySelector("#experiment-note");
+      const saveExperimentButton = document.querySelector("#save-experiment");
+      const archiveLink = document.querySelector(".archive-link");
+      const initialParams = new URLSearchParams(window.location.search);
+      const initialText = initialParams.get("text");
+      const autoRunFromQuery = initialParams.get("run") === "1";
+      const requestedDisplayMode = initialParams.get("view");
+      let storedDisplayMode = null;
+      try {
+        storedDisplayMode = window.localStorage.getItem(
+          DISPLAY_MODE_STORAGE_KEY
+        );
+      } catch {
+        storedDisplayMode = null;
+      }
+      const initialDisplayMode = requestedDisplayMode === "words"
+        ? "words"
+        : requestedDisplayMode === "tokens"
+        ? "tokens"
+        : storedDisplayMode === "words"
+        ? "words"
+        : "tokens";
+      if (
+        typeof initialText === "string" &&
+        initialText !== "" &&
+        initialText.length <= 8192
+      ) {
+        sourceText.value = initialText;
+      }
+
+      const state = {
+        health: null,
+        healthAvailable: false,
+        busy: false,
+        saveBusy: false,
+        controller: null,
+        pollTimer: null,
+        progressTimer: null,
+        overlayReturnFocus: null,
+        result: null,
+        request: null,
+        signature: null,
+        capturedAt: null,
+        recordId: null,
+        savedRecordId: null,
+        selectedIndex: null,
+        compareMode: false,
+        displayMode: initialDisplayMode,
+        autoRunPending: Boolean(
+          autoRunFromQuery &&
+          typeof initialText === "string" &&
+          initialText !== "" &&
+          initialText.length <= 8192
+        ),
+        selectedComparison: {a: null, b: null}
+      };
+
+      const AGGREGATION_UNITS = {
+        orthographic_word: {
+          label: "Ortografické slovo",
+          description: (
+            "Ortografické slovo je maximální pozorovatelný úsek písmen a " +
+            "číslic; uvnitř může mít diakritická znaménka, apostrof nebo " +
+            "spojovník. Není to lemma ani výsledek morfologické analýzy."
+          )
+        },
+        punctuation: {
+          label: "Interpunkční jednotka",
+          description: (
+            "Interpunkční jednotka je souvislý sled Unicode interpunkce " +
+            "mimo ortografické slovo. Zůstává samostatná a nevstupuje do " +
+            "statistik slov."
+          )
+        },
+        whitespace_span: {
+          label: "Mezerový úsek",
+          description: (
+            "Mezerový úsek je pozorovatelný řetězec oddělený bílým " +
+            "místem, nikoli autoritativně určené slovo."
+          )
+        },
+        line: {
+          label: "Řádek",
+          description: (
+            "Řádek zachovává explicitní zalomení vloženého textu; samo " +
+            "zalomení mu nepřidává jazykový ani literární význam."
+          )
+        },
+        sentence_like: {
+          label: "Větný úsek (pravidlový)",
+          description: (
+            "Větný úsek vzniká pravidlovým dělením podle interpunkce a " +
+            "není výsledkem syntaktické analýzy."
+          )
+        }
+      };
+
+      const COMPARISON_METRICS = {
+        mean_surprisal_bits: "Průměrné I / token",
+        bits_per_non_whitespace_character: "I / nebílý znak",
+        median_whitespace_span_bits_per_non_whitespace_character: (
+          "Medián I mezerového úseku / nebílý znak"
+        ),
+        whitespace_span_iqr_bits_per_non_whitespace_character: (
+          "IQR mezerových úseků / nebílý znak"
+        ),
+        whitespace_span_raw_mad_bits_per_non_whitespace_character: (
+          "MAD mezerových úseků / nebílý znak"
+        )
+      };
+
+      const progressMessages = [
+        "Tokenizuji hotový text a přidávám tréninkový BOS…",
+        "Počítám teacher-forced distribuci před každým tokenem…",
+        "Měřím realizované překvapení I a entropii H…",
+        "Sestavuji pevně škálovanou tokenovou stopu…"
+      ];
+
+      const finite = (value, fallback = null) => {
+        if (value === null || value === undefined || value === "") {
+          return fallback;
+        }
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      };
+
+      const asArray = (value) => Array.isArray(value) ? value : [];
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+      const visibleToken = (value) => {
+        const token = String(value ?? "");
+        if (!token) return "∅";
+        return token
+          .replaceAll(" ", "␠")
+          .replaceAll("\n", "↵\n")
+          .replaceAll("\t", "⇥");
+      };
+
+      const formatNumber = (value, digits = 2) => {
+        const number = finite(value);
+        return number === null
+          ? "—"
+          : new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+              maximumFractionDigits: digits
+            }).format(number);
+      };
+
+      const formatInteger = (value) => formatNumber(value, 0);
+
+      const formatBits = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const digits = number > 0 && number < 0.01 ? 4 : 2;
+        return `${formatNumber(number, digits)} bit`;
+      };
+
+      const formatPercent = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const percentage = number * 100;
+        const digits = percentage > 0 && percentage < 0.01 ? 4 : 2;
+        return `${formatNumber(percentage, digits)} %`;
+      };
+
+      const formatMilliseconds = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        return number < 1000
+          ? `${formatNumber(number, number < 10 ? 1 : 0)} ms`
+          : `${formatNumber(number / 1000, 2)} s`;
+      };
+
+      const identity = (health = state.health) => ({
+        modelId: health?.active_model?.id ?? null,
+        modelGeneration: health?.model_generation ?? null,
+        serverInstanceId: health?.server_instance_id ?? null
+      });
+
+      const sameIdentity = (left, right) => (
+        left !== null &&
+        left !== undefined &&
+        right !== null &&
+        right !== undefined &&
+        String(left) === String(right)
+      );
+
+      const normalizedInput = () => sourceText.value.trimEnd();
+      const normalizedInputB = () => sourceTextB.value.trimEnd();
+
+      const currentDisplayLabels = () => ({
+        a: labelA.value.trim() || state.result?.labels?.a || "Text A",
+        b: labelB.value.trim() || state.result?.labels?.b || "Text B"
+      });
+
+      const currentSignature = () => {
+        const current = identity();
+        return JSON.stringify({
+          mode: state.compareMode ? "comparison" : "single",
+          text_a: normalizedInput(),
+          text_b: state.compareMode ? normalizedInputB() : null,
+          top_k: Number(topK.value),
+          model_id: current.modelId,
+          model_generation: current.modelGeneration,
+          server_instance_id: current.serverInstanceId
+        });
+      };
+
+      const resultIsStale = () => Boolean(
+        state.result && state.signature !== currentSignature()
+      );
+
+      const setMessage = (text = "", isError = false) => {
+        message.textContent = text;
+        message.classList.toggle("error", isError);
+        message.setAttribute("role", isError ? "alert" : "status");
+      };
+
+      const workbenchState = () => {
+        const current = identity();
+        let status = "Čekám na model";
+        let statusKind = "running";
+        if (!state.healthAvailable) {
+          status = "Server není dostupný";
+          statusKind = "error";
+        } else if (state.busy) {
+          status = "Počítám překvapení textu";
+          statusKind = "running";
+        } else if (state.saveBusy) {
+          status = "Ukládám experiment";
+          statusKind = "running";
+        } else if (state.result && resultIsStale()) {
+          status = "Výsledek je zastaralý";
+          statusKind = "stale";
+        } else if (state.result) {
+          status = "Tokenová stopa je připravena";
+          statusKind = "ready";
+        } else if (state.health?.status === "ready") {
+          status = "Připraveno k analýze";
+          statusKind = "ready";
+        }
+        return {
+          model: (
+            state.health?.active_model?.label ??
+            current.modelId ??
+            "Apertus"
+          ),
+          run: current.modelGeneration === null
+            ? "lokální"
+            : `generace ${current.modelGeneration}`,
+          status,
+          statusKind
+        };
+      };
+
+      const dispatchWorkbenchState = () => window.dispatchEvent(
+        new CustomEvent("probability-garden:workbench-state", {
+          detail: {context: workbenchState()}
+        })
+      );
+
+      const validation = () => {
+        const textA = normalizedInput();
+        const textB = normalizedInputB();
+        const selectedTopK = Number(topK.value);
+        let reason = "";
+        if (!state.healthAvailable) {
+          reason = "Server není dostupný.";
+        } else if (state.health?.status !== "ready") {
+          reason = state.health?.status === "error"
+            ? "Model se nepodařilo načíst."
+            : "Čekám na připravený model.";
+        } else if (!textA.trim()) {
+          reason = state.compareMode
+            ? "Text A musí být neprázdný."
+            : "Napiš neprázdný text.";
+        } else if (textA.length > 8192) {
+          reason = state.compareMode
+            ? "Text A může mít nejvýše 8 192 znaků."
+            : "Text může mít nejvýše 8 192 znaků.";
+        } else if (state.compareMode && !textB.trim()) {
+          reason = "Text B musí být neprázdný.";
+        } else if (state.compareMode && textB.length > 8192) {
+          reason = "Text B může mít nejvýše 8 192 znaků.";
+        } else if (![3, 5, 8, 12].includes(selectedTopK)) {
+          reason = "Počet alternativ musí být 3, 5, 8 nebo 12.";
+        }
+        return {
+          valid: !reason,
+          reason,
+          text: textA,
+          textA,
+          textB,
+          compareMode: state.compareMode,
+          topK: selectedTopK,
+          identity: identity()
+        };
+      };
+
+      const syncControls = () => {
+        const check = validation();
+        const stale = resultIsStale();
+        sourceText.disabled = state.busy;
+        sourceTextB.disabled = state.busy;
+        labelA.disabled = state.busy;
+        labelB.disabled = state.busy;
+        addTextBButton.disabled = state.busy;
+        removeTextBButton.disabled = state.busy;
+        topK.disabled = state.busy;
+        aggregationUnit.disabled = (
+          state.busy ||
+          !state.result ||
+          state.result?.analysis_kind !== "text_surprisal"
+        );
+        comparisonAggregationUnit.disabled = (
+          state.busy ||
+          state.result?.analysis_kind !== "text_surprisal_comparison"
+        );
+        analyzeButton.disabled = state.busy || !check.valid;
+        analyzeButton.textContent = state.busy
+          ? state.compareMode
+            ? "Srovnávám texty…"
+            : "Analyzuji text…"
+          : state.compareMode
+          ? "Porovnat texty"
+          : "Analyzovat text";
+        controlReason.textContent = check.reason || (
+          (
+            state.compareMode
+              ? `${check.textA.length} + ${check.textB.length} znaků · `
+              : `${check.text.length} znaků · `
+          ) +
+          `top ${check.topK} alternativ · ` +
+          "výpočet začne až tlačítkem"
+        );
+        results.dataset.stale = String(stale);
+        resultBadge.classList.toggle("stale", stale);
+        resultBadge.textContent = stale ? "zastaralý výsledek" : "aktuální";
+        exportJsonButton.disabled = !state.result || stale || state.busy;
+        exportCsvButton.disabled = !state.result || stale || state.busy;
+        const wordSources = state.result?.analysis_kind === (
+          "text_surprisal_comparison"
+        )
+          ? [state.result?.a, state.result?.b]
+          : [state.result];
+        const hasWordRows = wordSources.some((trace) => (
+          asArray(trace?.aggregations?.orthographic_word?.spans).length > 0 ||
+          asArray(trace?.aggregations?.punctuation?.spans).length > 0
+        ));
+        exportWordCsvButton.disabled = (
+          !state.result || !hasWordRows || stale || state.busy
+        );
+        displayModeTokens.disabled = !state.result || state.busy;
+        displayModeWords.disabled = !state.result || state.busy;
+        experimentNote.disabled = (
+          !state.result ||
+          stale ||
+          state.busy ||
+          Boolean(state.savedRecordId)
+        );
+        saveExperimentButton.disabled = (
+          !state.result ||
+          stale ||
+          state.busy ||
+          state.saveBusy ||
+          Boolean(state.savedRecordId)
+        );
+        saveExperimentButton.textContent = state.saveBusy
+          ? "Ukládám…"
+          : state.savedRecordId
+          ? "Uloženo"
+          : "Uložit experiment";
+        archiveLink.href = (
+          state.result?.analysis_kind === "text_surprisal_comparison"
+            ? "/archiv?kind=text_surprisal_comparison"
+            : "/archiv?kind=text_surprisal"
+        );
+        dispatchWorkbenchState();
+      };
+
+      const setComparisonMode = (enabled) => {
+        state.compareMode = Boolean(enabled);
+        comparisonInputs.hidden = !state.compareMode;
+        addTextBButton.hidden = state.compareMode;
+        sourceTextLabel.textContent = state.compareMode ? "Text A" : "Hotový text";
+        syncControls();
+        if (state.compareMode) sourceTextB.focus();
+        else sourceText.focus();
+      };
+
+      const refreshComparisonLabels = () => {
+        if (state.result?.analysis_kind !== "text_surprisal_comparison") return;
+        const labels = currentDisplayLabels();
+        comparisonLabelA.textContent = labels.a;
+        comparisonLabelB.textContent = labels.b;
+        comparisonTraces.querySelector('[data-comparison-label="a"]')
+          ?.replaceChildren(document.createTextNode(labels.a));
+        comparisonTraces.querySelector('[data-comparison-label="b"]')
+          ?.replaceChildren(document.createTextNode(labels.b));
+        comparisonTotals.querySelector('[data-comparison-total-label="a"]')
+          ?.replaceChildren(document.createTextNode(labels.a));
+        comparisonTotals.querySelector('[data-comparison-total-label="b"]')
+          ?.replaceChildren(document.createTextNode(labels.b));
+        if (state.displayMode === "words") {
+          renderPsycholinguisticView();
+        }
+      };
+
+      const fetchJson = (url, options = {}) => (
+        window.ProbabilityGardenApi.fetchJson(url, {
+          timeoutMs: ANALYSIS_TIMEOUT_MS,
+          ...options
+        })
+      );
+
+      const applyHealth = (health) => {
+        state.health = health;
+        state.healthAvailable = true;
+        if (health?.status === "ready") {
+          modelState.dataset.state = "ready";
+          modelStateText.textContent = (
+            `${health?.active_model?.label ?? health?.active_model?.id ?? "Apertus"} ` +
+            "je připraven"
+          );
+        } else if (health?.status === "error") {
+          modelState.dataset.state = "error";
+          modelStateText.textContent = "Model není dostupný";
+        } else {
+          modelState.dataset.state = "loading";
+          modelStateText.textContent = "Model se načítá…";
+        }
+        syncControls();
+      };
+
+      const pollHealth = async () => {
+        window.clearTimeout(state.pollTimer);
+        if (state.busy) {
+          state.pollTimer = window.setTimeout(pollHealth, 1800);
+          return;
+        }
+        try {
+          const health = await fetchJson("/api/health", {
+            timeoutMs: HEALTH_TIMEOUT_MS
+          });
+          applyHealth(health);
+          if (
+            state.autoRunPending &&
+            health.status === "ready" &&
+            !state.busy
+          ) {
+            state.autoRunPending = false;
+            await analyze();
+            return;
+          }
+          state.pollTimer = window.setTimeout(
+            pollHealth,
+            health.status === "ready" ? 7000 : 1600
+          );
+        } catch {
+          state.healthAvailable = false;
+          state.health = null;
+          modelState.dataset.state = "error";
+          modelStateText.textContent = "Server není dostupný";
+          syncControls();
+          state.pollTimer = window.setTimeout(pollHealth, 3000);
+        }
+      };
+
+      const showOverlay = () => {
+        state.overlayReturnFocus = document.activeElement;
+        overlay.hidden = false;
+        document.body.classList.add("is-computing");
+        let index = 0;
+        computeDetail.textContent = progressMessages[index];
+        window.clearInterval(state.progressTimer);
+        state.progressTimer = window.setInterval(() => {
+          index = (index + 1) % progressMessages.length;
+          computeDetail.textContent = progressMessages[index];
+        }, 2600);
+        hideWaitButton.focus();
+      };
+
+      const hideOverlay = ({restoreFocus = true} = {}) => {
+        window.clearInterval(state.progressTimer);
+        state.progressTimer = null;
+        overlay.hidden = true;
+        document.body.classList.remove("is-computing");
+        if (restoreFocus) state.overlayReturnFocus?.focus?.();
+        state.overlayReturnFocus = null;
+      };
+
+      const hideWait = () => {
+        hideOverlay({restoreFocus: true});
+        setMessage(
+          "Analýza pokračuje na serveru. Skrytí čekání požadavek nezastavilo."
+        );
+      };
+
+      const trapOverlayFocus = (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          hideWait();
+        } else if (event.key === "Tab") {
+          event.preventDefault();
+          hideWaitButton.focus();
+        }
+      };
+
+      const surprisalClass = (value) => {
+        const bits = finite(value, Infinity);
+        if (bits < 1) return "surprise-0";
+        if (bits < 3) return "surprise-1";
+        if (bits < 6) return "surprise-2";
+        if (bits < 10) return "surprise-3";
+        return "surprise-4";
+      };
+
+      const tokenText = (token) => {
+        const decoded = String(
+          token?.piece ?? token?.text ?? token?.display ?? ""
+        );
+        const tokenizerToken = token?.tokenizer_token;
+        if (
+          tokenizerToken &&
+          (
+            token?.piece_is_lossless === false ||
+            decoded.includes("\ufffd")
+          )
+        ) {
+          return String(tokenizerToken);
+        }
+        return decoded;
+      };
+
+      const assertResponse = (data, request) => {
+        if (String(data?.analysis_kind ?? "") !== "text_surprisal") {
+          throw new Error("Server vrátil jiný druh analýzy.");
+        }
+        if (
+          !sameIdentity(data?.model_id, request.model_id) ||
+          !sameIdentity(
+            data?.model_generation,
+            request.model_generation
+          ) ||
+          !sameIdentity(
+            data?.server_instance_id,
+            request.server_instance_id
+          )
+        ) {
+          const error = new Error(
+            "Odpověď neodpovídá odeslané identitě modelu."
+          );
+          error.code = "model_changed";
+          throw error;
+        }
+        const tokens = asArray(data?.tokens);
+        if (
+          data?.temperature !== 1 ||
+          data?.probability_kind !== "raw_model" ||
+          Number(data?.top_k) !== request.top_k ||
+          tokens.length !== Number(data?.token_count) ||
+          !tokens.length
+        ) {
+          throw new Error(
+            "Server nevrátil úplnou syrovou tokenovou stopu."
+          );
+        }
+        tokens.forEach((token, index) => {
+          if (
+            Number(token?.index) !== index ||
+            !Number.isInteger(Number(token?.token_id)) ||
+            [
+              token?.probability,
+              token?.surprisal_bits,
+              token?.rank,
+              token?.entropy_bits,
+              token?.effective_tokens,
+              token?.top1_gap_bits
+            ].some((value) => finite(value) === null) ||
+            !Array.isArray(token?.alternatives)
+          ) {
+            throw new Error(
+              `Token ${index + 1} nemá úplnou pravděpodobnostní diagnostiku.`
+            );
+          }
+        });
+      };
+
+      const assertComparisonResponse = (data, request) => {
+        if (
+          String(data?.analysis_kind ?? "") !== "text_surprisal_comparison"
+        ) {
+          throw new Error("Server vrátil jiný druh párové analýzy.");
+        }
+        if (
+          !sameIdentity(data?.model_id, request.model_id) ||
+          !sameIdentity(data?.model_generation, request.model_generation) ||
+          !sameIdentity(
+            data?.server_instance_id,
+            request.server_instance_id
+          )
+        ) {
+          const error = new Error(
+            "Párová odpověď neodpovídá odeslané identitě modelu."
+          );
+          error.code = "model_changed";
+          throw error;
+        }
+        const traceRequest = {
+          top_k: request.top_k,
+          model_id: request.model_id,
+          model_generation: request.model_generation,
+          server_instance_id: request.server_instance_id
+        };
+        assertResponse(data?.a, traceRequest);
+        assertResponse(data?.b, traceRequest);
+        if (
+          data?.comparison?.delta_definition !== "B - A" ||
+          !data?.comparison?.metrics ||
+          typeof data.comparison.metrics !== "object"
+        ) {
+          throw new Error("Server nevrátil definované párové metriky.");
+        }
+        Object.keys(COMPARISON_METRICS).forEach((key, index) => {
+          const metric = data.comparison.metrics[key];
+          const rawValues = [
+            metric?.a,
+            metric?.b,
+            metric?.delta_b_minus_a
+          ];
+          const hasInvalidNumber = rawValues.some(
+            (value) => value !== null && finite(value) === null
+          );
+          const bothSidesPresent = (
+            finite(metric?.a) !== null && finite(metric?.b) !== null
+          );
+          const deltaIsConsistent = bothSidesPresent
+            ? finite(metric?.delta_b_minus_a) !== null
+            : metric?.delta_b_minus_a === null;
+          if (
+            !metric ||
+            hasInvalidNumber ||
+            !deltaIsConsistent ||
+            (
+              index < 2 &&
+              rawValues.some((value) => finite(value) === null)
+            ) ||
+            typeof metric.unit !== "string"
+          ) {
+            throw new Error(
+              `Párová metrika ${key} není úplná nebo konečná.`
+            );
+          }
+        });
+      };
+
+      const renderTokenDetails = (index, {focus = false} = {}) => {
+        const tokens = asArray(state.result?.tokens);
+        const token = tokens[index];
+        if (!token) return;
+        state.selectedIndex = index;
+        tokenStream.querySelectorAll(".token-chip").forEach((button) => {
+          button.setAttribute(
+            "aria-pressed",
+            String(Number(button.dataset.tokenIndex) === index)
+          );
+        });
+        const visible = visibleToken(tokenText(token));
+        detailTitle.textContent = visible;
+        detailMeta.textContent = (
+          `token ${index + 1} z ${tokens.length} · #${token.token_id}` +
+          (
+            token.word_start_hint === null ||
+            token.word_start_hint === undefined
+              ? ""
+              : token.word_start_hint
+              ? " · hint začátku slova"
+              : " · pokračování tokenizovaného slova"
+          )
+        );
+        const metrics = [
+          ["Skutečná p", formatPercent(token.probability)],
+          ["Překvapení I", formatBits(token.surprisal_bits)],
+          ["Globální pořadí", `#${formatInteger(token.rank)}`],
+          ["Entropie H", formatBits(token.entropy_bits)],
+          ["Efektivní podpora", `${formatNumber(token.effective_tokens, 1)} tokenů`],
+          ["Top‑1 gap", formatBits(token.top1_gap_bits)]
+        ];
+        metricGrid.innerHTML = metrics.map(([label, value]) => `
+          <div>
+            <dt>${escapeHtml(label)}</dt>
+            <dd>${escapeHtml(value)}</dd>
+          </div>
+        `).join("");
+        const alternatives = asArray(token.alternatives);
+        alternativeList.innerHTML = alternatives.length
+          ? alternatives.map((alternative, alternativeIndex) => `
+              <li class="alternative-row">
+                <span class="observed-token">${escapeHtml(visibleToken(
+                  tokenText(alternative)
+                ))}</span>
+                <span>#${escapeHtml(formatInteger(
+                  alternative?.rank ?? alternativeIndex + 1
+                ))}</span>
+                <span>${escapeHtml(formatPercent(
+                  alternative?.probability
+                ))}</span>
+              </li>
+            `).join("")
+          : '<li class="alternative-row">Server nevrátil alternativy.</li>';
+        detailEmpty.hidden = true;
+        detailContent.hidden = false;
+        if (focus) detailTitle.focus?.({preventScroll: true});
+      };
+
+      const firstFinite = (...values) => {
+        for (const value of values) {
+          const number = finite(value);
+          if (number !== null) return number;
+        }
+        return null;
+      };
+
+      const aggregationFor = (data, unit) => {
+        const aggregations = data?.aggregations;
+        if (!aggregations || typeof aggregations !== "object") return null;
+        const aggregation = aggregations[unit];
+        return aggregation && typeof aggregation === "object"
+          ? aggregation
+          : null;
+      };
+
+      const spanCharacterRange = (span) => {
+        const start = firstFinite(
+          span?.character_start,
+          span?.char_start,
+          span?.start
+        );
+        const end = firstFinite(
+          span?.character_end,
+          span?.char_end,
+          span?.end
+        );
+        return {start, end};
+      };
+
+      const spanText = (span, source = "") => {
+        const explicit = span?.text ?? span?.surface ?? span?.piece;
+        if (explicit !== null && explicit !== undefined) {
+          return String(explicit);
+        }
+        const {start, end} = spanCharacterRange(span);
+        if (start === null || end === null) return "";
+        return String(source).slice(start, end);
+      };
+
+      const aggregationCoverage = (summary) => firstFinite(
+        summary?.coverage,
+        summary?.coverage_ratio,
+        summary?.character_coverage_ratio,
+        summary?.coverage?.character_ratio,
+        summary?.coverage?.ratio
+      );
+
+      const renderAggregations = (
+        data = state.result,
+        unit = aggregationUnit.value
+      ) => {
+        const metadata = AGGREGATION_UNITS[unit] ??
+          AGGREGATION_UNITS.whitespace_span;
+        aggregationDescription.textContent = metadata.description;
+        const aggregation = aggregationFor(data, unit);
+        const spans = asArray(aggregation?.spans);
+        const summary = aggregation?.summary ?? {};
+
+        if (!aggregation || !spans.length) {
+          aggregationSummary.innerHTML = "";
+          aggregationList.innerHTML = "";
+          aggregationEmpty.hidden = false;
+          aggregationStatus.textContent = (
+            `${metadata.label}: žádné agregované úseky.`
+          );
+          return;
+        }
+
+        aggregationEmpty.hidden = true;
+        const median = firstFinite(
+          summary?.median,
+          summary?.median_surprisal_bits_per_character,
+          summary?.median_bits_per_character
+        );
+        const iqr = firstFinite(
+          summary?.iqr,
+          summary?.iqr_surprisal_bits_per_character,
+          summary?.iqr_bits_per_character
+        );
+        const mad = firstFinite(
+          summary?.raw_mad,
+          summary?.mad_surprisal_bits_per_character,
+          summary?.mad_bits_per_character
+        );
+        const coverage = aggregationCoverage(summary);
+        const ambiguous = firstFinite(
+          summary?.ambiguous_token_count,
+          summary?.boundary_ambiguous_token_count
+        );
+        const completeSpans = firstFinite(
+          summary?.complete_span_count,
+          summary?.count
+        );
+        const summaryItems = [
+          [
+            "Počet úseků",
+            `${formatInteger(
+              firstFinite(summary?.span_count, spans.length)
+            )} · ${formatInteger(completeSpans)} úplných`
+          ],
+          ["Medián I / nebílý znak", formatBits(median)],
+          ["IQR I / nebílý znak", formatBits(iqr)],
+          ["MAD I / nebílý znak", formatBits(mad)],
+          [
+            "Pokrytí tokenů",
+            (
+              coverage === null
+                ? "—"
+                : formatPercent(coverage)
+            ) + (
+              ambiguous === null
+                ? ""
+                : ` · ${formatInteger(ambiguous)} nejednoznačných tokenů`
+            )
+          ]
+        ];
+        aggregationStatus.textContent = (
+          `${metadata.label}: ${formatInteger(spans.length)} úseků, ` +
+          `${formatInteger(completeSpans)} úplných; pokrytí tokenů ` +
+          `${coverage === null ? "není k dispozici" : formatPercent(coverage)}.`
+        );
+        aggregationSummary.innerHTML = summaryItems.map(([label, value]) => `
+          <div>
+            <dt>${escapeHtml(label)}</dt>
+            <dd>${escapeHtml(value)}</dd>
+          </div>
+        `).join("");
+
+        aggregationList.innerHTML = spans.map((span, index) => {
+          const {start, end} = spanCharacterRange(span);
+          const total = firstFinite(
+            span?.total_surprisal_bits,
+            span?.surprisal_bits
+          );
+          const perCharacter = firstFinite(
+            span?.surprisal_bits_per_character,
+            span?.bits_per_character
+          );
+          const tokenCount = firstFinite(
+            span?.token_count,
+            Array.isArray(span?.token_indices)
+              ? span.token_indices.length
+              : null
+          );
+          const range = start === null || end === null
+            ? "znaky —"
+            : `znaky [${formatInteger(start)}, ${formatInteger(end)})`;
+          const text = visibleToken(spanText(span, data?.text ?? ""));
+          const complete = span?.complete !== false;
+          const totalDisplay = complete
+            ? formatBits(total)
+            : "— (neúplné)";
+          const perCharacterDisplay = complete
+            ? formatBits(perCharacter)
+            : "— (neúplné)";
+          return `
+            <li class="aggregation-span">
+              <p class="aggregation-span-text">
+                <span class="visually-hidden">${
+                  escapeHtml(`${metadata.label} ${index + 1}: `)
+                }</span><span class="observed-token">${escapeHtml(
+                  text || "∅"
+                )}</span>
+              </p>
+              <span class="aggregation-span-metric">
+                ΣI <strong>${escapeHtml(totalDisplay)}</strong>
+              </span>
+              <span class="aggregation-span-metric">
+                I / nebílý znak <strong>${
+                  escapeHtml(perCharacterDisplay)
+                }</strong>
+              </span>
+              <span class="aggregation-span-metric">
+                ${escapeHtml(formatInteger(tokenCount))} tokenů · ${
+                  escapeHtml(range)
+                }${complete ? "" : " · neúplné pokrytí"}
+              </span>
+            </li>
+          `;
+        }).join("");
+      };
+
+      const orthographicWords = (trace) => asArray(
+        aggregationFor(trace, "orthographic_word")?.spans
+      );
+
+      const punctuationUnits = (trace) => asArray(
+        aggregationFor(trace, "punctuation")?.spans
+      );
+
+      const psycholinguisticKind = (unit) => (
+        unit?.psycholinguistic_kind ??
+        unit?.span_kind ??
+        "word"
+      );
+
+      const psycholinguisticUnits = (trace) => [
+        ...orthographicWords(trace).map((unit, index) => ({
+          ...unit,
+          psycholinguistic_kind: "word",
+          word_index: index
+        })),
+        ...punctuationUnits(trace).map((unit, index) => ({
+          ...unit,
+          psycholinguistic_kind: "punctuation",
+          punctuation_index: index
+        }))
+      ].sort((left, right) => {
+        const leftRange = spanCharacterRange(left);
+        const rightRange = spanCharacterRange(right);
+        return (
+          (leftRange.start ?? Number.MAX_SAFE_INTEGER) -
+            (rightRange.start ?? Number.MAX_SAFE_INTEGER) ||
+          (leftRange.end ?? Number.MAX_SAFE_INTEGER) -
+            (rightRange.end ?? Number.MAX_SAFE_INTEGER)
+        );
+      });
+
+      const tokensForWord = (trace, word) => {
+        const byIndex = new Map(
+          asArray(trace?.tokens).map((token) => [
+            Number(token?.index),
+            token
+          ])
+        );
+        return asArray(word?.token_indices)
+          .map((index) => byIndex.get(Number(index)))
+          .filter(Boolean);
+      };
+
+      const wordSurprisal = (word) => firstFinite(
+        word?.word_surprisal_bits,
+        word?.complete === false ? null : word?.total_surprisal_bits
+      );
+
+      const preWordEntropy = (word) => firstFinite(
+        word?.pre_word_next_token_entropy_bits,
+        word?.pre_word_entropy_bits,
+        word?.complete === false ? null : word?.pre_span_entropy_bits
+      );
+
+      const unitSurprisal = (unit) => firstFinite(
+        psycholinguisticKind(unit) === "word"
+          ? unit?.word_surprisal_bits
+          : unit?.punctuation_surprisal_bits,
+        unit?.complete === false ? null : unit?.total_surprisal_bits
+      );
+
+      const preUnitNextTokenEntropy = (unit) => firstFinite(
+        unit?.pre_unit_next_token_entropy_bits,
+        psycholinguisticKind(unit) === "word"
+          ? unit?.pre_word_next_token_entropy_bits
+          : unit?.pre_punctuation_next_token_entropy_bits,
+        unit?.pre_word_entropy_bits,
+        unit?.complete === false ? null : unit?.pre_span_entropy_bits
+      );
+
+      const unitIsComplete = (unit) => Boolean(
+        unit &&
+        unit?.complete !== false &&
+        unitSurprisal(unit) !== null &&
+        preUnitNextTokenEntropy(unit) !== null
+      );
+
+      const wordIsComplete = (word) => Boolean(
+        word &&
+        psycholinguisticKind(word) === "word" &&
+        unitIsComplete(word) &&
+        wordSurprisal(word) !== null &&
+        preWordEntropy(word) !== null
+      );
+
+      const previousWordInUnits = (units, index) => {
+        for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+          if (psycholinguisticKind(units[cursor]) === "word") {
+            return units[cursor];
+          }
+        }
+        return null;
+      };
+
+      const formatDeltaBits = (value) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const sign = number > 0 ? "+" : number < 0 ? "−" : "";
+        return `${sign}${formatNumber(Math.abs(number), 2)} bit`;
+      };
+
+      const subwordTableMarkup = (trace, word, heading = "") => {
+        const tokens = tokensForWord(trace, word);
+        const title = heading
+          ? `<h4 class="experiment-text">${escapeHtml(heading)}</h4>`
+          : "";
+        if (!tokens.length) {
+          return `
+            <section class="psych-subword-group">
+              ${title}
+              <p>Pro tento úsek nejsou dostupné spolehlivě přiřazené tokeny.</p>
+            </section>
+          `;
+        }
+        return `
+          <section class="psych-subword-group">
+            ${title}
+            <div class="psych-subword-table-wrap">
+              <table class="psych-subword-table">
+                <caption class="visually-hidden">
+                  Tokenové střepy a jejich pravděpodobnostní metriky
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Střep</th>
+                    <th scope="col">ID</th>
+                    <th scope="col">I tokenu</th>
+                    <th scope="col">H před tokenem</th>
+                    <th scope="col">p</th>
+                    <th scope="col">Pořadí</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tokens.map((token) => `
+                    <tr>
+                      <th scope="row" class="observed-token">${escapeHtml(
+                        visibleToken(tokenText(token))
+                      )}</th>
+                      <td>#${escapeHtml(formatInteger(token?.token_id))}</td>
+                      <td>${escapeHtml(formatBits(token?.surprisal_bits))}</td>
+                      <td>${escapeHtml(formatBits(token?.entropy_bits))}</td>
+                      <td>${escapeHtml(formatPercent(token?.probability))}</td>
+                      <td>#${escapeHtml(formatInteger(token?.rank))}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        `;
+      };
+
+      const singleWordMarkup = (trace, unit, index, previousWord) => {
+        const kind = psycholinguisticKind(unit);
+        const isPunctuation = kind === "punctuation";
+        const complete = unitIsComplete(unit);
+        const surprisal = complete ? unitSurprisal(unit) : null;
+        const previousSurprisal = wordIsComplete(previousWord)
+          ? wordSurprisal(previousWord)
+          : null;
+        const deltaFromPrevious = (
+          !isPunctuation &&
+          surprisal !== null &&
+          previousSurprisal !== null
+        )
+          ? surprisal - previousSurprisal
+          : null;
+        const surface = spanText(unit, trace?.text ?? "") || "∅";
+        const tokenCount = asArray(unit?.token_indices).length;
+        const badgeClass = complete
+          ? `psych-surprisal-badge ${surprisalClass(surprisal)}`
+          : "psych-surprisal-badge psych-incomplete";
+        return `
+          <li>
+            <details class="psych-word-row${
+              isPunctuation ? " psych-punctuation-row" : ""
+            }">
+              <summary class="psych-word-summary">
+                <span class="psych-word-surface">
+                  <span class="psych-word-index">${escapeHtml(
+                    formatInteger(index + 1)
+                  )}</span>
+                  <span>
+                    <strong class="observed-token">${escapeHtml(surface)}</strong>
+                    <small class="psych-unit-label">${
+                      isPunctuation ? "interpunkce" : "slovo"
+                    }</small>
+                  </span>
+                </span>
+                <span class="psych-metric">
+                  <small>${
+                    isPunctuation ? "Surprisal interpunkce" : "Slovní surprisal"
+                  }</small>
+                  <span class="${badgeClass}">${escapeHtml(
+                    complete ? formatBits(surprisal) : "neúplné"
+                  )}</span>
+                </span>
+                <span class="psych-metric">
+                  <small>${
+                    isPunctuation
+                      ? "Entropie dalšího tokenu před interpunkcí"
+                      : "Entropie dalšího tokenu před slovem"
+                  }</small>
+                  ${escapeHtml(
+                    complete ? formatBits(preUnitNextTokenEntropy(unit)) : "—"
+                  )}
+                </span>
+                <span class="psych-metric">
+                  <small>${
+                    isPunctuation
+                      ? "Mimo slovní ΔI"
+                      : "ΔI oproti předchozímu slovu"
+                  }</small>
+                  ${escapeHtml(
+                    isPunctuation
+                      ? "nezahrnuto"
+                      : formatDeltaBits(deltaFromPrevious)
+                  )}
+                  <small>${escapeHtml(
+                    `${formatInteger(tokenCount)} tokenových střepů`
+                  )}</small>
+                </span>
+              </summary>
+              <div class="psych-word-detail">
+                <p>
+                  ${complete
+                    ? isPunctuation
+                      ? (
+                          "Interpunkce zůstává samostatnou pozorovanou " +
+                          "jednotkou. Její surprisal je součtem tokenových I; " +
+                          "do slovních průměrů ani slovního ΔI nevstupuje."
+                        )
+                      : (
+                          "Slovní I je součet níže uvedených tokenových I. " +
+                          "Uvedená entropie popisuje distribuci dalšího tokenu " +
+                          "před prvním střepem slova, nikoli distribuci slov."
+                        )
+                    : isPunctuation
+                      ? (
+                          "Hranice interpunkce není tokeny pokryta čistě; " +
+                          "její surprisal ani entropii proto neodhadujeme."
+                        )
+                      : (
+                          "Hranice slova není tokeny pokryta čistě; slovní I " +
+                          "ani entropii proto neodhadujeme."
+                        )}
+                </p>
+                <div class="psych-subword-groups psych-subword-groups-single">
+                  ${subwordTableMarkup(trace, unit)}
+                </div>
+              </div>
+            </details>
+          </li>
+        `;
+      };
+
+      const comparisonWordMarkup = (
+        data,
+        unitA,
+        unitB,
+        index,
+        labels
+      ) => {
+        const surfaceA = unitA
+          ? spanText(unitA, data?.a?.text ?? "")
+          : "";
+        const surfaceB = unitB
+          ? spanText(unitB, data?.b?.text ?? "")
+          : "";
+        const kindA = psycholinguisticKind(unitA);
+        const kindB = psycholinguisticKind(unitB);
+        const sameKind = Boolean(unitA && unitB && kindA === kindB);
+        const punctuationPair = sameKind && kindA === "punctuation";
+        const completeA = unitIsComplete(unitA);
+        const completeB = unitIsComplete(unitB);
+        const exactSurfaceAlignment = Boolean(
+          unitA &&
+          unitB &&
+          sameKind &&
+          surfaceA === surfaceB &&
+          completeA &&
+          completeB
+        );
+        const surprisalA = completeA ? unitSurprisal(unitA) : null;
+        const surprisalB = completeB ? unitSurprisal(unitB) : null;
+        const delta = exactSurfaceAlignment
+          ? surprisalB - surprisalA
+          : null;
+        return `
+          <li>
+            <details class="psych-word-row${
+              punctuationPair ? " psych-punctuation-row" : ""
+            }">
+              <summary class="psych-word-summary">
+                <span class="psych-word-surface">
+                  <span class="psych-word-index">${escapeHtml(
+                    formatInteger(index + 1)
+                  )}</span>
+                  <strong>
+                    <span class="observed-token">${escapeHtml(surfaceA || "∅")}</span>
+                    <span aria-hidden="true"> / </span>
+                    <span class="observed-token">${escapeHtml(surfaceB || "∅")}</span>
+                  </strong>
+                  <small class="psych-unit-label">${escapeHtml(
+                    sameKind
+                      ? punctuationPair ? "interpunkce" : "slovo"
+                      : "různé druhy jednotek"
+                  )}</small>
+                </span>
+                <span class="psych-metric">
+                  <small>${
+                    punctuationPair
+                      ? "Surprisal interpunkce · A → B"
+                      : sameKind
+                        ? "Slovní I · A → B"
+                        : "Surprisal jednotky · A → B"
+                  }</small>
+                  ${escapeHtml(formatBits(surprisalA))} →
+                  ${escapeHtml(formatBits(surprisalB))}
+                </span>
+                <span class="psych-metric ${
+                  exactSurfaceAlignment ? "" : "psych-incomplete"
+                }">
+                  <small>ΔI · B − A</small>
+                  ${escapeHtml(formatDeltaBits(delta))}
+                </span>
+                <span class="psych-metric">
+                  <small>Entropie dalšího tokenu · A → B</small>
+                  ${escapeHtml(formatBits(
+                    completeA ? preUnitNextTokenEntropy(unitA) : null
+                  ))} → ${escapeHtml(formatBits(
+                    completeB ? preUnitNextTokenEntropy(unitB) : null
+                  ))}
+                </span>
+              </summary>
+              <div class="psych-word-detail">
+                <p>
+                  ${exactSurfaceAlignment
+                    ? (
+                        "ΔI porovnává přesně tentýž Unicode řetězec na " +
+                        "stejné pozici pozorované jednotky; kladná hodnota znamená " +
+                        "vyšší surprisal v B."
+                      )
+                    : (
+                        "ΔI se nepočítá: na této pozici pozorované jednotky není na " +
+                        "obou stranách přesně tentýž čistě pokrytý Unicode " +
+                        "řetězec stejného druhu."
+                      )}
+                </p>
+                <div class="psych-subword-groups">
+                  ${unitA ? subwordTableMarkup(data.a, unitA, labels.a) : ""}
+                  ${unitB ? subwordTableMarkup(data.b, unitB, labels.b) : ""}
+                </div>
+              </div>
+            </details>
+          </li>
+        `;
+      };
+
+      const renderPsycholinguisticView = (data = state.result) => {
+        if (!data) return;
+        const isComparison = (
+          data.analysis_kind === "text_surprisal_comparison"
+        );
+        if (isComparison) {
+          const labels = currentDisplayLabels();
+          const wordsA = orthographicWords(data.a);
+          const wordsB = orthographicWords(data.b);
+          const punctuationA = punctuationUnits(data.a);
+          const punctuationB = punctuationUnits(data.b);
+          const unitsA = psycholinguisticUnits(data.a);
+          const unitsB = psycholinguisticUnits(data.b);
+          const pairCount = Math.max(unitsA.length, unitsB.length);
+          const exactCount = Array.from({length: pairCount}).filter(
+            (_, index) => {
+              const unitA = unitsA[index];
+              const unitB = unitsB[index];
+              return Boolean(
+                unitA &&
+                unitB &&
+                psycholinguisticKind(unitA) === psycholinguisticKind(unitB) &&
+                unitIsComplete(unitA) &&
+                unitIsComplete(unitB) &&
+                spanText(unitA, data.a?.text ?? "") ===
+                  spanText(unitB, data.b?.text ?? "")
+              );
+            }
+          ).length;
+          const summaryA = aggregationFor(
+            data.a,
+            "orthographic_word"
+          )?.summary ?? {};
+          const summaryB = aggregationFor(
+            data.b,
+            "orthographic_word"
+          )?.summary ?? {};
+          psychSummary.innerHTML = [
+            ["Slov A / B", `${formatInteger(wordsA.length)} / ${formatInteger(wordsB.length)}`],
+            ["Interpunkce A / B", `${formatInteger(punctuationA.length)} / ${formatInteger(punctuationB.length)}`],
+            ["Přesně srovnatelných pozic", formatInteger(exactCount)],
+            ["Průměrné slovní I · A", formatBits(summaryA?.mean_word_surprisal_bits)],
+            ["Průměrné slovní I · B", formatBits(summaryB?.mean_word_surprisal_bits)]
+          ].map(([label, value]) => `
+            <div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>
+          `).join("");
+          psychMethodNote.textContent = (
+            "Slova a interpunkci ukazujeme v pořadí textu. ΔI = I(B) − I(A) " +
+            "počítáme jen pro přesně stejný Unicode řetězec stejného druhu " +
+            "na stejné pozici pozorované jednotky. Jde o popisný kontrast " +
+            "podmínek, nikoli o automatické jazykové zarovnání."
+          );
+          psychWordColumns.innerHTML = `
+            <span>Pozice · jednotka A / B</span>
+            <span>Surprisal jednotky · A → B</span>
+            <span>ΔI · B − A</span>
+            <span>Entropie dalšího tokenu · A → B</span>
+            <span></span>
+          `;
+          psychWordList.innerHTML = pairCount
+            ? Array.from({length: pairCount}).map((_, index) => (
+                comparisonWordMarkup(
+                  data,
+                  unitsA[index],
+                  unitsB[index],
+                  index,
+                  labels
+                )
+              )).join("")
+            : "<li>Server nevrátil žádná slova ani interpunkci.</li>";
+          psychStatus.textContent = (
+            `Psycholingvistické srovnání: ${formatInteger(wordsA.length)} ` +
+            `slov v A, ${formatInteger(wordsB.length)} slov v B; ` +
+            `${formatInteger(punctuationA.length)} / ` +
+            `${formatInteger(punctuationB.length)} interpunkčních jednotek; ` +
+            `${formatInteger(exactCount)} přesně srovnatelných pozic.`
+          );
+          return;
+        }
+
+        const aggregation = aggregationFor(data, "orthographic_word");
+        const words = asArray(aggregation?.spans);
+        const punctuation = punctuationUnits(data);
+        const units = psycholinguisticUnits(data);
+        const summary = aggregation?.summary ?? {};
+        const completeCount = words.filter(wordIsComplete).length;
+        const completePunctuationCount = punctuation.filter(
+          unitIsComplete
+        ).length;
+        psychSummary.innerHTML = [
+          ["Ortografická slova", `${formatInteger(words.length)} · ${formatInteger(completeCount)} úplných`],
+          ["Interpunkce", `${formatInteger(punctuation.length)} · ${formatInteger(completePunctuationCount)} úplných`],
+          ["Průměrné slovní I", formatBits(summary?.mean_word_surprisal_bits)],
+          ["Medián slovního I", formatBits(summary?.median_word_surprisal_bits)],
+          ["Průměrná entropie dalšího tokenu před slovem", formatBits(
+            summary?.mean_pre_word_next_token_entropy_bits ??
+              summary?.mean_pre_word_entropy_bits
+          )]
+        ].map(([label, value]) => `
+          <div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>
+        `).join("");
+        psychMethodNote.textContent = (
+          "Slovní surprisal je součet −log₂ p všech tokenových střepů slova. " +
+          "Entropie dalšího tokenu před slovem je entropie tokenového slovníku před " +
+          "prvním střepem — není to entropie distribuce příštího slova. " +
+          "Interpunkce má vlastní řádky, ale nevstupuje do slovních souhrnů " +
+          "ani do ΔI mezi sousedními slovy."
+        );
+        psychWordColumns.innerHTML = `
+          <span>Pozice · slovo / interpunkce</span>
+          <span>Surprisal jednotky</span>
+          <span>Entropie dalšího tokenu před jednotkou</span>
+          <span>ΔI mezi slovy</span>
+          <span></span>
+        `;
+        psychWordList.innerHTML = units.length
+          ? units.map((unit, index) => singleWordMarkup(
+              data,
+              unit,
+              index,
+              previousWordInUnits(units, index)
+            )).join("")
+          : "<li>Server nevrátil žádná slova ani interpunkci.</li>";
+        psychStatus.textContent = (
+          `Psycholingvistické čtení: ${formatInteger(words.length)} slov, ` +
+          `${formatInteger(completeCount)} s úplnými metrikami; ` +
+          `${formatInteger(punctuation.length)} interpunkčních jednotek.`
+        );
+      };
+
+      const syncDisplayModeCopy = () => {
+        const words = state.displayMode === "words";
+        const comparison = state.result?.analysis_kind === (
+          "text_surprisal_comparison"
+        );
+        resultEyebrow.textContent = words
+          ? "Hotový text · psycholingvistické čtení T = 1"
+          : "Hotový text · syrová distribuce T = 1";
+        resultsTitle.textContent = words
+          ? comparison
+            ? "Slovní surprisal ve dvou podmínkách"
+            : "Trajektorie očekávání po slovech"
+          : comparison
+          ? "Dvě nezávislé stopy překvapení"
+          : "Kde text porušil očekávání";
+      };
+
+      const setDisplayMode = (
+        mode,
+        {persist = true, updateUrl = true} = {}
+      ) => {
+        state.displayMode = mode === "words" ? "words" : "tokens";
+        const words = state.displayMode === "words";
+        results.dataset.displayMode = state.displayMode;
+        displayModeTokens.setAttribute("aria-pressed", String(!words));
+        displayModeWords.setAttribute("aria-pressed", String(words));
+        psycholinguisticView.hidden = !words;
+        if (words && state.result) renderPsycholinguisticView();
+        syncDisplayModeCopy();
+        if (persist) {
+          try {
+            window.localStorage.setItem(
+              DISPLAY_MODE_STORAGE_KEY,
+              state.displayMode
+            );
+          } catch {
+            // The in-memory choice remains valid when storage is unavailable.
+          }
+        }
+        if (updateUrl) {
+          const url = new URL(window.location.href);
+          if (words) url.searchParams.set("view", "words");
+          else url.searchParams.delete("view");
+          window.history.replaceState(null, "", url);
+        }
+      };
+
+      const formatComparisonValue = (value, unit, {delta = false} = {}) => {
+        const number = finite(value);
+        if (number === null) return "—";
+        const sign = delta && number > 0 ? "+" : "";
+        const unitLabel = unit === "bits_per_token"
+          ? " bit / token"
+          : unit === "bits_per_non_whitespace_character"
+          ? " bit / nebílý znak"
+          : ` ${unit ?? ""}`;
+        return `${sign}${formatNumber(number, 3)}${unitLabel}`;
+      };
+
+      const comparisonTokenMarkup = (data, side) => (
+        asArray(data?.tokens).map((token, index) => {
+          const visible = visibleToken(tokenText(token));
+          return `
+            <li>
+              <button
+                class="token-chip ${surprisalClass(token.surprisal_bits)}"
+                type="button"
+                data-comparison-side="${side}"
+                data-comparison-token-index="${index}"
+                aria-pressed="false"
+                aria-label="${escapeHtml(
+                  `${side.toUpperCase()}, token ${index + 1}: ${visible}; ` +
+                  `překvapení ${formatBits(token.surprisal_bits)}, ` +
+                  `pořadí ${formatInteger(token.rank)}`
+                )}"
+              ><span class="observed-token">${escapeHtml(visible)}</span></button>
+            </li>
+          `;
+        }).join("")
+      );
+
+      const comparisonTraceMarkup = (data, side, label) => `
+        <article class="comparison-card" data-comparison-card="${side}">
+          <h3 data-comparison-label="${side}">${escapeHtml(label)}</h3>
+          <p class="comparison-card-context">
+            ${escapeHtml(
+              `${formatInteger(data.token_count)} tokenů · ` +
+              `${formatInteger(data.character_count)} znaků · ` +
+              `top ${data.top_k}`
+            )}
+          </p>
+          <ol
+            class="token-stream"
+            data-comparison-token-stream="${side}"
+            aria-label="${escapeHtml(`Syrové tokeny: ${label}`)}"
+          >${comparisonTokenMarkup(data, side)}</ol>
+          <p class="tokenizer-note">
+            Samostatná syrová tokenová stopa; tokeny se vůči druhému textu
+            pozičně ani slovně nezarovnávají.
+          </p>
+          <div
+            class="comparison-detail"
+            data-comparison-detail="${side}"
+            hidden
+          ></div>
+          <section
+            class="comparison-aggregation"
+            data-comparison-aggregation="${side}"
+          ></section>
+        </article>
+      `;
+
+      const renderComparisonTokenDetails = (
+        side,
+        index,
+        {focus = false} = {}
+      ) => {
+        const data = state.result?.[side];
+        const tokens = asArray(data?.tokens);
+        const token = tokens[index];
+        if (!token) return;
+        state.selectedComparison[side] = index;
+        const stream = comparisonTraces.querySelector(
+          `[data-comparison-token-stream="${side}"]`
+        );
+        stream?.querySelectorAll(".token-chip").forEach((button) => {
+          button.setAttribute(
+            "aria-pressed",
+            String(Number(button.dataset.comparisonTokenIndex) === index)
+          );
+        });
+        const detail = comparisonTraces.querySelector(
+          `[data-comparison-detail="${side}"]`
+        );
+        if (!detail) return;
+        const visible = visibleToken(tokenText(token));
+        const metrics = [
+          ["Skutečná p", formatPercent(token.probability)],
+          ["Překvapení I", formatBits(token.surprisal_bits)],
+          ["Globální pořadí", `#${formatInteger(token.rank)}`],
+          ["Entropie H", formatBits(token.entropy_bits)],
+          ["Efektivní podpora", `${formatNumber(token.effective_tokens, 1)} tokenů`],
+          ["Top‑1 gap", formatBits(token.top1_gap_bits)]
+        ];
+        detail.innerHTML = `
+          <h4 class="detail-token observed-token" tabindex="-1">${escapeHtml(visible)}</h4>
+          <p class="detail-meta">
+            ${escapeHtml(
+              `token ${index + 1} z ${tokens.length} · #${token.token_id}`
+            )}
+          </p>
+          <dl class="metric-grid">
+            ${metrics.map(([label, value]) => `
+              <div>
+                <dt>${escapeHtml(label)}</dt>
+                <dd>${escapeHtml(value)}</dd>
+              </div>
+            `).join("")}
+          </dl>
+          <h4 class="alternatives-title">Nejpravděpodobnější alternativy</h4>
+          <ol class="alternative-list">
+            ${asArray(token.alternatives).map(
+              (alternative, alternativeIndex) => `
+                <li class="alternative-row">
+                  <span>${escapeHtml(visibleToken(
+                    tokenText(alternative)
+                  ))}</span>
+                  <span>#${escapeHtml(formatInteger(
+                    alternative?.rank ?? alternativeIndex + 1
+                  ))}</span>
+                  <span>${escapeHtml(formatPercent(
+                    alternative?.probability
+                  ))}</span>
+                </li>
+              `
+            ).join("")}
+          </ol>
+        `;
+        detail.hidden = false;
+        if (focus) {
+          detail.querySelector(".detail-token")?.focus({preventScroll: true});
+        }
+      };
+
+      const renderComparisonAggregations = (
+        data = state.result,
+        unit = comparisonAggregationUnit.value
+      ) => {
+        const metadata = AGGREGATION_UNITS[unit] ??
+          AGGREGATION_UNITS.whitespace_span;
+        comparisonAggregationDescription.textContent = (
+          `${metadata.description} Tatáž jednotka platí pro obě ` +
+          "samostatné stopy."
+        );
+        ["a", "b"].forEach((side) => {
+          const trace = data?.[side];
+          const target = comparisonTraces.querySelector(
+            `[data-comparison-aggregation="${side}"]`
+          );
+          if (!target) return;
+          const aggregation = aggregationFor(trace, unit);
+          const spans = asArray(aggregation?.spans);
+          const summary = aggregation?.summary ?? {};
+          if (!aggregation || !spans.length) {
+            target.innerHTML = `
+              <p class="comparison-aggregation-summary">
+                ${escapeHtml(metadata.label)}: žádné agregované úseky.
+              </p>
+            `;
+            return;
+          }
+          const median = firstFinite(
+            summary?.median,
+            summary?.median_surprisal_bits_per_character,
+            summary?.median_bits_per_character
+          );
+          const complete = firstFinite(
+            summary?.complete_span_count,
+            summary?.count
+          );
+          target.innerHTML = `
+            <p class="comparison-aggregation-summary">
+              ${escapeHtml(metadata.label)} ·
+              ${escapeHtml(formatInteger(spans.length))} úseků ·
+              ${escapeHtml(formatInteger(complete))} úplných ·
+              medián I / nebílý znak ${escapeHtml(formatBits(median))}
+            </p>
+            <ol class="comparison-aggregation-list">
+              ${spans.map((span) => {
+                const total = firstFinite(
+                  span?.total_surprisal_bits,
+                  span?.surprisal_bits
+                );
+                const perCharacter = firstFinite(
+                  span?.surprisal_bits_per_character,
+                  span?.bits_per_character
+                );
+                const completeSpan = span?.complete !== false;
+                return `
+                  <li>
+                    <span class="observed-token">${escapeHtml(
+                      visibleToken(spanText(span, trace?.text ?? "")) || "∅"
+                    )}</span>
+                    <span>${
+                      completeSpan
+                        ? escapeHtml(
+                            `ΣI ${formatBits(total)} · ` +
+                            `I / znak ${formatBits(perCharacter)}`
+                          )
+                        : "neúplné pokrytí"
+                    }</span>
+                  </li>
+                `;
+              }).join("")}
+            </ol>
+          `;
+        });
+      };
+
+      const renderComparison = (data) => {
+        const labels = currentDisplayLabels();
+        const metrics = data.comparison.metrics;
+        results.dataset.mode = "comparison";
+        comparisonView.hidden = false;
+        resultsTitle.textContent = "Dvě nezávislé stopy překvapení";
+        resultContext.innerHTML = (
+          `<span>${escapeHtml(data.model_label ?? data.model_id)}</span> · ` +
+          `<span>${escapeHtml(formatInteger(data.a.token_count))} + ` +
+          `${escapeHtml(formatInteger(data.b.token_count))} tokenů</span> · ` +
+          `<span>top ${escapeHtml(data.a.top_k)}</span> · ` +
+          `<span>${escapeHtml(formatMilliseconds(
+            data?.timing_ms?.total_ms ??
+            data?.timing_ms?.total ??
+            data?.latency_ms
+          ))}</span>`
+        );
+        comparisonLabelA.textContent = labels.a;
+        comparisonLabelB.textContent = labels.b;
+        comparisonMetricBody.innerHTML = Object.entries(
+          COMPARISON_METRICS
+        ).map(([key, title]) => {
+          const metric = metrics[key];
+          return `
+            <tr>
+              <th scope="row">${escapeHtml(title)}</th>
+              <td>${escapeHtml(formatComparisonValue(
+                metric.a,
+                metric.unit
+              ))}</td>
+              <td>${escapeHtml(formatComparisonValue(
+                metric.b,
+                metric.unit
+              ))}</td>
+              <td>${escapeHtml(formatComparisonValue(
+                metric.delta_b_minus_a,
+                metric.unit,
+                {delta: true}
+              ))}</td>
+            </tr>
+          `;
+        }).join("");
+        comparisonTotals.innerHTML = ["a", "b"].map((side) => `
+          <article class="comparison-total">
+            <span data-comparison-total-label="${side}">${
+              escapeHtml(labels[side])
+            }</span>
+            <strong>${escapeHtml(formatBits(
+              data[side]?.summary?.total_surprisal_bits
+            ))}</strong>
+            <span>
+              ${escapeHtml(formatInteger(data[side]?.token_count))} tokenů ·
+              délkově závislé, bez Δ
+            </span>
+          </article>
+        `).join("");
+        comparisonTraces.innerHTML = (
+          comparisonTraceMarkup(data.a, "a", labels.a) +
+          comparisonTraceMarkup(data.b, "b", labels.b)
+        );
+        renderComparisonAggregations(data);
+        ["a", "b"].forEach((side) => {
+          const tokens = asArray(data[side]?.tokens);
+          const maximum = data[side]?.summary?.max_surprisal_token;
+          const index = maximum
+            ? tokens.findIndex(
+                (token) => Number(token.index) === Number(maximum.index)
+              )
+            : 0;
+          renderComparisonTokenDetails(side, Math.max(0, index));
+        });
+        comparisonStatus.textContent = (
+          "Srovnání hotovo: dvě samostatné tokenové stopy A a B."
+        );
+        results.hidden = false;
+        setDisplayMode(state.displayMode, {
+          persist: false,
+          updateUrl: false
+        });
+        syncControls();
+      };
+
+      const renderResult = (data) => {
+        results.dataset.mode = "single";
+        comparisonView.hidden = true;
+        resultsTitle.textContent = "Kde text porušil očekávání";
+        const tokens = asArray(data.tokens);
+        const summary = data.summary ?? {};
+        summarySurprisal.textContent = formatBits(
+          summary.mean_surprisal_bits
+        );
+        summaryPerplexity.textContent = formatNumber(summary.perplexity, 2);
+        summaryEntropy.textContent = formatBits(summary.mean_entropy_bits);
+        const maximum = summary.max_surprisal_token ?? tokens.reduce(
+          (current, token) => (
+            !current ||
+            Number(token.surprisal_bits) > Number(current.surprisal_bits)
+              ? token
+              : current
+          ),
+          null
+        );
+        summaryMaximum.textContent = formatBits(maximum?.surprisal_bits);
+        summaryMaximumDetail.innerHTML = (
+          `<span class="observed-token">${escapeHtml(
+            visibleToken(tokenText(maximum))
+          )}</span> · p ${escapeHtml(formatPercent(maximum?.probability))}`
+        );
+        summaryCount.textContent = `${formatInteger(data.token_count)} tokenů`;
+        summaryCountDetail.textContent = (
+          `${formatInteger(data.character_count)} znaků · ` +
+          `${formatInteger(data.utf8_byte_count)} UTF‑8 bajtů`
+        );
+        resultContext.innerHTML = (
+          `<span>${escapeHtml(data.model_label ?? data.model_id)}</span> · ` +
+          `<span>${escapeHtml(formatInteger(data.token_count))} tokenů</span> · ` +
+          `<span>top ${escapeHtml(data.top_k)}</span> · ` +
+          `<span>${escapeHtml(formatMilliseconds(
+            data?.timing_ms?.total_ms ??
+            data?.timing_ms?.total ??
+            data?.latency_ms
+          ))}</span>`
+        );
+        tokenStream.innerHTML = tokens.map((token, index) => {
+          const visible = visibleToken(tokenText(token));
+          return `
+            <li>
+              <button
+                class="token-chip ${surprisalClass(token.surprisal_bits)}"
+                type="button"
+                data-token-index="${index}"
+                aria-pressed="false"
+                aria-label="${
+                  escapeHtml(
+                    `Token ${index + 1}: ${visible}; překvapení ` +
+                    `${formatBits(token.surprisal_bits)}, pořadí ` +
+                    `${formatInteger(token.rank)}`
+                  )
+                }"
+              ><span class="observed-token">${escapeHtml(visible)}</span></button>
+            </li>
+          `;
+        }).join("");
+        renderAggregations(data);
+        results.hidden = false;
+        const initialIndex = maximum
+          ? tokens.findIndex(
+              (token) => Number(token.index) === Number(maximum.index)
+            )
+          : 0;
+        renderTokenDetails(Math.max(0, initialIndex));
+        setDisplayMode(state.displayMode, {
+          persist: false,
+          updateUrl: false
+        });
+        syncControls();
+      };
+
+      const analyze = async () => {
+        if (state.busy) return;
+        const check = validation();
+        if (!check.valid) {
+          setMessage(check.reason, true);
+          return;
+        }
+        const commonRequest = {
+          top_k: check.topK,
+          model_id: check.identity.modelId,
+          model_generation: check.identity.modelGeneration,
+          server_instance_id: check.identity.serverInstanceId
+        };
+        const enteredLabelA = labelA.value.trim();
+        const enteredLabelB = labelB.value.trim();
+        const request = check.compareMode
+          ? {
+              text_a: check.textA,
+              text_b: check.textB,
+              ...(enteredLabelA ? {label_a: enteredLabelA} : {}),
+              ...(enteredLabelB ? {label_b: enteredLabelB} : {}),
+              ...commonRequest
+            }
+          : {
+              text: check.text,
+              ...commonRequest
+            };
+        const endpoint = check.compareMode
+          ? "/api/text-surprisal-comparison"
+          : "/api/text-surprisal";
+        state.busy = true;
+        state.controller = new AbortController();
+        results.setAttribute("aria-busy", "true");
+        setMessage("");
+        syncControls();
+        showOverlay();
+        let completed = false;
+        try {
+          const data = await fetchJson(endpoint, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(request),
+            signal: state.controller.signal
+          });
+          if (check.compareMode) assertComparisonResponse(data, request);
+          else assertResponse(data, request);
+          state.result = data;
+          state.request = request;
+          state.signature = currentSignature();
+          state.capturedAt = new Date().toISOString();
+          state.recordId = newRecordId();
+          state.savedRecordId = null;
+          state.selectedIndex = null;
+          state.selectedComparison = {a: null, b: null};
+          if (check.compareMode) renderComparison(data);
+          else renderResult(data);
+          setMessage(
+            check.compareMode
+              ? (
+                  "Hotovo — A a B jsou dvě samostatné tokenové stopy; " +
+                  "Δ znamená B − A."
+                )
+              : (
+                  "Hotovo — barvy používají pevné absolutní prahy " +
+                  "surprisal v bitech."
+                )
+          );
+          completed = true;
+        } catch (error) {
+          if (error.health) applyHealth(error.health);
+          setMessage(
+            error.message || (
+              check.compareMode
+                ? "Texty se nepodařilo porovnat."
+                : "Text se nepodařilo analyzovat."
+            ),
+            true
+          );
+          if (error.code === "model_changed" || error.status === 409) {
+            state.pollTimer = window.setTimeout(pollHealth, 400);
+          }
+        } finally {
+          state.controller = null;
+          state.busy = false;
+          results.setAttribute("aria-busy", "false");
+          syncControls();
+          hideOverlay({restoreFocus: !completed});
+          state.pollTimer = window.setTimeout(pollHealth, 900);
+          if (completed) {
+            window.requestAnimationFrame(() => {
+              const reducedMotion = window.matchMedia?.(
+                "(prefers-reduced-motion: reduce)"
+              )?.matches;
+              results.scrollIntoView({
+                behavior: reducedMotion ? "auto" : "smooth",
+                block: "start"
+              });
+              resultsTitle.focus({preventScroll: true});
+            });
+          }
+        }
+      };
+
+      const newRecordId = () => {
+        if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        globalThis.crypto?.getRandomValues?.(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = [...bytes].map(
+          (byte) => byte.toString(16).padStart(2, "0")
+        );
+        return [
+          hex.slice(0, 4).join(""),
+          hex.slice(4, 6).join(""),
+          hex.slice(6, 8).join(""),
+          hex.slice(8, 10).join(""),
+          hex.slice(10, 16).join("")
+        ].join("-");
+      };
+
+      const buildProvenance = (data) => ({
+        application: {
+          id: "apertus-garden",
+          name: "Pravděpodobnostní zahrada",
+          surface: data.analysis_kind === "text_surprisal_comparison"
+            ? "text_surprisal_comparison"
+            : "text_surprisal"
+        },
+        source: "live_ui",
+        route: window.location.pathname,
+        model: {
+          id: data.model_id,
+          label: data.model_label ?? null,
+          name: data.model ?? null
+        },
+        execution: {
+          model_generation: data.model_generation,
+          server_instance_id: data.server_instance_id
+        },
+        server: data.provenance ?? state.health?.provenance ?? null,
+        storage: state.health?.storage ?? null
+      });
+
+      const buildRecord = () => {
+        const data = state.result;
+        if (!data || !state.request || !state.recordId) return null;
+        const isComparison = (
+          data.analysis_kind === "text_surprisal_comparison"
+        );
+        const labels = isComparison ? currentDisplayLabels() : null;
+        const comparison = isComparison
+          ? {...data.comparison, labels}
+          : null;
+        return {
+          schema: "apertus.experiment-record",
+          schema_version: 1,
+          id: state.recordId,
+          kind: isComparison
+            ? "text_surprisal_comparison"
+            : "text_surprisal",
+          captured_at: state.capturedAt,
+          series_id: null,
+          annotation: {
+            title: isComparison
+              ? `Překvapení A/B · ${labels.a} × ${labels.b}`
+              : `Překvapení textu · ${state.request.text.slice(0, 100)}`,
+            notes: experimentNote.value.trim() || null,
+            tags: isComparison
+              ? ["text-surprisal", "comparison", "teacher-forced"]
+              : ["text-surprisal", "teacher-forced"]
+          },
+          capture: {
+            status: "complete",
+            warnings: [
+              "Tokenová predikce není hodnocení pravdy ani kvality textu.",
+              (
+                "Agregované úseky jsou pozorovatelná pravidlová seskupení, " +
+                "nikoli autoritativně určená slova nebo věty."
+              ),
+              (
+                "Disperze překvapení neměří pořadí, strukturovanost, " +
+                "poetičnost ani kvalitu textu."
+              )
+            ]
+          },
+          provenance: buildProvenance(data),
+          payload: {
+            ...(isComparison
+              ? {
+                  a: data.a,
+                  b: data.b,
+                  labels,
+                  comparison,
+                  response: data
+                }
+              : {result: data}),
+            request: {...state.request},
+            reader: {
+              kind: isComparison
+                ? "paired_teacher_forced_text_surprisal"
+                : "teacher_forced_text_surprisal",
+              temperature: 1,
+              probability_kind: "raw_model",
+              realized_metric: "negative_log2_probability",
+              uncertainty_metric: "entropy_bits",
+              color_scale: {
+                kind: "fixed_absolute_thresholds",
+                unit: "bits",
+                boundaries: [1, 3, 6, 10]
+              },
+              aggregation: {
+                primary: "raw_tokens",
+                derived: [
+                  "orthographic_word",
+                  "punctuation",
+                  "whitespace_span",
+                  "line",
+                  "sentence_like"
+                ],
+                psycholinguistic_view: {
+                  word_surprisal: "sum_of_assigned_token_surprisals",
+                  pre_word_next_token_entropy: (
+                    "next_token_vocabulary_entropy_before_first_word_token"
+                  ),
+                  punctuation: "separate_observed_unit",
+                  punctuation_in_word_statistics: false,
+                  incomplete_boundary_policy: "omit_word_metrics"
+                }
+              }
+            }
+          },
+          diagnostics: {
+            cached: isComparison
+              ? {
+                  a: Boolean(data.a?.cached),
+                  b: Boolean(data.b?.cached)
+                }
+              : Boolean(data.cached),
+            timing_ms: data.timing_ms ?? null
+          }
+        };
+      };
+
+      const safeFilenamePart = (value) => String(value ?? "apertus")
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase() || "apertus";
+
+      const filename = (extension) => (
+        `text-surprisal-${safeFilenamePart(state.result?.model_id)}-` +
+        `${new Date().toISOString().replaceAll(":", "-")}.${extension}`
+      );
+
+      const wordFilename = () => (
+        `psycholinguistic-surprisal-${safeFilenamePart(state.result?.model_id)}-` +
+        `${new Date().toISOString().replaceAll(":", "-")}.csv`
+      );
+
+      const downloadBlob = (content, type, name) => {
+        const blob = new Blob([content], {type});
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = name;
+        link.hidden = true;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+
+      const csvCell = (value) => {
+        if (value === null || value === undefined) return "";
+        let text = typeof value === "object"
+          ? JSON.stringify(value)
+          : String(value);
+        if (/^\s*[=+\-@]/.test(text)) text = `'${text}`;
+        return `"${text.replaceAll('"', '""')}"`;
+      };
+
+      const rowsToCsv = (rows) => {
+        const columns = [];
+        rows.forEach((row) => Object.keys(row).forEach((key) => {
+          if (!columns.includes(key)) columns.push(key);
+        }));
+        return [
+          columns.map(csvCell).join(","),
+          ...rows.map(
+            (row) => columns.map((column) => csvCell(row[column])).join(",")
+          )
+        ].join("\r\n");
+      };
+
+      const wordExportData = (trace, unit, previousWord = null) => {
+        if (!unit) {
+          return {
+            unit: null,
+            unit_kind: null,
+            include_in_word_statistics: false,
+            word: null,
+            punctuation: null,
+            character_start: null,
+            character_end: null,
+            token_count: 0,
+            token_indices: [],
+            token_ids: [],
+            token_fragments: [],
+            unit_surprisal_bits: null,
+            pre_unit_next_token_entropy_bits: null,
+            word_surprisal_bits: null,
+            pre_word_next_token_entropy_bits: null,
+            pre_word_entropy_bits: null,
+            delta_surprisal_from_previous_word_bits: null,
+            complete: false,
+            boundary_contaminated_token_count: null
+          };
+        }
+        const kind = psycholinguisticKind(unit);
+        const isWord = kind === "word";
+        const complete = unitIsComplete(unit);
+        const surprisal = complete ? unitSurprisal(unit) : null;
+        const previousSurprisal = wordIsComplete(previousWord)
+          ? wordSurprisal(previousWord)
+          : null;
+        const tokens = tokensForWord(trace, unit);
+        const {start, end} = spanCharacterRange(unit);
+        const surface = spanText(unit, trace?.text ?? "");
+        const preUnitEntropy = complete
+          ? preUnitNextTokenEntropy(unit)
+          : null;
+        return {
+          unit: surface,
+          unit_kind: kind,
+          include_in_word_statistics: isWord,
+          word: isWord ? surface : null,
+          punctuation: isWord ? null : surface,
+          character_start: start,
+          character_end: end,
+          token_count: tokens.length,
+          token_indices: tokens.map((token) => token.index),
+          token_ids: tokens.map((token) => token.token_id),
+          token_fragments: tokens.map((token) => tokenText(token)),
+          unit_surprisal_bits: surprisal,
+          pre_unit_next_token_entropy_bits: preUnitEntropy,
+          word_surprisal_bits: isWord ? surprisal : null,
+          punctuation_surprisal_bits: isWord ? null : surprisal,
+          pre_word_next_token_entropy_bits: isWord ? preUnitEntropy : null,
+          pre_word_entropy_bits: isWord ? preUnitEntropy : null,
+          pre_punctuation_next_token_entropy_bits: isWord
+            ? null
+            : preUnitEntropy,
+          delta_surprisal_from_previous_word_bits: (
+            isWord && surprisal !== null && previousSurprisal !== null
+              ? surprisal - previousSurprisal
+              : null
+          ),
+          complete,
+          boundary_contaminated_token_count: (
+            unit?.boundary_contaminated_token_count ?? null
+          )
+        };
+      };
+
+      const wordCsvRows = () => {
+        const data = state.result;
+        if (!data) return [];
+        if (data.analysis_kind !== "text_surprisal_comparison") {
+          const units = psycholinguisticUnits(data);
+          return units.map((unit, index) => ({
+            analysis_kind: "text_surprisal",
+            row_type: psycholinguisticKind(unit) === "word"
+              ? "orthographic_word"
+              : "punctuation",
+            unit_index: index,
+            unit_position: index + 1,
+            word_index: unit?.word_index ?? null,
+            punctuation_index: unit?.punctuation_index ?? null,
+            ...wordExportData(
+              data,
+              unit,
+              previousWordInUnits(units, index)
+            ),
+            model_id: data.model_id,
+            temperature: data.temperature,
+            word_unit: "maximal_unicode_orthographic_span",
+            punctuation_unit: "maximal_unicode_punctuation_cluster",
+            pre_unit_entropy_scope: "next_token_vocabulary",
+            pre_word_entropy_scope: "next_token_vocabulary"
+          }));
+        }
+
+        const labels = currentDisplayLabels();
+        const unitsA = psycholinguisticUnits(data.a);
+        const unitsB = psycholinguisticUnits(data.b);
+        const count = Math.max(unitsA.length, unitsB.length);
+        return Array.from({length: count}).map((_, index) => {
+          const unitA = unitsA[index];
+          const unitB = unitsB[index];
+          const exportedA = wordExportData(
+            data.a,
+            unitA,
+            previousWordInUnits(unitsA, index)
+          );
+          const exportedB = wordExportData(
+            data.b,
+            unitB,
+            previousWordInUnits(unitsB, index)
+          );
+          const exactlyAligned = Boolean(
+            exportedA.complete &&
+            exportedB.complete &&
+            exportedA.unit !== null &&
+            exportedA.unit_kind === exportedB.unit_kind &&
+            exportedA.unit === exportedB.unit
+          );
+          return {
+            analysis_kind: "text_surprisal_comparison",
+            row_type: "psycholinguistic_unit_pair",
+            unit_index: index,
+            unit_position: index + 1,
+            label_a: labels.a,
+            label_b: labels.b,
+            unit_a: exportedA.unit,
+            unit_b: exportedB.unit,
+            unit_kind_a: exportedA.unit_kind,
+            unit_kind_b: exportedB.unit_kind,
+            word_a: exportedA.word,
+            word_b: exportedB.word,
+            punctuation_a: exportedA.punctuation,
+            punctuation_b: exportedB.punctuation,
+            character_start_a: exportedA.character_start,
+            character_end_a: exportedA.character_end,
+            character_start_b: exportedB.character_start,
+            character_end_b: exportedB.character_end,
+            token_count_a: exportedA.token_count,
+            token_count_b: exportedB.token_count,
+            token_indices_a: exportedA.token_indices,
+            token_indices_b: exportedB.token_indices,
+            token_ids_a: exportedA.token_ids,
+            token_ids_b: exportedB.token_ids,
+            token_fragments_a: exportedA.token_fragments,
+            token_fragments_b: exportedB.token_fragments,
+            unit_surprisal_bits_a: exportedA.unit_surprisal_bits,
+            unit_surprisal_bits_b: exportedB.unit_surprisal_bits,
+            pre_unit_next_token_entropy_bits_a: (
+              exportedA.pre_unit_next_token_entropy_bits
+            ),
+            pre_unit_next_token_entropy_bits_b: (
+              exportedB.pre_unit_next_token_entropy_bits
+            ),
+            word_surprisal_bits_a: exportedA.word_surprisal_bits,
+            word_surprisal_bits_b: exportedB.word_surprisal_bits,
+            punctuation_surprisal_bits_a: (
+              exportedA.punctuation_surprisal_bits
+            ),
+            punctuation_surprisal_bits_b: (
+              exportedB.punctuation_surprisal_bits
+            ),
+            pre_word_next_token_entropy_bits_a: (
+              exportedA.pre_word_next_token_entropy_bits
+            ),
+            pre_word_next_token_entropy_bits_b: (
+              exportedB.pre_word_next_token_entropy_bits
+            ),
+            pre_word_entropy_bits_a: exportedA.pre_word_entropy_bits,
+            pre_word_entropy_bits_b: exportedB.pre_word_entropy_bits,
+            delta_surprisal_from_previous_word_bits_a: (
+              exportedA.delta_surprisal_from_previous_word_bits
+            ),
+            delta_surprisal_from_previous_word_bits_b: (
+              exportedB.delta_surprisal_from_previous_word_bits
+            ),
+            exact_unicode_same_position: exactlyAligned,
+            delta_surprisal_bits_b_minus_a: exactlyAligned
+              ? (
+                  exportedB.unit_surprisal_bits -
+                  exportedA.unit_surprisal_bits
+                )
+              : null,
+            complete_a: exportedA.complete,
+            complete_b: exportedB.complete,
+            boundary_contaminated_token_count_a: (
+              exportedA.boundary_contaminated_token_count
+            ),
+            boundary_contaminated_token_count_b: (
+              exportedB.boundary_contaminated_token_count
+            ),
+            alignment_rule: (
+              "exact_unicode_surface_and_kind_at_same_observed_unit_ordinal"
+            ),
+            delta_definition: "B - A",
+            model_id: data.model_id,
+            temperature: data.a?.temperature,
+            word_unit: "maximal_unicode_orthographic_span",
+            punctuation_unit: "maximal_unicode_punctuation_cluster",
+            pre_unit_entropy_scope: "next_token_vocabulary",
+            pre_word_entropy_scope: "next_token_vocabulary"
+          };
+        });
+      };
+
+      const comparisonCsvRows = (data) => {
+        const labels = currentDisplayLabels();
+        const labeledComparison = {...data.comparison, labels};
+        const labeledPayload = {...data, labels, comparison: labeledComparison};
+        const rows = [{
+          analysis_kind: "text_surprisal_comparison",
+          row_type: "comparison_payload",
+          delta_definition: data.comparison?.delta_definition,
+          label_a: labels.a,
+          label_b: labels.b,
+          raw_json: labeledPayload
+        }];
+        Object.entries(data.comparison?.metrics ?? {}).forEach(
+          ([metricName, metric]) => {
+            rows.push({
+              analysis_kind: "text_surprisal_comparison",
+              row_type: "normalized_metric",
+              metric: metricName,
+              value_a: metric?.a,
+              value_b: metric?.b,
+              delta_b_minus_a: metric?.delta_b_minus_a,
+              unit: metric?.unit,
+              delta_definition: data.comparison?.delta_definition,
+              comparison_method_id: data.comparison?.method?.id,
+              provenance_json: data.provenance,
+              raw_json: metric
+            });
+          }
+        );
+        ["a", "b"].forEach((side) => {
+          const trace = data[side];
+          rows.push({
+            analysis_kind: "text_surprisal_comparison",
+            row_type: "side_summary",
+            side: side.toUpperCase(),
+            label: labels[side],
+            token_count: trace?.token_count,
+            character_count: trace?.character_count,
+            total_surprisal_bits: trace?.summary?.total_surprisal_bits,
+            mean_surprisal_bits: trace?.summary?.mean_surprisal_bits,
+            mean_entropy_bits: trace?.summary?.mean_entropy_bits,
+            raw_json: trace?.summary
+          });
+          asArray(trace?.tokens).forEach((token) => {
+            rows.push({
+              analysis_kind: "text_surprisal_comparison",
+              row_type: "token",
+              side: side.toUpperCase(),
+              token_index: token.index,
+              token_id: token.token_id,
+              token_text: tokenText(token),
+              probability: token.probability,
+              surprisal_bits: token.surprisal_bits,
+              rank: token.rank,
+              entropy_bits: token.entropy_bits,
+              raw_json: token
+            });
+            asArray(token.alternatives).forEach((alternative) => {
+              rows.push({
+                analysis_kind: "text_surprisal_comparison",
+                row_type: "alternative",
+                side: side.toUpperCase(),
+                parent_token_index: token.index,
+                token_id: alternative.token_id,
+                token_text: tokenText(alternative),
+                probability: alternative.probability,
+                rank: alternative.rank,
+                raw_json: alternative
+              });
+            });
+          });
+          Object.entries(trace?.aggregations ?? {}).forEach(
+            ([aggregationKind, aggregation]) => {
+              const summary = aggregation?.summary ?? {};
+              rows.push({
+                analysis_kind: "text_surprisal_comparison",
+                row_type: "aggregation_summary",
+                side: side.toUpperCase(),
+                aggregation_kind: aggregationKind,
+                aggregation_label: aggregation?.label_cs,
+                aggregation_unit: aggregation?.unit ?? aggregationKind,
+                span_count: summary.span_count,
+                complete_span_count: summary.complete_span_count,
+                incomplete_span_count: summary.incomplete_span_count,
+                mean: summary.mean,
+                median: summary.median,
+                q1: summary.q1,
+                q3: summary.q3,
+                iqr: summary.iqr,
+                raw_mad: summary.raw_mad,
+                min: summary.min,
+                max: summary.max,
+                assigned_token_count: summary.assigned_token_count,
+                ambiguous_token_count: summary.ambiguous_token_count,
+                unassigned_token_count: summary.unassigned_token_count,
+                total_token_count: summary.total_token_count,
+                token_coverage_ratio: aggregationCoverage(summary),
+                mean_word_surprisal_bits: summary.mean_word_surprisal_bits,
+                median_word_surprisal_bits: summary.median_word_surprisal_bits,
+                mean_pre_word_entropy_bits: (
+                  summary.mean_pre_word_entropy_bits
+                ),
+                mean_pre_word_next_token_entropy_bits: (
+                  summary.mean_pre_word_next_token_entropy_bits
+                ),
+                mean_punctuation_surprisal_bits: (
+                  summary.mean_punctuation_surprisal_bits
+                ),
+                boundary_contaminated_token_count: (
+                  summary.boundary_contaminated_token_count
+                ),
+                raw_json: summary
+              });
+              asArray(aggregation?.spans).forEach((span, spanIndex) => {
+                const {start, end} = spanCharacterRange(span);
+                rows.push({
+                  analysis_kind: "text_surprisal_comparison",
+                  row_type: "span",
+                  side: side.toUpperCase(),
+                  aggregation_kind: aggregationKind,
+                  aggregation_label: aggregation?.label_cs,
+                  aggregation_unit: aggregation?.unit ?? aggregationKind,
+                  span_index: span.index ?? spanIndex,
+                  span_text: spanText(span, trace?.text ?? ""),
+                  character_start: start,
+                  character_end: end,
+                  token_indices: span.token_indices,
+                  token_ids: span.token_ids,
+                  token_count: (
+                    span.token_count ??
+                    asArray(span.token_indices).length
+                  ),
+                  total_surprisal_bits: (
+                    span.total_surprisal_bits ??
+                    span.surprisal_bits
+                  ),
+                  surprisal_bits_per_token: span.surprisal_bits_per_token,
+                  surprisal_bits_per_non_whitespace_character: (
+                    span.surprisal_bits_per_character ??
+                    span.bits_per_character
+                  ),
+                  character_count: span.character_count,
+                  non_whitespace_character_count: (
+                    span.non_whitespace_character_count
+                  ),
+                  covered_non_whitespace_character_count: (
+                    span.covered_non_whitespace_character_count
+                  ),
+                  ambiguous_token_count: (
+                    span.ambiguous_token_count ??
+                    span.boundary_ambiguous_token_count ??
+                    asArray(span.ambiguous_token_indices).length
+                  ),
+                  character_coverage_ratio: span.character_coverage_ratio,
+                  complete: span.complete,
+                  first_token_index: span.first_token_index,
+                  last_token_index: span.last_token_index,
+                  word_surprisal_bits: span.word_surprisal_bits,
+                  punctuation_surprisal_bits: (
+                    span.punctuation_surprisal_bits
+                  ),
+                  pre_unit_next_token_entropy_bits: (
+                    span.pre_unit_next_token_entropy_bits
+                  ),
+                  pre_word_next_token_entropy_bits: (
+                    span.pre_word_next_token_entropy_bits
+                  ),
+                  pre_word_entropy_bits: span.pre_word_entropy_bits,
+                  pre_punctuation_next_token_entropy_bits: (
+                    span.pre_punctuation_next_token_entropy_bits
+                  ),
+                  boundary_contaminated_token_count: (
+                    span.boundary_contaminated_token_count
+                  ),
+                  boundary_contaminated_token_indices: (
+                    span.boundary_contaminated_token_indices
+                  ),
+                  ambiguous_token_indices: span.ambiguous_token_indices,
+                  raw_json: span
+                });
+              });
+            }
+          );
+        });
+        rows.push({
+          analysis_kind: "text_surprisal_comparison",
+          row_type: "provenance",
+          delta_definition: data.comparison?.delta_definition,
+          comparison_method_id: data.comparison?.method?.id,
+          raw_json: {
+            request: state.request,
+            labels,
+            comparison: labeledComparison,
+            provenance: data.provenance,
+            timing_ms: data.timing_ms,
+            model_id: data.model_id,
+            model_generation: data.model_generation,
+            server_instance_id: data.server_instance_id
+          }
+        });
+        return rows;
+      };
+
+      const csvRows = () => {
+        const data = state.result;
+        if (!data) return [];
+        if (data.analysis_kind === "text_surprisal_comparison") {
+          return comparisonCsvRows(data);
+        }
+        const rows = [{
+          analysis_kind: "text_surprisal",
+          row_type: "summary",
+          token_count: data.token_count,
+          character_count: data.character_count,
+          utf8_byte_count: data.utf8_byte_count,
+          total_surprisal_bits: data.summary?.total_surprisal_bits,
+          mean_surprisal_bits: data.summary?.mean_surprisal_bits,
+          perplexity: data.summary?.perplexity,
+          bits_per_character: data.summary?.bits_per_character,
+          bits_per_utf8_byte: data.summary?.bits_per_utf8_byte,
+          mean_entropy_bits: data.summary?.mean_entropy_bits,
+          raw_json: data.summary
+        }];
+        asArray(data.tokens).forEach((token) => {
+          rows.push({
+            analysis_kind: "text_surprisal",
+            row_type: "token",
+            token_index: token.index,
+            token_id: token.token_id,
+            token_text: tokenText(token),
+            tokenizer_token: token.tokenizer_token,
+            probability: token.probability,
+            logprob_nats: token.logprob,
+            surprisal_bits: token.surprisal_bits,
+            rank: token.rank,
+            entropy_bits: token.entropy_bits,
+            effective_tokens: token.effective_tokens,
+            top1_gap_bits: token.top1_gap_bits,
+            word_start_hint: token.word_start_hint,
+            raw_json: token
+          });
+          asArray(token.alternatives).forEach((alternative) => {
+            rows.push({
+              analysis_kind: "text_surprisal",
+              row_type: "alternative",
+              parent_token_index: token.index,
+              token_id: alternative.token_id,
+              token_text: tokenText(alternative),
+              probability: alternative.probability,
+              rank: alternative.rank,
+              raw_json: alternative
+            });
+          });
+        });
+        Object.entries(data.aggregations ?? {}).forEach(
+          ([aggregationKind, aggregation]) => {
+            const summary = aggregation?.summary ?? {};
+            const assignedTokenCount = firstFinite(
+              summary.assigned_token_count
+            );
+            const ambiguousTokenCount = firstFinite(
+              summary.ambiguous_token_count,
+              summary.boundary_ambiguous_token_count
+            );
+            const unassignedTokenCount = firstFinite(
+              summary.unassigned_token_count
+            );
+            const totalTokenCount = firstFinite(
+              summary.total_token_count,
+              (
+                assignedTokenCount !== null &&
+                ambiguousTokenCount !== null &&
+                unassignedTokenCount !== null
+              )
+                ? (
+                  assignedTokenCount +
+                  ambiguousTokenCount +
+                  unassignedTokenCount
+                )
+                : null
+            );
+            rows.push({
+              analysis_kind: "text_surprisal",
+              row_type: "aggregation_summary",
+              aggregation_kind: aggregationKind,
+              aggregation_label: aggregation?.label_cs,
+              aggregation_unit: aggregation?.unit ?? aggregationKind,
+              statistic_unit: (
+                "surprisal_bits_per_non_whitespace_character"
+              ),
+              statistic_span_count: summary.count,
+              span_count: summary.span_count,
+              complete_span_count: summary.complete_span_count,
+              incomplete_span_count: summary.incomplete_span_count,
+              mean: summary.mean,
+              median: (
+                summary.median ??
+                summary.median_surprisal_bits_per_character ??
+                summary.median_bits_per_character
+              ),
+              q1: summary.q1,
+              q3: summary.q3,
+              iqr: (
+                summary.iqr ??
+                summary.iqr_surprisal_bits_per_character ??
+                summary.iqr_bits_per_character
+              ),
+              raw_mad: (
+                summary.raw_mad ??
+                summary.mad_surprisal_bits_per_character ??
+                summary.mad_bits_per_character
+              ),
+              min: summary.min,
+              max: summary.max,
+              assigned_token_count: assignedTokenCount,
+              ambiguous_token_count: ambiguousTokenCount,
+              unassigned_token_count: unassignedTokenCount,
+              total_token_count: totalTokenCount,
+              token_coverage_ratio: aggregationCoverage(summary),
+              mean_word_surprisal_bits: summary.mean_word_surprisal_bits,
+              median_word_surprisal_bits: summary.median_word_surprisal_bits,
+              mean_pre_word_entropy_bits: (
+                summary.mean_pre_word_entropy_bits
+              ),
+              mean_pre_word_next_token_entropy_bits: (
+                summary.mean_pre_word_next_token_entropy_bits
+              ),
+              mean_punctuation_surprisal_bits: (
+                summary.mean_punctuation_surprisal_bits
+              ),
+              boundary_contaminated_token_count: (
+                summary.boundary_contaminated_token_count
+              ),
+              raw_json: summary
+            });
+            asArray(aggregation?.spans).forEach((span, spanIndex) => {
+              const {start, end} = spanCharacterRange(span);
+              rows.push({
+                analysis_kind: "text_surprisal",
+                row_type: "span",
+                aggregation_kind: aggregationKind,
+                aggregation_label: aggregation?.label_cs,
+                aggregation_unit: aggregation?.unit ?? aggregationKind,
+                span_index: span.index ?? spanIndex,
+                span_text: spanText(span, data.text ?? ""),
+                character_start: start,
+                character_end: end,
+                token_indices: span.token_indices,
+                token_ids: span.token_ids,
+                token_count: (
+                  span.token_count ??
+                  asArray(span.token_indices).length
+                ),
+                total_surprisal_bits: (
+                  span.total_surprisal_bits ??
+                  span.surprisal_bits
+                ),
+                surprisal_bits_per_token: span.surprisal_bits_per_token,
+                surprisal_bits_per_character: (
+                  span.surprisal_bits_per_character ??
+                  span.bits_per_character
+                ),
+                surprisal_bits_per_non_whitespace_character: (
+                  span.surprisal_bits_per_character ??
+                  span.bits_per_character
+                ),
+                character_count: span.character_count,
+                non_whitespace_character_count: (
+                  span.non_whitespace_character_count
+                ),
+                covered_non_whitespace_character_count: (
+                  span.covered_non_whitespace_character_count
+                ),
+                ambiguous_token_count: (
+                  span.ambiguous_token_count ??
+                  span.boundary_ambiguous_token_count ??
+                  asArray(span.ambiguous_token_indices).length
+                ),
+                character_coverage_ratio: span.character_coverage_ratio,
+                complete: span.complete,
+                first_token_index: span.first_token_index,
+                last_token_index: span.last_token_index,
+                word_surprisal_bits: span.word_surprisal_bits,
+                punctuation_surprisal_bits: (
+                  span.punctuation_surprisal_bits
+                ),
+                pre_unit_next_token_entropy_bits: (
+                  span.pre_unit_next_token_entropy_bits
+                ),
+                pre_word_next_token_entropy_bits: (
+                  span.pre_word_next_token_entropy_bits
+                ),
+                pre_word_entropy_bits: span.pre_word_entropy_bits,
+                pre_punctuation_next_token_entropy_bits: (
+                  span.pre_punctuation_next_token_entropy_bits
+                ),
+                boundary_contaminated_token_count: (
+                  span.boundary_contaminated_token_count
+                ),
+                boundary_contaminated_token_indices: (
+                  span.boundary_contaminated_token_indices
+                ),
+                ambiguous_token_indices: span.ambiguous_token_indices,
+                raw_json: span
+              });
+            });
+          }
+        );
+        rows.push({
+          analysis_kind: "text_surprisal",
+          row_type: "provenance",
+          raw_json: {
+            request: state.request,
+            normalization: data.normalization,
+            provenance: data.provenance,
+            timing_ms: data.timing_ms,
+            model_id: data.model_id,
+            model_generation: data.model_generation,
+            server_instance_id: data.server_instance_id,
+            aggregation_method: data.aggregation_method ?? null,
+            aggregations: data.aggregations ?? null
+          }
+        });
+        return rows;
+      };
+
+      const saveExperiment = async () => {
+        if (
+          state.saveBusy ||
+          !state.result ||
+          resultIsStale() ||
+          state.savedRecordId
+        ) return;
+        const record = buildRecord();
+        if (!record) return;
+        state.saveBusy = true;
+        syncControls();
+        setMessage("Ukládám úplnou tokenovou stopu do lokálního archivu…");
+        try {
+          const response = await fetchJson("/api/experiments", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({record}),
+            timeoutMs: SAVE_TIMEOUT_MS
+          });
+          state.savedRecordId = response.record?.id ?? response.id ?? record.id;
+          setMessage(
+            response.created === false
+              ? "Tento experiment už v archivu je."
+              : "Experiment byl trvale uložen do lokálního archivu."
+          );
+        } catch (error) {
+          setMessage(
+            error.message || "Experiment se nepodařilo uložit.",
+            true
+          );
+        } finally {
+          state.saveBusy = false;
+          syncControls();
+        }
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        analyze();
+      });
+      form.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          if (!analyzeButton.disabled) analyze();
+        }
+      });
+      sourceText.addEventListener("input", syncControls);
+      sourceTextB.addEventListener("input", syncControls);
+      addTextBButton.addEventListener("click", () => {
+        setComparisonMode(true);
+      });
+      removeTextBButton.addEventListener("click", () => {
+        setComparisonMode(false);
+      });
+      labelA.addEventListener("input", refreshComparisonLabels);
+      labelB.addEventListener("input", refreshComparisonLabels);
+      topK.addEventListener("change", syncControls);
+      aggregationUnit.addEventListener("change", () => {
+        if (state.result?.analysis_kind === "text_surprisal") {
+          renderAggregations();
+        }
+        comparisonAggregationUnit.value = aggregationUnit.value;
+      });
+      comparisonAggregationUnit.addEventListener("change", () => {
+        aggregationUnit.value = comparisonAggregationUnit.value;
+        if (
+          state.result?.analysis_kind === "text_surprisal_comparison"
+        ) {
+          renderComparisonAggregations();
+        }
+      });
+      hideWaitButton.addEventListener("click", hideWait);
+      overlay.addEventListener("keydown", trapOverlayFocus);
+      tokenStream.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-token-index]");
+        if (!button) return;
+        renderTokenDetails(Number(button.dataset.tokenIndex));
+      });
+      tokenStream.addEventListener("keydown", (event) => {
+        const button = event.target.closest("[data-token-index]");
+        if (!button || !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+        event.preventDefault();
+        const buttons = [...tokenStream.querySelectorAll("[data-token-index]")];
+        const current = buttons.indexOf(button);
+        const delta = event.key === "ArrowRight" ? 1 : -1;
+        const next = buttons[
+          (current + delta + buttons.length) % buttons.length
+        ];
+        next?.focus();
+        next?.click();
+      });
+      comparisonTraces.addEventListener("click", (event) => {
+        const button = event.target.closest(
+          "[data-comparison-token-index][data-comparison-side]"
+        );
+        if (!button) return;
+        renderComparisonTokenDetails(
+          button.dataset.comparisonSide,
+          Number(button.dataset.comparisonTokenIndex)
+        );
+      });
+      comparisonTraces.addEventListener("keydown", (event) => {
+        const button = event.target.closest(
+          "[data-comparison-token-index][data-comparison-side]"
+        );
+        if (
+          !button ||
+          !["ArrowLeft", "ArrowRight"].includes(event.key)
+        ) return;
+        event.preventDefault();
+        const side = button.dataset.comparisonSide;
+        const stream = comparisonTraces.querySelector(
+          `[data-comparison-token-stream="${side}"]`
+        );
+        const buttons = [
+          ...stream.querySelectorAll("[data-comparison-token-index]")
+        ];
+        const current = buttons.indexOf(button);
+        const delta = event.key === "ArrowRight" ? 1 : -1;
+        const next = buttons[
+          (current + delta + buttons.length) % buttons.length
+        ];
+        next?.focus();
+        next?.click();
+      });
+      displayModeTokens.addEventListener("click", () => {
+        setDisplayMode("tokens");
+      });
+      displayModeWords.addEventListener("click", () => {
+        setDisplayMode("words");
+      });
+      exportJsonButton.addEventListener("click", () => {
+        if (!state.result || resultIsStale()) return;
+        const record = buildRecord();
+        downloadBlob(
+          `${JSON.stringify(record, null, 2)}\n`,
+          "application/json;charset=utf-8",
+          filename("json")
+        );
+      });
+      exportCsvButton.addEventListener("click", () => {
+        if (!state.result || resultIsStale()) return;
+        downloadBlob(
+          `\uFEFF${rowsToCsv(csvRows())}`,
+          "text/csv;charset=utf-8",
+          filename("csv")
+        );
+      });
+      exportWordCsvButton.addEventListener("click", () => {
+        if (!state.result || resultIsStale()) return;
+        const rows = wordCsvRows();
+        if (!rows.length) return;
+        downloadBlob(
+          `\uFEFF${rowsToCsv(rows)}`,
+          "text/csv;charset=utf-8",
+          wordFilename()
+        );
+      });
+      saveExperimentButton.addEventListener("click", saveExperiment);
+      window.addEventListener(
+        "probability-garden:request-workbench-state",
+        dispatchWorkbenchState
+      );
+      window.addEventListener("pagehide", (event) => {
+        window.clearTimeout(state.pollTimer);
+        if (!event.persisted) state.controller?.abort();
+      });
+
+      setDisplayMode(state.displayMode, {
+        persist: false,
+        updateUrl: false
+      });
+      syncControls();
+      pollHealth();
+    })();
+  </script>
+</body>
+</html>

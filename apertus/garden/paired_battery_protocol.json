@@ -1,0 +1,160 @@
+{
+  "format": "apertus.nomination-description-protocol",
+  "schema_version": 1,
+  "protocol_id": "nomination-vs-description-cs-v1",
+  "title": "Přímá nominace vs. kategoriální popis",
+  "language": "cs",
+  "design": {
+    "temperature": 1.0,
+    "root_top_k": 12,
+    "path_top_k": 12,
+    "compare_mover_count": 12,
+    "compare_overlap_k": 12,
+    "tuned_lens_top_k": 8,
+    "required_model_id": "hybrid",
+    "required_calibration_status": "ready",
+    "frame_order": [
+      "active",
+      "nominal"
+    ],
+    "path_order": [
+      "direct",
+      "descriptor"
+    ]
+  },
+  "interpretation": {
+    "primary_question": "Mění syntaktický rámec hlavně šířku pole, nebo rozdělení masy mezi přímé jméno a kategoriální popis?",
+    "within_pair_contrasts": [
+      "H(nominal) - H(active)",
+      "P(direct first token | nominal) - P(direct first token | active)",
+      "P(descriptor first token | nominal) - P(descriptor first token | active)",
+      "surprisal celé předepsané cesty pod oběma rámci"
+    ],
+    "cautions": [
+      "Pravděpodobnosti jsou predikce dalšího tokenu, nikoli pravda ani přesvědčení modelu.",
+      "Přímá a popisná cesta mají různý počet tokenů; jejich celkové pravděpodobnosti se proto nesrovnávají napříč typy cest bez délkové korekce.",
+      "Primární srovnání cesty je vždy tatáž tokenová cesta mezi dvěma rámci téhož páru.",
+      "RAW a TUNED jsou čtečky mezistavu; TUNED pouze aproximuje finální distribuci.",
+      "Sedm párů je explorativní baterie, nikoli reprezentativní vzorek češtiny."
+    ]
+  },
+  "audit": {
+    "locked_before_measurement": true,
+    "checks": [
+      "Oba rámce v páru očekávají nominativní pokračování.",
+      "Přímá i popisná cílová cesta jsou uvnitř páru doslova stejné pro oba rámce.",
+      "První token přímé a popisné cesty musí být po kontextové tokenizaci různý.",
+      "Kořenové prefixy nemají koncovou mezeru; cílové cesty začínají právě jednou mezerou.",
+      "Tečka je záměrnou součástí obou předepsaných cest: kroková telemetrie tak zahrnuje i uzavření věty.",
+      "Fakta jsou nepolitická a cílové osoby jsou jednoznačně spojeny s dílem.",
+      "Babička je předem označená ženská morfosyntaktická replikace, ne sedmý nezávislý core typ."
+    ]
+  },
+  "pairs": [
+    {
+      "pair_id": "orwell_1984",
+      "role": "core",
+      "work": "1984",
+      "expected_person": "George Orwell",
+      "frames": {
+        "active": "Román 1984 napsal",
+        "nominal": "Autorem románu 1984 je"
+      },
+      "paths": {
+        "direct": " George Orwell.",
+        "descriptor": " anglický spisovatel George Orwell."
+      },
+      "audit_note": "Autor románu 1984; aktivní slovesný rámec proti jmennému autorskému rámci."
+    },
+    {
+      "pair_id": "maj",
+      "role": "core",
+      "work": "Máj",
+      "expected_person": "Karel Hynek Mácha",
+      "frames": {
+        "active": "Báseň Máj napsal",
+        "nominal": "Autorem básně Máj je"
+      },
+      "paths": {
+        "direct": " Karel Hynek Mácha.",
+        "descriptor": " český básník Karel Hynek Mácha."
+      },
+      "audit_note": "Autor básně Máj; oba rámce připouštějí stejnou nominativní osobu i popis."
+    },
+    {
+      "pair_id": "guernica",
+      "role": "core",
+      "work": "Guernica",
+      "expected_person": "Pablo Picasso",
+      "frames": {
+        "active": "Obraz Guernica namaloval",
+        "nominal": "Autorem obrazu Guernica je"
+      },
+      "paths": {
+        "direct": " Pablo Picasso.",
+        "descriptor": " španělský malíř Pablo Picasso."
+      },
+      "audit_note": "Autor obrazu Guernica; sloveso namaloval proti jmennému autorskému rámci."
+    },
+    {
+      "pair_id": "rusalka",
+      "role": "core",
+      "work": "Rusalka",
+      "expected_person": "Antonín Dvořák",
+      "frames": {
+        "active": "Hudbu k opeře Rusalka složil",
+        "nominal": "Autorem hudby k opeře Rusalka je"
+      },
+      "paths": {
+        "direct": " Antonín Dvořák.",
+        "descriptor": " český skladatel Antonín Dvořák."
+      },
+      "audit_note": "Autor hudby k opeře Rusalka; formulace se vyhýbá nepravdivému tvrzení, že jediným autorem celé opery včetně libreta je skladatel."
+    },
+    {
+      "pair_id": "maly_princ",
+      "role": "core",
+      "work": "Malý princ",
+      "expected_person": "Antoine de Saint-Exupéry",
+      "frames": {
+        "active": "Knihu Malý princ napsal",
+        "nominal": "Autorem knihy Malý princ je"
+      },
+      "paths": {
+        "direct": " Antoine de Saint-Exupéry.",
+        "descriptor": " francouzský spisovatel Antoine de Saint-Exupéry."
+      },
+      "audit_note": "Autor knihy Malý princ; název díla je v obou prefixech ponechán v citačním tvaru."
+    },
+    {
+      "pair_id": "vykrik",
+      "role": "core",
+      "work": "Výkřik",
+      "expected_person": "Edvard Munch",
+      "frames": {
+        "active": "Obraz Výkřik namaloval",
+        "nominal": "Autorem obrazu Výkřik je"
+      },
+      "paths": {
+        "direct": " Edvard Munch.",
+        "descriptor": " norský malíř Edvard Munch."
+      },
+      "audit_note": "Autor obrazu Výkřik; oba rámce připouštějí stejnou nominativní osobu i popis."
+    },
+    {
+      "pair_id": "babicka",
+      "role": "female_replication",
+      "work": "Babička",
+      "expected_person": "Božena Němcová",
+      "frames": {
+        "active": "Knihu Babička napsala",
+        "nominal": "Autorkou knihy Babička je"
+      },
+      "paths": {
+        "direct": " Božena Němcová.",
+        "descriptor": " česká spisovatelka Božena Němcová."
+      },
+      "audit_note": "Předem určená ženská morfosyntaktická replikace: knihu napsala/autorkou knihy a ženský popis."
+    }
+  ]
+}

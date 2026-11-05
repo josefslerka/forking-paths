@@ -1,0 +1,129 @@
+{
+  "series_id": "zahrada12-normative-status-v1",
+  "title": "Stejný obsah, jiný status: závazek versus očekávání",
+  "language": "cs",
+  "frozen_date": "2026-08-02",
+  "primary_model": "Apertus 8B Hybrid 8bit/BF16",
+  "primary_tool": "Překvapení textu",
+  "scoring": "teacher_forced_total_surprisal",
+  "temperature": 1,
+  "shared_evaluation_prefix": "Šlo především o",
+  "candidates": {
+    "normative_failure": " nedodržení daného slova",
+    "normative_success": " dodržení daného slova",
+    "epistemic_failure": " nesprávné očekávání",
+    "epistemic_success": " správné očekávání"
+  },
+  "items": [
+    {
+      "id": "z12_01",
+      "lexical_block": "slibil_odhadl",
+      "domain": "oprava",
+      "prefixes": {
+        "normative_failure": "Technik slíbil, že oprava bude hotová v pátek. V pátek hotová nebyla. Šlo především o",
+        "normative_success": "Technik slíbil, že oprava bude hotová v pátek. V pátek hotová byla. Šlo především o",
+        "epistemic_failure": "Technik odhadl, že oprava bude hotová v pátek. V pátek hotová nebyla. Šlo především o",
+        "epistemic_success": "Technik odhadl, že oprava bude hotová v pátek. V pátek hotová byla. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_02",
+      "lexical_block": "slibil_odhadl",
+      "domain": "překlad",
+      "prefixes": {
+        "normative_failure": "Překladatel slíbil, že překlad bude hotový v úterý. V úterý hotový nebyl. Šlo především o",
+        "normative_success": "Překladatel slíbil, že překlad bude hotový v úterý. V úterý hotový byl. Šlo především o",
+        "epistemic_failure": "Překladatel odhadl, že překlad bude hotový v úterý. V úterý hotový nebyl. Šlo především o",
+        "epistemic_success": "Překladatel odhadl, že překlad bude hotový v úterý. V úterý hotový byl. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_03",
+      "lexical_block": "slibil_odhadl",
+      "domain": "aktualizace",
+      "prefixes": {
+        "normative_failure": "Programátor slíbil, že aktualizace bude nasazena do rána. Do rána nasazena nebyla. Šlo především o",
+        "normative_success": "Programátor slíbil, že aktualizace bude nasazena do rána. Do rána nasazena byla. Šlo především o",
+        "epistemic_failure": "Programátor odhadl, že aktualizace bude nasazena do rána. Do rána nasazena nebyla. Šlo především o",
+        "epistemic_success": "Programátor odhadl, že aktualizace bude nasazena do rána. Do rána nasazena byla. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_04",
+      "lexical_block": "slibil_odhadl",
+      "domain": "sál",
+      "prefixes": {
+        "normative_failure": "Organizátor slíbil, že sál bude připraven před poradou. Před poradou připraven nebyl. Šlo především o",
+        "normative_success": "Organizátor slíbil, že sál bude připraven před poradou. Před poradou připraven byl. Šlo především o",
+        "epistemic_failure": "Organizátor odhadl, že sál bude připraven před poradou. Před poradou připraven nebyl. Šlo především o",
+        "epistemic_success": "Organizátor odhadl, že sál bude připraven před poradou. Před poradou připraven byl. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_05",
+      "lexical_block": "slibil_odhadl",
+      "domain": "auto",
+      "prefixes": {
+        "normative_failure": "Mechanik slíbil, že auto bude opravené do večera. Do večera opravené nebylo. Šlo především o",
+        "normative_success": "Mechanik slíbil, že auto bude opravené do večera. Do večera opravené bylo. Šlo především o",
+        "epistemic_failure": "Mechanik odhadl, že auto bude opravené do večera. Do večera opravené nebylo. Šlo především o",
+        "epistemic_success": "Mechanik odhadl, že auto bude opravené do večera. Do večera opravené bylo. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_06",
+      "lexical_block": "zarucil_predpokladal",
+      "domain": "text",
+      "prefixes": {
+        "normative_failure": "Redaktor zaručil, že text bude zkontrolovaný do poledne. Do poledne zkontrolovaný nebyl. Šlo především o",
+        "normative_success": "Redaktor zaručil, že text bude zkontrolovaný do poledne. Do poledne zkontrolovaný byl. Šlo především o",
+        "epistemic_failure": "Redaktor předpokládal, že text bude zkontrolovaný do poledne. Do poledne zkontrolovaný nebyl. Šlo především o",
+        "epistemic_success": "Redaktor předpokládal, že text bude zkontrolovaný do poledne. Do poledne zkontrolovaný byl. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_07",
+      "lexical_block": "zarucil_predpokladal",
+      "domain": "balík",
+      "prefixes": {
+        "normative_failure": "Kurýr zaručil, že balík bude doručen ve středu. Ve středu doručen nebyl. Šlo především o",
+        "normative_success": "Kurýr zaručil, že balík bude doručen ve středu. Ve středu doručen byl. Šlo především o",
+        "epistemic_failure": "Kurýr předpokládal, že balík bude doručen ve středu. Ve středu doručen nebyl. Šlo především o",
+        "epistemic_success": "Kurýr předpokládal, že balík bude doručen ve středu. Ve středu doručen byl. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_08",
+      "lexical_block": "zarucil_predpokladal",
+      "domain": "platba",
+      "prefixes": {
+        "normative_failure": "Účetní zaručil, že platba bude odeslána v pondělí. V pondělí odeslána nebyla. Šlo především o",
+        "normative_success": "Účetní zaručil, že platba bude odeslána v pondělí. V pondělí odeslána byla. Šlo především o",
+        "epistemic_failure": "Účetní předpokládal, že platba bude odeslána v pondělí. V pondělí odeslána nebyla. Šlo především o",
+        "epistemic_success": "Účetní předpokládal, že platba bude odeslána v pondělí. V pondělí odeslána byla. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_09",
+      "lexical_block": "zarucil_predpokladal",
+      "domain": "střecha",
+      "prefixes": {
+        "normative_failure": "Stavbyvedoucí zaručil, že střecha bude dokončena do konce měsíce. Do konce měsíce dokončena nebyla. Šlo především o",
+        "normative_success": "Stavbyvedoucí zaručil, že střecha bude dokončena do konce měsíce. Do konce měsíce dokončena byla. Šlo především o",
+        "epistemic_failure": "Stavbyvedoucí předpokládal, že střecha bude dokončena do konce měsíce. Do konce měsíce dokončena nebyla. Šlo především o",
+        "epistemic_success": "Stavbyvedoucí předpokládal, že střecha bude dokončena do konce měsíce. Do konce měsíce dokončena byla. Šlo především o"
+      }
+    },
+    {
+      "id": "z12_10",
+      "lexical_block": "zarucil_predpokladal",
+      "domain": "kniha",
+      "prefixes": {
+        "normative_failure": "Knihovník zaručil, že kniha bude dostupná od pondělí. Od pondělí dostupná nebyla. Šlo především o",
+        "normative_success": "Knihovník zaručil, že kniha bude dostupná od pondělí. Od pondělí dostupná byla. Šlo především o",
+        "epistemic_failure": "Knihovník předpokládal, že kniha bude dostupná od pondělí. Od pondělí dostupná nebyla. Šlo především o",
+        "epistemic_success": "Knihovník předpokládal, že kniha bude dostupná od pondělí. Od pondělí dostupná byla. Šlo především o"
+      }
+    }
+  ]
+}

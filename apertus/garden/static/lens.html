@@ -1,0 +1,2139 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Experimentální RAW logit lens: trajektorie predikce dalšího tokenu napříč vrstvami Apertusu a EuroLLM."
+  >
+  <title>Zrození predikce · RAW logit lens · Apertus</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #09100d;
+      --surface: #111b16;
+      --surface-2: #17251d;
+      --surface-soft: rgba(17, 27, 22, 0.76);
+      --text: #ecf6ef;
+      --muted: #9eb3a6;
+      --line: #31483a;
+      --line-soft: rgba(49, 72, 58, 0.62);
+      --leaf: #70d89b;
+      --leaf-bright: #9cf0bd;
+      --gold: #e6c978;
+      --danger: #f19a91;
+      --ink: #07100b;
+      --radius: 18px;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 10% -12%, rgba(57, 124, 83, 0.2), transparent 34rem),
+        radial-gradient(circle at 98% 40%, rgba(188, 149, 63, 0.07), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    body.is-computing {
+      overflow: hidden;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    a {
+      color: var(--leaf-bright);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.18em;
+    }
+
+    a:hover {
+      color: var(--text);
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(112, 216, 155, 0.55);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 120;
+      top: 10px;
+      left: 10px;
+      padding: 9px 13px;
+      border-radius: 10px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-weight: 800;
+      transform: translateY(-160%);
+      transition: transform 140ms ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .shell {
+      width: min(1480px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 80px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 52px;
+    }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 720;
+      text-decoration: none;
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible {
+      color: var(--text);
+    }
+
+    .nav-link:first-child::before {
+      content: "←";
+      color: var(--leaf);
+      font-size: 1.08rem;
+    }
+
+    .model-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(17, 27, 22, 0.8);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 0 5px rgba(230, 201, 120, 0.08);
+    }
+
+    .model-state[data-state="ready"] .state-dot {
+      background: var(--leaf);
+      box-shadow: 0 0 0 5px rgba(112, 216, 155, 0.09);
+    }
+
+    .model-state[data-state="error"] .state-dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 5px rgba(241, 154, 145, 0.09);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.7fr);
+      gap: clamp(36px, 7vw, 108px);
+      align-items: end;
+      margin-bottom: 42px;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--leaf-bright);
+      font-size: 0.76rem;
+      font-weight: 760;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 920px;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(3rem, 6.8vw, 6.3rem);
+      font-weight: 400;
+      letter-spacing: -0.055em;
+      line-height: 0.91;
+    }
+
+    .lede {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.15rem, 2vw, 1.45rem);
+      line-height: 1.45;
+    }
+
+    .method-note {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(170px, 0.3fr) minmax(0, 1fr);
+      gap: clamp(22px, 4vw, 58px);
+      margin: 0 0 36px;
+      padding: clamp(24px, 4vw, 38px);
+      overflow: hidden;
+      border: 1px solid rgba(230, 201, 120, 0.38);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(110deg, rgba(230, 201, 120, 0.08), transparent 56%),
+        var(--surface-soft);
+      box-shadow: var(--shadow);
+    }
+
+    .method-note::after {
+      position: absolute;
+      top: -68px;
+      right: -48px;
+      width: 180px;
+      height: 180px;
+      border: 1px solid rgba(230, 201, 120, 0.18);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .method-label {
+      color: var(--gold);
+      font-size: 0.78rem;
+      font-weight: 850;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .method-copy {
+      position: relative;
+      z-index: 1;
+      max-width: 980px;
+    }
+
+    .method-copy strong {
+      color: var(--text);
+    }
+
+    .method-copy p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .method-copy p + p {
+      margin-top: 9px;
+      font-size: 0.86rem;
+    }
+
+    .control-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 170px auto;
+      gap: 14px;
+      align-items: end;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 720;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      background: #0c1510;
+      color: var(--text);
+    }
+
+    input,
+    textarea {
+      min-height: 92px;
+      padding: 13px 14px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    input {
+      min-height: 48px;
+      resize: none;
+    }
+
+    select {
+      min-height: 48px;
+      padding: 0 38px 0 13px;
+    }
+
+    input:hover,
+    textarea:hover,
+    select:hover {
+      border-color: #476652;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--leaf);
+      box-shadow: 0 0 0 3px rgba(112, 216, 155, 0.1);
+    }
+
+    .primary-button {
+      min-height: 48px;
+      padding: 0 20px;
+      border: 1px solid var(--leaf);
+      border-radius: 12px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-size: 0.86rem;
+      font-weight: 820;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    .primary-button:hover:not(:disabled) {
+      background: var(--leaf-bright);
+      transform: translateY(-1px);
+    }
+
+    .secondary-button,
+    .archive-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 17px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #0c1510;
+      color: var(--text);
+      font-size: 0.8rem;
+      font-weight: 760;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .secondary-button:hover:not(:disabled),
+    .archive-link:hover {
+      border-color: var(--leaf);
+      color: var(--leaf-bright);
+    }
+
+    .primary-button:disabled,
+    .secondary-button:disabled,
+    input:disabled,
+    textarea:disabled,
+    select:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .control-foot {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 10px 2px 0;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .message {
+      min-height: 24px;
+      margin: 12px 2px 20px;
+      color: var(--muted);
+      font-size: 0.83rem;
+    }
+
+    .message.error {
+      padding: 12px 14px;
+      border: 1px solid rgba(241, 154, 145, 0.34);
+      border-radius: 12px;
+      background: rgba(98, 36, 32, 0.18);
+      color: var(--danger);
+    }
+
+    .results {
+      margin-top: 56px;
+    }
+
+    .results[hidden] {
+      display: none;
+    }
+
+    .results-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2rem, 4vw, 3.35rem);
+      font-weight: 400;
+      letter-spacing: -0.035em;
+      line-height: 1;
+    }
+
+    .result-context {
+      max-width: 620px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      overflow-wrap: anywhere;
+    }
+
+    .raw-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 11px;
+      border: 1px solid rgba(230, 201, 120, 0.4);
+      border-radius: 999px;
+      color: var(--gold);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0 32px;
+    }
+
+    .summary-card {
+      min-height: 128px;
+      padding: 18px;
+      border: 1px solid var(--line-soft);
+      border-radius: 15px;
+      background: var(--surface-soft);
+    }
+
+    .summary-label {
+      display: block;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 780;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .summary-value {
+      display: block;
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.35rem, 2.6vw, 2rem);
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+    }
+
+    .summary-detail {
+      display: block;
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.35;
+    }
+
+    .section-block {
+      margin: 0 0 34px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 0.86rem;
+      font-weight: 820;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .section-help {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.74rem;
+    }
+
+    .tokenization,
+    .runs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .token-chip {
+      display: inline-grid;
+      grid-template-columns: auto auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0c1510;
+    }
+
+    .token-piece {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      font-weight: 720;
+      white-space: pre-wrap;
+    }
+
+    .token-id {
+      color: var(--muted);
+      font-size: 0.65rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .token-chip.special {
+      border-style: dashed;
+      color: var(--gold);
+    }
+
+    .run {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 37px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.75rem;
+    }
+
+    .run.changed::before {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--leaf);
+      content: "";
+    }
+
+    .run.stable {
+      border-color: rgba(230, 201, 120, 0.55);
+      background: rgba(230, 201, 120, 0.07);
+    }
+
+    .run-range {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .run-token {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 750;
+      white-space: pre-wrap;
+    }
+
+    .trajectory-shell {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(10, 18, 14, 0.7);
+      box-shadow: var(--shadow);
+    }
+
+    .trajectory-scroll {
+      max-width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1180px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    col.layer-col {
+      width: 86px;
+    }
+
+    col.top-col {
+      width: 250px;
+    }
+
+    col.target-col {
+      width: 150px;
+    }
+
+    col.entropy-col {
+      width: 170px;
+    }
+
+    col.js-col {
+      width: 160px;
+    }
+
+    thead {
+      background: var(--surface-2);
+    }
+
+    th {
+      padding: 13px 12px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    td {
+      padding: 12px;
+      border-top: 1px solid var(--line-soft);
+      vertical-align: middle;
+    }
+
+    tbody tr {
+      transition: background 120ms ease;
+    }
+
+    tbody tr:hover {
+      background: rgba(112, 216, 155, 0.035);
+    }
+
+    tbody tr.is-change {
+      box-shadow: inset 3px 0 0 rgba(112, 216, 155, 0.72);
+    }
+
+    tbody tr.is-stable {
+      background: rgba(230, 201, 120, 0.026);
+    }
+
+    tbody tr.is-stable-start {
+      background: rgba(230, 201, 120, 0.09);
+      box-shadow: inset 3px 0 0 var(--gold);
+    }
+
+    .layer-number {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+    }
+
+    .change-dot {
+      width: 7px;
+      height: 7px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--leaf);
+    }
+
+    .stable-mark {
+      display: block;
+      margin-top: 4px;
+      color: var(--gold);
+      font-size: 0.61rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .prediction-head,
+    .metric-line {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .prediction-token {
+      min-width: 0;
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.78rem;
+      font-weight: 760;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .probability,
+    .metric-number {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 0.69rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bar {
+      height: 4px;
+      margin-top: 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(49, 72, 58, 0.58);
+    }
+
+    .bar > span {
+      display: block;
+      width: var(--bar, 0%);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--leaf);
+    }
+
+    .js-bar > span {
+      background: var(--gold);
+    }
+
+    .target-rank {
+      font-size: 0.78rem;
+      font-weight: 780;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-stack {
+      display: grid;
+      gap: 4px;
+    }
+
+    .metric-secondary {
+      color: var(--muted);
+      font-size: 0.68rem;
+    }
+
+    .candidate-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .candidate-pill {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      max-width: 190px;
+      padding: 5px 7px;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      background: var(--surface);
+      font-size: 0.66rem;
+    }
+
+    .candidate-pill:first-child {
+      border-color: rgba(112, 216, 155, 0.42);
+    }
+
+    .candidate-pill.final-target {
+      border-color: rgba(230, 201, 120, 0.55);
+    }
+
+    .candidate-token {
+      overflow: hidden;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 720;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .candidate-probability {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .table-note {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin: 0;
+      padding: 13px 15px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.69rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-swatch {
+      width: 14px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--leaf);
+    }
+
+    .legend-swatch.gold {
+      background: var(--gold);
+    }
+
+    .closing-note {
+      max-width: 900px;
+      margin: 24px 0 0;
+      color: var(--muted);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1rem;
+    }
+
+    .save-panel {
+      display: grid;
+      grid-template-columns: minmax(240px, 1fr) auto;
+      gap: 14px 18px;
+      align-items: end;
+      margin-top: 34px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+    }
+
+    .save-panel-copy {
+      grid-column: 1 / -1;
+    }
+
+    .save-panel-copy h3 {
+      margin: 0 0 4px;
+      font-size: 0.94rem;
+    }
+
+    .save-panel-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .save-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .archive-count {
+      grid-column: 1 / -1;
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+
+    .compute-overlay {
+      position: fixed;
+      z-index: 110;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(4, 10, 7, 0.76);
+      backdrop-filter: blur(5px);
+      cursor: wait;
+    }
+
+    .compute-overlay[hidden] {
+      display: none;
+    }
+
+    .compute-status {
+      width: min(480px, calc(100vw - 48px));
+      padding: 22px;
+      border: 1px solid rgba(112, 216, 155, 0.52);
+      border-radius: 17px;
+      background: rgba(12, 21, 16, 0.98);
+      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.5);
+    }
+
+    .compute-status-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .compute-spinner {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+      border: 2px solid var(--line);
+      border-top-color: var(--leaf-bright);
+      border-radius: 50%;
+      animation: turn 820ms linear infinite;
+    }
+
+    .compute-copy {
+      display: grid;
+      gap: 2px;
+    }
+
+    .compute-title {
+      font-size: 0.94rem;
+      font-weight: 820;
+    }
+
+    .compute-detail {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .indeterminate {
+      height: 3px;
+      margin-top: 18px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--line);
+    }
+
+    .indeterminate::after {
+      display: block;
+      width: 42%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--leaf);
+      content: "";
+      animation: progress 1.35s ease-in-out infinite;
+    }
+
+    @keyframes turn {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes progress {
+      from {
+        transform: translateX(-110%);
+      }
+      to {
+        transform: translateX(250%);
+      }
+    }
+
+    @media (max-width: 980px) {
+      .hero {
+        grid-template-columns: 1fr;
+        gap: 22px;
+      }
+
+      .lede {
+        max-width: 760px;
+      }
+
+      .control-panel {
+        grid-template-columns: minmax(0, 1fr) 150px;
+      }
+
+      .prompt-control {
+        grid-column: 1 / -1;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 700px) {
+      .shell {
+        width: min(100% - 24px, 1480px);
+        padding-top: 14px;
+      }
+
+      .topbar,
+      .results-head,
+      .section-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topbar {
+        margin-bottom: 38px;
+      }
+
+      .model-state {
+        white-space: normal;
+      }
+
+      h1 {
+        font-size: clamp(3rem, 17vw, 5rem);
+      }
+
+      .method-note {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 22px;
+      }
+
+      .control-panel {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+
+      .save-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .save-actions,
+      .save-actions > * {
+        width: 100%;
+      }
+
+      .prompt-control {
+        grid-column: auto;
+      }
+
+      .primary-button {
+        width: 100%;
+      }
+
+      .control-foot {
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-card {
+        min-height: 0;
+      }
+
+      .trajectory-shell {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .trajectory-scroll {
+        overflow: visible;
+      }
+
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+
+      table {
+        min-width: 0;
+      }
+
+      colgroup,
+      thead {
+        display: none;
+      }
+
+      tbody {
+        display: grid;
+        gap: 10px;
+      }
+
+      tbody tr {
+        padding: 4px 14px 14px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(10, 18, 14, 0.76);
+      }
+
+      tbody tr.is-change,
+      tbody tr.is-stable-start {
+        box-shadow: inset 3px 0 0 var(--leaf);
+      }
+
+      tbody tr.is-stable-start {
+        box-shadow: inset 3px 0 0 var(--gold);
+      }
+
+      td {
+        display: grid;
+        grid-template-columns: minmax(100px, 0.34fr) minmax(0, 1fr);
+        gap: 12px;
+        padding: 10px 0;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      td:first-child {
+        border-top: 0;
+      }
+
+      td::before {
+        color: var(--muted);
+        content: attr(data-label);
+        font-size: 0.64rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .table-note {
+        margin-top: 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .nav-links {
+        gap: 10px;
+      }
+
+      .nav-link {
+        font-size: 0.75rem;
+      }
+
+      td {
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+
+      .candidate-pill {
+        max-width: 155px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+</head>
+<body data-workbench-page="raw">
+  <a class="skip-link" href="#workspace">Přeskočit k analýze</a>
+
+  <div
+    id="compute-overlay"
+    class="compute-overlay"
+    role="status"
+    aria-live="assertive"
+    aria-atomic="true"
+    hidden
+  >
+    <div class="compute-status">
+      <div class="compute-status-head">
+        <span class="compute-spinner" aria-hidden="true"></span>
+        <span class="compute-copy">
+          <span class="compute-title">Model prosvěcuje vrstvy</span>
+          <span id="compute-detail" class="compute-detail">
+            Připravuji jeden dopředný průchod…
+          </span>
+        </span>
+      </div>
+      <div class="indeterminate" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <main id="workspace" class="shell">
+    <nav class="topbar" aria-label="Hlavní navigace">
+      <div class="nav-links">
+        <a class="nav-link" href="/">Pravděpodobnostní zahrada</a>
+        <a class="nav-link" href="/tuned-lens">RAW × TUNED</a>
+        <a class="nav-link" href="/steering">Steering</a>
+        <a class="nav-link" href="/jak-to-cist">Průvodce workbenchem</a>
+        <a class="nav-link" href="/archiv">Archiv měření</a>
+      </div>
+      <div
+        id="model-state"
+        class="model-state"
+        data-state="loading"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="state-dot" aria-hidden="true"></span>
+        <span id="model-state-text">Zjišťuji stav modelu…</span>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Apertus / EuroLLM · vertikální řez</p>
+        <h1>Zrození predikce</h1>
+      </div>
+      <p class="lede">
+        Sleduj, co by model předpověděl po každé vrstvě — od prvního
+        mezistavu až po finální distribuci.
+      </p>
+    </header>
+
+    <aside class="method-note" aria-labelledby="method-title">
+      <div id="method-title" class="method-label">RAW LOGIT LENS</div>
+      <div class="method-copy">
+        <p>
+          Tato stránka ukazuje <strong>hypotetickou trajektorii predikce dalšího
+          tokenu</strong>: mezistav každé vrstvy dekóduje stejnou finální
+          normalizací a výstupní hlavou.
+        </p>
+        <p>
+          Není to přímý pohled na význam, důkaz re-lexikalizace ani lokalizace
+          „myšlenky“ do konkrétní vrstvy. Zvlášť rané vrstvy může finální čtečka
+          zobrazovat zkresleně.
+        </p>
+      </div>
+    </aside>
+
+    <form id="lens-form" novalidate>
+      <section class="control-panel" aria-label="Nastavení logit lens">
+        <label class="prompt-control" for="prompt">
+          Prefix
+          <textarea
+            id="prompt"
+            name="prompt"
+            maxlength="4000"
+            required
+            spellcheck="true"
+          >Hlavním městem České republiky je</textarea>
+        </label>
+        <label for="top-k">
+          Tokenů v každé vrstvě
+          <select id="top-k" name="top_k">
+            <option value="3">Top 3</option>
+            <option value="5" selected>Top 5</option>
+            <option value="8">Top 8</option>
+          </select>
+        </label>
+        <button id="analyze-button" class="primary-button" type="submit" disabled>
+          Prosvítit vrstvy
+        </button>
+      </section>
+      <div class="control-foot">
+        <span>Výpočet se spustí pouze tímto tlačítkem; koncové mezery se odstraní.</span>
+        <span>Klávesově: Ctrl/⌘ + Enter</span>
+      </div>
+    </form>
+
+    <div id="message" class="message" aria-live="polite"></div>
+
+    <section
+      id="results"
+      class="results"
+      aria-labelledby="results-title"
+      aria-busy="false"
+      hidden
+    >
+      <header class="results-head">
+        <div>
+          <p class="eyebrow">Výsledek jednoho průchodu</p>
+          <h2 id="results-title">Trajektorie po vrstvách</h2>
+          <p id="result-context" class="result-context"></p>
+        </div>
+        <span class="raw-badge">RAW · T = 1</span>
+      </header>
+
+      <div class="summary-grid" aria-label="Souhrn analýzy">
+        <article class="summary-card">
+          <span class="summary-label">Finální top 1</span>
+          <strong id="final-token" class="summary-value observed-token">—</strong>
+          <span id="final-token-detail" class="summary-detail"></span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Stabilní od vrstvy</span>
+          <strong id="stable-layer" class="summary-value">—</strong>
+          <span id="stable-detail" class="summary-detail"></span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Model a výpočet</span>
+          <strong id="model-summary" class="summary-value">—</strong>
+          <span id="model-detail" class="summary-detail"></span>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Čas</span>
+          <strong id="timing-total" class="summary-value">—</strong>
+          <span id="timing-detail" class="summary-detail"></span>
+        </article>
+      </div>
+
+      <section class="section-block" aria-labelledby="tokenization-title">
+        <div class="section-head">
+          <h3 id="tokenization-title">Tokenizace vstupu</h3>
+          <p id="token-count" class="section-help"></p>
+        </div>
+        <ol id="tokenization" class="tokenization"></ol>
+      </section>
+
+      <section class="section-block" aria-labelledby="runs-title">
+        <div class="section-head">
+          <h3 id="runs-title">Souvislé běhy top 1</h3>
+          <p class="section-help">Nová tečka značí změnu vedoucího tokenu.</p>
+        </div>
+        <ol id="runs" class="runs"></ol>
+      </section>
+
+      <section class="section-block" aria-labelledby="trajectory-title">
+        <div class="section-head">
+          <h3 id="trajectory-title">Vrstva po vrstvě</h3>
+          <p id="layer-count" class="section-help"></p>
+        </div>
+        <div class="trajectory-shell">
+          <div class="trajectory-scroll" tabindex="0" aria-label="Tabulka trajektorie vrstev">
+            <table>
+              <colgroup>
+                <col class="layer-col">
+                <col class="top-col">
+                <col class="target-col">
+                <col class="entropy-col">
+                <col class="js-col">
+                <col>
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col">Vrstva</th>
+                  <th scope="col">Top 1 · pravděpodobnost</th>
+                  <th scope="col">Finální cíl</th>
+                  <th scope="col">Entropie · šířka</th>
+                  <th scope="col">JS → finále</th>
+                  <th scope="col">Top tokeny vrstvy</th>
+                </tr>
+              </thead>
+              <tbody id="trajectory-body"></tbody>
+            </table>
+          </div>
+          <p class="table-note">
+            <span class="legend-item">
+              <span class="legend-swatch" aria-hidden="true"></span>
+              změna top 1
+            </span>
+            <span class="legend-item">
+              <span class="legend-swatch gold" aria-hidden="true"></span>
+              začátek stabilního úseku
+            </span>
+            <span>
+              Délka JS pruhu je relativní k nejvyšší odchylce v tomto běhu;
+              číslo zůstává v bitech.
+            </span>
+          </p>
+        </div>
+        <p class="closing-note">
+          Shoda s finálním tokenem říká, kdy se ustálila tato predikce — ne kdy
+          model „pochopil“ výraz nebo začal něco mínit.
+        </p>
+      </section>
+
+      <section class="save-panel" aria-labelledby="save-title">
+        <div class="save-panel-copy">
+          <h3 id="save-title">Uložit trajektorii</h3>
+          <p>
+            Do lokálního SQLite archivu se uloží přesný prefix, tokenizace,
+            konfigurace a řádky všech vrstev. Aktivace ani váhy se neukládají.
+          </p>
+        </div>
+        <label for="lens-note">
+          Poznámka k měření
+          <input
+            id="lens-note"
+            type="text"
+            maxlength="1000"
+            placeholder="Například: Praha/Prague, kontrola Hybrid vs. BF16"
+          >
+        </label>
+        <div class="save-actions">
+          <button id="save-lens" class="secondary-button" type="button" disabled>
+            Uložit trajektorii
+          </button>
+          <a class="archive-link" href="/archiv?kind=lens_trajectory">
+            Otevřít archiv
+          </a>
+        </div>
+        <span id="archive-count" class="archive-count" aria-live="polite"></span>
+      </section>
+    </section>
+  </main>
+
+  <script type="text/javascript">
+    (() => {
+      const form = document.querySelector("#lens-form");
+      const promptInput = document.querySelector("#prompt");
+      const topKSelect = document.querySelector("#top-k");
+      const analyzeButton = document.querySelector("#analyze-button");
+      const modelState = document.querySelector("#model-state");
+      const modelStateText = document.querySelector("#model-state-text");
+      const computeOverlay = document.querySelector("#compute-overlay");
+      const computeDetail = document.querySelector("#compute-detail");
+      const message = document.querySelector("#message");
+      const results = document.querySelector("#results");
+      const resultContext = document.querySelector("#result-context");
+      const finalToken = document.querySelector("#final-token");
+      const finalTokenDetail = document.querySelector("#final-token-detail");
+      const stableLayer = document.querySelector("#stable-layer");
+      const stableDetail = document.querySelector("#stable-detail");
+      const modelSummary = document.querySelector("#model-summary");
+      const modelDetail = document.querySelector("#model-detail");
+      const timingTotal = document.querySelector("#timing-total");
+      const timingDetail = document.querySelector("#timing-detail");
+      const tokenCount = document.querySelector("#token-count");
+      const tokenization = document.querySelector("#tokenization");
+      const runsElement = document.querySelector("#runs");
+      const layerCount = document.querySelector("#layer-count");
+      const trajectoryBody = document.querySelector("#trajectory-body");
+      const lensNote = document.querySelector("#lens-note");
+      const saveLensButton = document.querySelector("#save-lens");
+      const archiveCount = document.querySelector("#archive-count");
+
+      const progressMessages = [
+        "Připravuji prefix a jeho tokeny…",
+        "Sbírám reziduální stav po každé vrstvě…",
+        "Hromadně promítám mezistavy do slovníku…",
+        "Sestavuji srovnatelnou trajektorii…"
+      ];
+
+      let health = null;
+      let busy = false;
+      let progressTimer = null;
+      let healthTimer = null;
+      let saveBusy = false;
+      let currentLensResult = null;
+      let currentLensCapturedAt = null;
+      let pendingLensRecord = null;
+      let savedLensRecordId = null;
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+      const finite = (value, fallback = 0) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      };
+
+      const clamp = (value, minimum = 0, maximum = 1) => (
+        Math.max(minimum, Math.min(maximum, finite(value)))
+      );
+
+      const formatInteger = (value) => new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+        maximumFractionDigits: 0
+      }).format(finite(value));
+
+      const formatCompact = (value, digits = 1) => new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+        notation: Math.abs(finite(value)) >= 10000 ? "compact" : "standard",
+        maximumFractionDigits: digits
+      }).format(finite(value));
+
+      const formatBits = (value) => {
+        const number = finite(value);
+        const digits = number > 0 && number < 0.001 ? 5 : number < 0.1 ? 3 : 2;
+        return `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          minimumFractionDigits: number === 0 ? 0 : Math.min(2, digits),
+          maximumFractionDigits: digits
+        }).format(number)} bit`;
+      };
+
+      const formatMilliseconds = (value) => {
+        const number = finite(value);
+        if (number < 1000) {
+          return `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+            maximumFractionDigits: number < 10 ? 1 : 0
+          }).format(number)} ms`;
+        }
+        return `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: 2
+        }).format(number / 1000)} s`;
+      };
+
+      const formatProbability = (value) => {
+        const probability = clamp(value);
+        const percentage = probability * 100;
+        const digits = percentage > 0 && percentage < 0.01
+          ? 4
+          : percentage < 1
+            ? 2
+            : 1;
+        return `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          maximumFractionDigits: digits
+        }).format(percentage)} %`;
+      };
+
+      const visibleToken = (value) => {
+        const token = String(value ?? "");
+        if (!token) return "∅";
+        return token
+          .replaceAll(" ", "␠")
+          .replaceAll("\n", "↵")
+          .replaceAll("\t", "⇥");
+      };
+
+      const modelLabel = (modelId, fallback = null) => ({
+        bf16: "BF16",
+        hybrid: "Hybrid",
+        "8bit": "8bit",
+        "4bit": "4bit",
+        mock: "simulace"
+      })[modelId] || fallback || modelId || "Apertus";
+
+      const setMessage = (text = "", isError = false) => {
+        message.textContent = text;
+        message.classList.toggle("error", isError);
+        message.setAttribute("role", isError ? "alert" : "status");
+      };
+
+      const syncControls = () => {
+        const ready = health?.status === "ready";
+        promptInput.disabled = busy || saveBusy;
+        topKSelect.disabled = busy || saveBusy;
+        analyzeButton.disabled = (
+          busy ||
+          saveBusy ||
+          !ready ||
+          !promptInput.value.trim()
+        );
+        lensNote.disabled = (
+          busy ||
+          saveBusy ||
+          Boolean(savedLensRecordId) ||
+          Boolean(pendingLensRecord)
+        );
+        saveLensButton.disabled = (
+          busy ||
+          saveBusy ||
+          !currentLensResult ||
+          Boolean(savedLensRecordId)
+        );
+      };
+
+      const applyHealth = (nextHealth) => {
+        if (!nextHealth || typeof nextHealth !== "object") return;
+        health = nextHealth;
+        const status = nextHealth.status || "loading";
+        modelState.dataset.state = status === "ready"
+          ? "ready"
+          : status === "error"
+            ? "error"
+            : "loading";
+
+        if (status === "ready") {
+          const label = nextHealth.active_model?.label || modelLabel(
+            nextHealth.active_model?.id
+          );
+          modelStateText.textContent = nextHealth.mock
+            ? `${label} · vývojová simulace`
+            : `${label} je připraven`;
+        } else if (status === "error") {
+          modelStateText.textContent = "Model se nenačetl";
+        } else if (status === "switching") {
+          modelStateText.textContent = `Přepínám na ${
+            nextHealth.target_model?.label || "jiný model"
+          }…`;
+        } else {
+          modelStateText.textContent = "Model se načítá…";
+        }
+        syncControls();
+      };
+
+      const fetchJson = (...arguments_) => (
+        window.ProbabilityGardenApi.fetchJson(...arguments_)
+      );
+
+      const newRecordId = () => {
+        if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+        const bytes = new Uint8Array(16);
+        if (window.crypto?.getRandomValues) {
+          window.crypto.getRandomValues(bytes);
+        } else {
+          for (let index = 0; index < bytes.length; index += 1) {
+            bytes[index] = Math.floor(Math.random() * 256);
+          }
+        }
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(
+          bytes,
+          (byte) => byte.toString(16).padStart(2, "0")
+        );
+        return [
+          hex.slice(0, 4).join(""),
+          hex.slice(4, 6).join(""),
+          hex.slice(6, 8).join(""),
+          hex.slice(8, 10).join(""),
+          hex.slice(10, 16).join("")
+        ].join("-");
+      };
+
+      const buildProvenance = (data) => ({
+        application: {
+          id: "apertus-garden",
+          name: "Pravděpodobnostní zahrada",
+          surface: "raw_logit_lens"
+        },
+        source: "live_ui",
+        route: window.location.pathname,
+        model: {
+          id: data.model_id ?? health?.active_model?.id ?? null,
+          label: health?.active_model?.label ?? data.model ?? null,
+          name: data.model ?? health?.model ?? null
+        },
+        execution: {
+          model_generation: data.model_generation ?? health?.model_generation ?? null,
+          server_instance_id: (
+            data.server_instance_id ?? health?.server_instance_id ?? null
+          )
+        },
+        server: health?.provenance ?? null,
+        storage: health?.storage ?? null
+      });
+
+      const buildLensRecord = () => {
+        const data = currentLensResult;
+        const text = String(data?.text ?? "");
+        return {
+          schema: "apertus.experiment-record",
+          schema_version: 1,
+          id: newRecordId(),
+          kind: "lens_trajectory",
+          captured_at: currentLensCapturedAt || new Date().toISOString(),
+          series_id: null,
+          annotation: {
+            title: `RAW lens · ${text.slice(0, 100)}`,
+            notes: lensNote.value.trim() || null,
+            tags: ["raw-logit-lens"]
+          },
+          capture: {
+            status: "complete",
+            warnings: [
+              "RAW logit lens používá finální normalizaci a výstupní hlavu; rané vrstvy mohou být zkreslené."
+            ]
+          },
+          provenance: buildProvenance(data),
+          payload: {
+            request: {
+              text,
+              token_ids: Array.isArray(data.token_ids) ? [...data.token_ids] : [],
+              top_k: data.top_k,
+              temperature: data.temperature
+            },
+            reader: {
+              kind: data.lens_kind || "raw_logit_lens",
+              stream: "residual_post",
+              position: "last_input_token",
+              layer_numbering: "one_based",
+              normalization: "final_model_norm",
+              projection: "final_lm_head"
+            },
+            result: data
+          },
+          diagnostics: {
+            cached: Boolean(data.cached),
+            timing_ms: data.timing_ms || null
+          }
+        };
+      };
+
+      const refreshArchiveCount = async () => {
+        try {
+          const data = await fetchJson(
+            "/api/experiments?kind=lens_trajectory&limit=1&offset=0"
+          );
+          const total = Number(data.total ?? data.count ?? 0);
+          archiveCount.textContent = total === 1
+            ? "V archivu je 1 trajektorie."
+            : `V archivu je ${formatInteger(total)} trajektorií.`;
+        } catch {
+          archiveCount.textContent = "Archiv zatím není dostupný.";
+        }
+      };
+
+      const saveLensResult = async () => {
+        if (!currentLensResult || savedLensRecordId || saveBusy) return;
+        if (!pendingLensRecord) pendingLensRecord = buildLensRecord();
+        saveBusy = true;
+        syncControls();
+        setMessage("Ukládám úplnou trajektorii do lokálního archivu…");
+        try {
+          const response = await fetchJson("/api/experiments", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({record: pendingLensRecord})
+          });
+          savedLensRecordId = (
+            response.record?.id ||
+            response.id ||
+            pendingLensRecord.id
+          );
+          setMessage(
+            response.created === false
+              ? "Tato trajektorie už v archivu je."
+              : "Trajektorie byla trvale uložena do lokálního archivu."
+          );
+          await refreshArchiveCount();
+        } catch (error) {
+          setMessage(
+            error.message || "Trajektorii se nepodařilo uložit.",
+            true
+          );
+        } finally {
+          saveBusy = false;
+          syncControls();
+        }
+      };
+
+      const pollHealth = async () => {
+        window.clearTimeout(healthTimer);
+        try {
+          const nextHealth = await fetchJson("/api/health");
+          applyHealth(nextHealth);
+          if (nextHealth.status === "error") {
+            setMessage(
+              nextHealth.error || "Model se nepodařilo načíst.",
+              true
+            );
+          } else if (nextHealth.status !== "ready") {
+            setMessage("Čekám, až bude aktivní model připraven.");
+            healthTimer = window.setTimeout(pollHealth, 1200);
+          } else if (
+            !busy &&
+            ["Čekám", "Waiting"].some((prefix) => (
+              message.textContent.startsWith(prefix)
+            ))
+          ) {
+            setMessage("");
+          }
+        } catch (error) {
+          modelState.dataset.state = "error";
+          modelStateText.textContent = "Server není dostupný";
+          setMessage(
+            "Server neodpovídá. Stav zkusím za chvíli znovu ověřit.",
+            true
+          );
+          healthTimer = window.setTimeout(pollHealth, 2000);
+        }
+      };
+
+      const showOverlay = () => {
+        let progressIndex = 0;
+        computeDetail.textContent = progressMessages[progressIndex];
+        computeOverlay.hidden = false;
+        document.body.classList.add("is-computing");
+        results.setAttribute("aria-busy", "true");
+        progressTimer = window.setInterval(() => {
+          progressIndex = Math.min(progressIndex + 1, progressMessages.length - 1);
+          computeDetail.textContent = progressMessages[progressIndex];
+        }, 1500);
+      };
+
+      const hideOverlay = () => {
+        window.clearInterval(progressTimer);
+        progressTimer = null;
+        computeOverlay.hidden = true;
+        document.body.classList.remove("is-computing");
+        results.setAttribute("aria-busy", "false");
+      };
+
+      const topCandidate = (layer) => Array.isArray(layer?.candidates)
+        ? layer.candidates[0] || null
+        : null;
+
+      const candidateKey = (candidate) => candidate
+        ? `${candidate.token_id ?? ""}:${candidate.display ?? ""}`
+        : "";
+
+      const groupedRuns = (layers) => {
+        const runs = [];
+        layers.forEach((layer) => {
+          const candidate = topCandidate(layer);
+          const key = candidateKey(candidate);
+          const previous = runs[runs.length - 1];
+          if (previous && previous.key === key) {
+            previous.end = finite(layer.layer, previous.end);
+            return;
+          }
+          runs.push({
+            key,
+            candidate,
+            start: finite(layer.layer),
+            end: finite(layer.layer)
+          });
+        });
+        return runs;
+      };
+
+      const renderTokenization = (data) => {
+        const inputTokens = Array.isArray(data.input_tokens)
+          ? data.input_tokens
+          : (data.token_ids || []).map((tokenId) => ({
+              token_id: tokenId,
+              display: `#${tokenId}`,
+              is_special: false
+            }));
+        tokenCount.textContent = `${formatInteger(
+          data.token_count ?? inputTokens.length
+        )} tokenů`;
+        tokenization.innerHTML = inputTokens.map((token) => `
+          <li class="token-chip ${token.is_special ? "special" : ""}">
+            <span class="token-piece">${escapeHtml(visibleToken(token.display))}</span>
+            <span class="token-id">#${escapeHtml(token.token_id)}</span>
+          </li>
+        `).join("");
+      };
+
+      const renderRuns = (layers, stableFrom) => {
+        const runs = groupedRuns(layers);
+        runsElement.innerHTML = runs.map((run, index) => {
+          const range = run.start === run.end
+            ? `L${run.start}`
+            : `L${run.start}–L${run.end}`;
+          const stable = stableFrom !== null && run.start >= stableFrom;
+          return `
+            <li class="run ${index > 0 ? "changed" : ""} ${stable ? "stable" : ""}">
+              <span class="run-range">${escapeHtml(range)}</span>
+              <span class="run-token observed-token">${escapeHtml(
+                visibleToken(run.candidate?.display)
+              )}</span>
+            </li>
+          `;
+        }).join("");
+      };
+
+      const renderCandidates = (candidates, finalTop1) => {
+        const finalKey = candidateKey(finalTop1);
+        return (Array.isArray(candidates) ? candidates : []).map((candidate) => {
+          const isFinalTarget = candidateKey(candidate) === finalKey;
+          return `
+            <li
+              class="candidate-pill ${isFinalTarget ? "final-target" : ""}"
+              title="token #${escapeHtml(candidate.token_id)}"
+            >
+              <span class="candidate-token observed-token">${escapeHtml(
+                visibleToken(candidate.display)
+              )}</span>
+              <span class="candidate-probability">${escapeHtml(
+                formatProbability(candidate.probability)
+              )}</span>
+            </li>
+          `;
+        }).join("");
+      };
+
+      const renderTrajectory = (data) => {
+        const layers = Array.isArray(data.layers) ? data.layers : [];
+        const stableFrom = Number.isInteger(data.stable_from_layer)
+          ? data.stable_from_layer
+          : null;
+        const finalTop1 = data.final_top1 || topCandidate(layers[layers.length - 1]);
+        const maxJs = Math.max(
+          ...layers.map((layer) => finite(layer.js_divergence_to_final_bits)),
+          0
+        );
+
+        trajectoryBody.innerHTML = layers.map((layer, index) => {
+          const layerNumber = finite(layer.layer, index);
+          const top1 = topCandidate(layer);
+          const changed = index > 0 && (
+            candidateKey(top1) !== candidateKey(topCandidate(layers[index - 1]))
+          );
+          const stableStart = stableFrom !== null && layerNumber === stableFrom;
+          const stable = stableFrom !== null && layerNumber >= stableFrom;
+          const probability = clamp(top1?.probability);
+          const finalProbability = clamp(layer.final_top1_probability);
+          const js = Math.max(0, finite(layer.js_divergence_to_final_bits));
+          const jsWidth = maxJs > 0 ? clamp(js / maxJs) * 100 : 0;
+          const effectiveWidth = layer.effective_width ?? layer.effective_tokens;
+          const rowClasses = [
+            changed ? "is-change" : "",
+            stable ? "is-stable" : "",
+            stableStart ? "is-stable-start" : ""
+          ].filter(Boolean).join(" ");
+
+          return `
+            <tr class="${rowClasses}">
+              <td data-label="Vrstva">
+                <span class="layer-number">
+                  ${changed ? '<span class="change-dot" aria-hidden="true"></span>' : ""}
+                  <span>L${escapeHtml(layerNumber)}</span>
+                </span>
+                ${stableStart
+                  ? '<span class="stable-mark">stabilní odtud</span>'
+                  : ""}
+                ${changed
+                  ? '<span class="sr-only">Změna vedoucího tokenu.</span>'
+                  : ""}
+              </td>
+              <td data-label="Top 1">
+                <div class="prediction-head">
+                  <span class="prediction-token" title="token #${escapeHtml(
+                    top1?.token_id
+                  )}">${escapeHtml(visibleToken(top1?.display))}</span>
+                  <span class="probability">${escapeHtml(
+                    formatProbability(probability)
+                  )}</span>
+                </div>
+                <div
+                  class="bar"
+                  role="img"
+                  aria-label="Pravděpodobnost top jedna ${escapeHtml(
+                    formatProbability(probability)
+                  )}"
+                >
+                  <span style="--bar:${(probability * 100).toFixed(4)}%"></span>
+                </div>
+              </td>
+              <td data-label="Finální cíl">
+                <div class="metric-stack">
+                  <span class="target-rank">#${escapeHtml(
+                    formatInteger(layer.final_top1_rank)
+                  )}</span>
+                  <span class="metric-secondary">${escapeHtml(
+                    formatProbability(finalProbability)
+                  )} · <span class="observed-token">${escapeHtml(
+                    visibleToken(finalTop1?.display)
+                  )}</span></span>
+                </div>
+              </td>
+              <td data-label="Entropie · šířka">
+                <div class="metric-stack">
+                  <span>${escapeHtml(formatBits(layer.entropy_bits))}</span>
+                  <span class="metric-secondary">efektivně ${escapeHtml(
+                    formatCompact(effectiveWidth, 1)
+                  )} tokenů</span>
+                </div>
+              </td>
+              <td data-label="JS → finále">
+                <div class="metric-line">
+                  <span class="metric-number">${escapeHtml(formatBits(js))}</span>
+                </div>
+                <div
+                  class="bar js-bar"
+                  role="img"
+                  aria-label="JS divergence k finální distribuci ${escapeHtml(
+                    formatBits(js)
+                  )}"
+                >
+                  <span style="--bar:${jsWidth.toFixed(4)}%"></span>
+                </div>
+              </td>
+              <td data-label="Top tokeny">
+                <ol class="candidate-list">
+                  ${renderCandidates(layer.candidates, finalTop1)}
+                </ol>
+              </td>
+            </tr>
+          `;
+        }).join("");
+      };
+
+      const renderSummary = (data) => {
+        const layers = Array.isArray(data.layers) ? data.layers : [];
+        const final = data.final_top1 || topCandidate(layers[layers.length - 1]);
+        const stableFrom = Number.isInteger(data.stable_from_layer)
+          ? data.stable_from_layer
+          : null;
+        const timings = data.timing_ms || {};
+        const activeLabel = modelLabel(
+          data.model_id,
+          data.model || health?.active_model?.label
+        );
+
+        resultContext.innerHTML = `<span class="experiment-text">„${escapeHtml(
+          data.text || promptInput.value.trim()
+        )}“</span>`;
+        finalToken.textContent = visibleToken(final?.display);
+        finalTokenDetail.textContent = `${
+          formatProbability(final?.probability)
+        } · token #${final?.token_id ?? "—"}`;
+
+        if (stableFrom === null) {
+          stableLayer.textContent = "Neustálilo se";
+          stableDetail.textContent = "Top 1 se mění až do konce trajektorie.";
+        } else {
+          stableLayer.textContent = `L${stableFrom}`;
+          stableDetail.textContent = `Od této vrstvy zůstává finální top 1 v čele.`;
+        }
+
+        modelSummary.textContent = activeLabel;
+        modelDetail.textContent = `${
+          formatInteger(data.layer_count ?? layers.length)
+        } vrstev · slovník ${formatCompact(data.vocab_size, 0)} · ${
+          data.cached ? "výsledek z cache" : "nový výpočet"
+        }`;
+
+        timingTotal.textContent = formatMilliseconds(timings.total);
+        timingDetail.textContent = [
+          `forward ${formatMilliseconds(timings.forward)}`,
+          `projekce ${formatMilliseconds(timings.projection)}`,
+          `souhrn ${formatMilliseconds(timings.summary)}`
+        ].join(" · ");
+
+        layerCount.textContent = `${formatInteger(
+          data.layer_count ?? layers.length
+        )} řádků · top ${formatInteger(topKSelect.value)}`;
+      };
+
+      const renderResult = (data) => {
+        const layers = Array.isArray(data.layers) ? data.layers : [];
+        if (!layers.length) {
+          throw new Error("Server nevrátil žádné vrstvy.");
+        }
+        const stableFrom = Number.isInteger(data.stable_from_layer)
+          ? data.stable_from_layer
+          : null;
+        renderSummary(data);
+        renderTokenization(data);
+        renderRuns(layers, stableFrom);
+        renderTrajectory(data);
+        results.hidden = false;
+      };
+
+      const analyze = async () => {
+        if (busy || saveBusy) return;
+        const rawText = promptInput.value;
+        const text = rawText.trimEnd();
+        if (!text) {
+          setMessage("Napiš prefix, který chceš prosvítit.", true);
+          promptInput.focus();
+          return;
+        }
+        if (text !== rawText) promptInput.value = text;
+        if (health?.status !== "ready") {
+          setMessage("Model ještě není připraven.", true);
+          return;
+        }
+
+        busy = true;
+        syncControls();
+        setMessage("");
+        showOverlay();
+
+        try {
+          const data = await fetchJson("/api/lens", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              text,
+              top_k: Number(topKSelect.value),
+              model_id: health.active_model?.id,
+              model_generation: health.model_generation,
+              server_instance_id: health.server_instance_id
+            })
+          });
+          currentLensResult = data;
+          currentLensCapturedAt = new Date().toISOString();
+          pendingLensRecord = null;
+          savedLensRecordId = null;
+          lensNote.value = "";
+          renderResult(data);
+          setMessage(
+            data.cached
+              ? "Hotovo — trajektorie byla načtena z mezipaměti."
+              : "Hotovo — trajektorie vznikla jedním dopředným průchodem."
+          );
+          window.requestAnimationFrame(() => {
+            results.scrollIntoView({behavior: "smooth", block: "start"});
+          });
+        } catch (error) {
+          if (error.health) applyHealth(error.health);
+          setMessage(
+            error.message || "Analýzu se nepodařilo dokončit.",
+            true
+          );
+          if (error.code === "model_changed") {
+            await pollHealth();
+          }
+        } finally {
+          hideOverlay();
+          busy = false;
+          syncControls();
+        }
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        analyze();
+      });
+
+      promptInput.addEventListener("input", syncControls);
+      promptInput.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault();
+          if (!analyzeButton.disabled) analyze();
+        }
+      });
+      saveLensButton.addEventListener("click", saveLensResult);
+
+      pollHealth();
+      refreshArchiveCount();
+    })();
+  </script>
+</body>
+</html>

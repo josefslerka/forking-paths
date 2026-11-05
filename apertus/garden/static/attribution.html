@@ -1,0 +1,1789 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="description"
+    content="Zjisti, které části výpočtu přispěly k tomu, že Apertus upřednostnil jedno pokračování před druhým."
+  >
+  <title>Odkud se vzala preference? · Apertus</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08100c;
+      --surface: #101b15;
+      --surface-2: #15251c;
+      --surface-soft: rgba(16, 27, 21, 0.82);
+      --text: #edf7f0;
+      --muted: #91a69a;
+      --line: #2b4335;
+      --line-soft: rgba(43, 67, 53, 0.64);
+      --leaf: #71dda0;
+      --leaf-bright: #9bf1bb;
+      --attention: #71dda0;
+      --mlp: #e2c56f;
+      --negative: #ef958d;
+      --ink: #07100b;
+      --radius: 18px;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% -18%, rgba(67, 145, 96, 0.2), transparent 35rem),
+        radial-gradient(circle at 100% 42%, rgba(216, 180, 83, 0.07), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    body.is-computing {
+      overflow: hidden;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(113, 221, 160, 0.52);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 140;
+      top: 10px;
+      left: 10px;
+      padding: 9px 13px;
+      border-radius: 10px;
+      background: var(--leaf);
+      color: var(--ink);
+      font-weight: 800;
+      transform: translateY(-160%);
+      transition: transform 140ms ease;
+    }
+
+    .skip-link:focus {
+      transform: translateY(0);
+    }
+
+    .shell {
+      width: min(1480px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 24px 0 90px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      min-height: 44px;
+      margin-bottom: 42px;
+    }
+
+    .model-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 38px;
+      padding: 8px 13px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(16, 27, 21, 0.78);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 680;
+      white-space: nowrap;
+    }
+
+    .state-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--mlp);
+      box-shadow: 0 0 0 5px rgba(226, 197, 111, 0.08);
+    }
+
+    .model-state[data-state="ready"] .state-dot {
+      background: var(--leaf);
+      box-shadow: 0 0 0 5px rgba(113, 221, 160, 0.09);
+    }
+
+    .model-state[data-state="error"] .state-dot {
+      background: var(--negative);
+      box-shadow: 0 0 0 5px rgba(239, 149, 141, 0.09);
+    }
+
+    .hero {
+      max-width: 980px;
+      margin-bottom: 30px;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--leaf-bright);
+      font-size: 0.76rem;
+      font-weight: 780;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    .serif {
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 400;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(3.2rem, 5.35vw, 5.65rem);
+      letter-spacing: -0.055em;
+      line-height: 0.94;
+    }
+
+    .lede {
+      max-width: 720px;
+      margin: 15px 0 0;
+      color: var(--muted);
+      font-size: clamp(0.94rem, 1.1vw, 1.02rem);
+      line-height: 1.62;
+    }
+
+    .method-note {
+      display: grid;
+      grid-template-columns: minmax(150px, 0.28fr) minmax(0, 1fr);
+      gap: clamp(22px, 4vw, 56px);
+      margin: 0 0 30px;
+      padding: clamp(22px, 3.2vw, 34px);
+      border: 1px solid rgba(226, 197, 111, 0.38);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(105deg, rgba(226, 197, 111, 0.07), transparent 48%),
+        var(--surface-soft);
+    }
+
+    .method-label {
+      margin: 2px 0 0;
+      color: var(--mlp);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+
+    .method-copy p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .method-copy p + p {
+      margin-top: 10px;
+    }
+
+    .method-copy strong {
+      color: var(--text);
+    }
+
+    .control-panel,
+    .result-panel,
+    .summary-card {
+      border: 1px solid var(--line);
+      background: rgba(12, 22, 16, 0.76);
+    }
+
+    .control-panel {
+      margin-bottom: 18px;
+      padding: clamp(22px, 3vw, 32px);
+      border-radius: var(--radius);
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(210px, 0.28fr) minmax(210px, 0.28fr);
+      gap: 18px;
+      align-items: end;
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.83rem;
+      font-weight: 700;
+    }
+
+    textarea,
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #0a1510;
+      color: var(--text);
+      caret-color: var(--leaf);
+    }
+
+    textarea {
+      min-height: 92px;
+      padding: 15px 16px;
+      resize: vertical;
+    }
+
+    input {
+      min-height: 52px;
+      padding: 0 15px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    textarea:hover,
+    textarea:focus,
+    input:hover,
+    input:focus {
+      border-color: rgba(113, 221, 160, 0.62);
+    }
+
+    .control-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .token-help,
+    .message {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      min-height: 46px;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--surface-2);
+      font-weight: 780;
+      cursor: pointer;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--leaf);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+    }
+
+    .primary-button {
+      border-color: var(--leaf);
+      background: var(--leaf);
+      color: var(--ink);
+    }
+
+    .message {
+      min-height: 26px;
+      margin: 0 4px 26px;
+    }
+
+    .message[data-state="error"] {
+      color: var(--negative);
+    }
+
+    .results {
+      scroll-margin-top: 100px;
+    }
+
+    .results[hidden],
+    .compute-overlay[hidden] {
+      display: none;
+    }
+
+    .result-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 0 0 18px;
+    }
+
+    .result-heading h2 {
+      margin: 0;
+      font-size: clamp(2rem, 3.3vw, 3.4rem);
+      letter-spacing: -0.035em;
+      line-height: 1;
+    }
+
+    .result-heading p {
+      max-width: 620px;
+      margin: 7px 0 0;
+      color: var(--muted);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .summary-card {
+      min-height: 150px;
+      padding: 18px;
+      border-radius: 15px;
+    }
+
+    .summary-label {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .summary-value {
+      display: block;
+      margin-bottom: 8px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.55rem, 2.3vw, 2.35rem);
+      line-height: 1;
+    }
+
+    .summary-detail {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+
+    .result-panel {
+      margin-bottom: 18px;
+      padding: clamp(20px, 2.6vw, 30px);
+      overflow: hidden;
+      border-radius: var(--radius);
+    }
+
+    .panel-heading {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .panel-heading h3 {
+      margin: 0;
+      font-size: 1.02rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .panel-heading p {
+      max-width: 720px;
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .secondary-chart {
+      padding: 0;
+    }
+
+    .secondary-chart > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px clamp(20px, 2.6vw, 30px);
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .secondary-chart > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .secondary-chart > summary::after {
+      content: "Rozbalit";
+      flex: 0 0 auto;
+      color: var(--leaf);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .secondary-chart[open] > summary::after {
+      content: "Sbalit";
+    }
+
+    html[data-language="en"] .secondary-chart > summary::after {
+      content: "Expand";
+    }
+
+    html[data-language="en"] .secondary-chart[open] > summary::after {
+      content: "Collapse";
+    }
+
+    .secondary-chart > summary h3 {
+      margin: 0;
+      font-size: 0.92rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .secondary-chart > summary p {
+      max-width: 760px;
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .secondary-chart-content {
+      padding: 0 clamp(20px, 2.6vw, 30px) 18px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .secondary-chart .chart-scroll {
+      padding-top: 18px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .legend-swatch {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      background: var(--leaf);
+    }
+
+    .legend-swatch.mlp {
+      background: var(--mlp);
+    }
+
+    .legend-swatch.local {
+      border: 2px solid var(--negative);
+      background: transparent;
+    }
+
+    .chart-scroll {
+      max-width: 100%;
+      overflow-x: auto;
+      padding: 4px 0 10px;
+      scrollbar-color: var(--line) transparent;
+    }
+
+    .chart {
+      display: block;
+      min-width: 100%;
+      color: var(--muted);
+    }
+
+    .chart text {
+      fill: currentColor;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .chart .axis {
+      stroke: #385345;
+      stroke-width: 1;
+    }
+
+    .chart .grid {
+      stroke: rgba(56, 83, 69, 0.4);
+      stroke-width: 1;
+      stroke-dasharray: 3 6;
+    }
+
+    .chart .attention-bar {
+      fill: var(--attention);
+    }
+
+    .chart .mlp-bar {
+      fill: var(--mlp);
+    }
+
+    .chart .negative-bar {
+      fill: var(--negative);
+    }
+
+    .chart .cumulative-line {
+      fill: none;
+      stroke: var(--leaf);
+      stroke-width: 2.5;
+    }
+
+    .chart .local-line {
+      fill: none;
+      stroke: var(--negative);
+      stroke-width: 1.7;
+      stroke-dasharray: 5 5;
+      opacity: 0.82;
+    }
+
+    .chart .point {
+      fill: var(--bg);
+      stroke: var(--leaf);
+      stroke-width: 1.8;
+    }
+
+    .chart .local-point {
+      fill: var(--bg);
+      stroke: var(--negative);
+      stroke-width: 1.4;
+    }
+
+    .chart.compact {
+      max-height: 245px;
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+      gap: 18px;
+    }
+
+    .token-contract {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+    }
+
+    .token-contract > div {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .token-contract dt {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .token-contract dd {
+      margin: 0;
+    }
+
+    code,
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .ranked-list {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .ranked-item {
+      display: grid;
+      grid-template-columns: minmax(130px, 0.8fr) minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .ranked-bar {
+      position: relative;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #1d3025;
+    }
+
+    .ranked-bar span {
+      position: absolute;
+      inset: 0 auto 0 50%;
+      border-radius: 999px;
+      background: var(--leaf);
+    }
+
+    .ranked-bar span.negative {
+      inset: 0 50% 0 auto;
+      background: var(--negative);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 900px;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    th,
+    td {
+      padding: 12px 11px;
+      border-bottom: 1px solid var(--line-soft);
+      text-align: right;
+      vertical-align: top;
+    }
+
+    th:first-child,
+    td:first-child {
+      text-align: left;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.67rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .positive {
+      color: var(--leaf-bright);
+    }
+
+    .negative {
+      color: var(--negative);
+    }
+
+    .compute-overlay {
+      position: fixed;
+      z-index: 130;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(4, 10, 7, 0.82);
+      backdrop-filter: blur(9px);
+    }
+
+    .compute-card {
+      width: min(560px, 100%);
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .compute-card h2 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+    }
+
+    .compute-card p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .compute-track {
+      height: 5px;
+      margin: 24px 0 18px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #203428;
+    }
+
+    .compute-track::after {
+      content: "";
+      display: block;
+      width: 42%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--leaf);
+      animation: compute-progress 1.4s ease-in-out infinite alternate;
+    }
+
+    @keyframes compute-progress {
+      from { transform: translateX(-80%); }
+      to { transform: translateX(220%); }
+    }
+
+    @media (max-width: 1040px) {
+      .control-grid,
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .control-grid label:first-child {
+        grid-column: 1 / -1;
+      }
+
+      .two-column {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .shell {
+        width: min(100% - 24px, 1480px);
+      }
+
+      .method-note,
+      .control-grid,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .result-heading,
+      .panel-heading {
+        display: block;
+      }
+
+      .button-row,
+      .button-row button {
+        width: 100%;
+      }
+
+      .ranked-item {
+        grid-template-columns: 1fr auto;
+      }
+
+      .ranked-bar {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+</head>
+<body data-workbench-page="attribution">
+  <a class="skip-link" href="#analysis">Přeskočit k analýze</a>
+  <main class="shell" id="analysis">
+    <header class="topbar">
+      <div
+        id="model-state"
+        class="model-state"
+        data-state="loading"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="state-dot" aria-hidden="true"></span>
+        <span id="model-state-text">Zjišťuji stav modelu…</span>
+      </div>
+    </header>
+
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">Apertus · rozpis modelové preference</p>
+      <h1 id="page-title">Odkud se vzala preference?</h1>
+      <p class="lede">
+        Které části výpočtu přispěly k tomu, že model upřednostnil jednu
+        možnost před druhou? Vyber dvě pokračování a prohlédni si, jak se
+        jejich výsledný rozdíl poskládal ve vrstvách modelu.
+      </p>
+    </section>
+
+    <aside class="method-note" aria-label="Jak tento pohled číst">
+      <p class="method-label">Účetní rozpis výsledku</p>
+      <div class="method-copy">
+        <p>
+          Například po začátku <span class="experiment-prompt">„Hlavním městem České republiky je…“</span>
+          porovnáme <strong class="observed-token">Praha</strong> a <strong class="observed-token">Brno</strong>.
+          Graf ukáže, které části výpočtu přispěly k náskoku jedné možnosti před druhou.
+        </p>
+        <p>
+          <strong>Attention</strong> kombinuje informace z dosavadního textu.
+          <strong>MLP</strong> je dál zpracovává naučenými transformacemi.
+          Sledujeme jejich příspěvky, ne to, na která slova model „kouká“.
+        </p>
+        <p>
+          Je to <strong>popis jednoho výpočtu, ne důkaz příčiny</strong>.
+          Velký příspěvek neznamená, že jsme našli místo, kde model uchovává
+          znalost o Praze. Ani neříká, co by se stalo po vypnutí této části.
+        </p>
+      </div>
+    </aside>
+
+    <details id="method-details" class="result-panel preference-details">
+      <summary>Jak se rozklad počítá · technické detaily</summary>
+      <div class="preference-details-content method-copy">
+        <p>
+          Všechny komponenty se promítají touž finální RMSNorm do veličiny
+          logit(A) − logit(B). Součet vstupního embeddingu, výstupů attention,
+          výstupů MLP a vykázaných numerických zbytků odpovídá finálnímu rozdílu.
+        </p>
+        <p>
+          Používáme skutečné výstupní vektory na poslední pozici prefixu,
+          nikoli váhy attention. Normalizační měřítko je pevné pro celý rozklad.
+          Lokální RAW čtení používá jiné měřítko a není aditivní.
+        </p>
+        <p>
+          Znaménko vždy znamená A − B. Možnosti lze zadat také přesným #ID.
+          Kauzální tvrzení by vyžadovalo ablaci, activation patching nebo jiný zásah.
+        </p>
+      </div>
+    </details>
+
+    <form id="attribution-form" class="control-panel">
+      <div class="control-grid">
+        <label>
+          Začátek textu
+          <textarea id="prompt" maxlength="4000">Hlavním městem České republiky je</textarea>
+        </label>
+        <label>
+          Možnost A
+          <input id="token-a" maxlength="160" value="␠Praha" spellcheck="false" aria-describedby="token-help">
+        </label>
+        <label>
+          Možnost B
+          <input id="token-b" maxlength="160" value="␠Brno" spellcheck="false" aria-describedby="token-help">
+        </label>
+      </div>
+      <div class="control-actions">
+        <span id="token-help" class="token-help">
+          Porovnáváme dva jednotlivé tokeny, ne celé věty. Znak ␠ označuje mezeru před slovem.
+        </span>
+        <div class="button-row">
+          <button id="swap-tokens" type="button">Prohodit A ↔ B</button>
+          <button id="run-attribution" class="primary-button" type="submit" disabled>
+            Ukázat příspěvky
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <p id="message" class="message" role="status" aria-live="polite"></p>
+
+    <section id="results" class="results" hidden aria-live="polite">
+      <div class="result-heading">
+        <div>
+          <p class="eyebrow">Rozpis jednoho skutečného výpočtu</p>
+          <h2 id="result-title">Porovnání dvou možností</h2>
+          <p id="result-context"></p>
+        </div>
+        <div class="button-row">
+          <button id="download-json" type="button">Stáhnout JSON</button>
+        </div>
+      </div>
+
+      <div class="summary-grid preference-summary" aria-label="Souhrn měření">
+        <article class="summary-card">
+          <p class="summary-label">Vyšší skóre z této dvojice</p>
+          <strong id="summary-winner" class="summary-value">—</strong>
+          <span class="summary-detail">Srovnání jen těchto dvou možností, nikoli potvrzení správnosti odpovědi.</span>
+        </article>
+        <article class="summary-card">
+          <p class="summary-label">Pravděpodobnosti obou možností</p>
+          <strong id="summary-probability" class="summary-value">—</strong>
+          <span class="summary-detail">Vůči celému slovníku; nemusí se sečíst na 100 %.</span>
+        </article>
+        <article class="summary-card">
+          <p class="summary-label">Největší jednotlivý příspěvek</p>
+          <strong id="summary-component" class="summary-value">—</strong>
+          <span id="summary-component-detail" class="summary-detail">—</span>
+        </article>
+      </div>
+
+      <section class="result-panel" aria-labelledby="bars-title">
+        <div class="panel-heading">
+          <div>
+            <h3 id="bars-title">Co přidaly jednotlivé vrstvy?</h3>
+            <p>
+              V každé vrstvě ukazujeme dva příspěvky: zeleně attention,
+              zlatě MLP. Jejich výška není pravděpodobnost ani míra důležitosti slova.
+            </p>
+            <p id="contribution-direction"></p>
+          </div>
+          <div class="legend" aria-label="Legenda">
+            <span class="legend-item"><i class="legend-swatch"></i>attention</span>
+            <span class="legend-item"><i class="legend-swatch mlp"></i>MLP</span>
+          </div>
+        </div>
+        <div class="chart-scroll">
+          <svg
+            id="contribution-chart"
+            class="chart"
+            role="img"
+            aria-labelledby="bars-title bars-description"
+          ></svg>
+          <p id="bars-description" class="token-help">
+            Příspěvky k rozdílu modelových skóre A − B ve 32 vrstvách. Nejde o procenta.
+          </p>
+        </div>
+      </section>
+
+      <section class="result-panel" aria-labelledby="trajectory-title">
+        <div class="panel-heading">
+          <div>
+            <h3 id="trajectory-title">Jak se náskok postupně skládá</h3>
+            <p>
+              Čára postupně sčítá příspěvky k finálnímu výsledku. Není to
+              pravděpodobnost odpovědi po každé vrstvě a může i klesat.
+            </p>
+          </div>
+          <div class="legend" aria-label="Legenda">
+            <span class="legend-item"><i class="legend-swatch"></i>průběžný součet příspěvků</span>
+          </div>
+        </div>
+        <div class="chart-scroll">
+          <svg
+            id="trajectory-chart"
+            class="chart"
+            role="img"
+            aria-labelledby="trajectory-title trajectory-description"
+          ></svg>
+          <p id="trajectory-description" class="token-help">
+            Začínáme příspěvkem vstupu a přičítáme další vrstvy. Součet včetně numerických zbytků odpovídá finálnímu rozdílu skóre.
+          </p>
+        </div>
+      </section>
+
+      <details id="technical-results" class="result-panel preference-details">
+        <summary>Technické detaily výsledku a kontrola výpočtu</summary>
+        <div class="preference-details-content">
+          <div class="technical-summary">
+            <div><h3>Rozdíl skóre A − B</h3><p id="summary-gap"></p><p id="summary-ranks"></p></div>
+            <div><h3>Kontrola součtu</h3><strong id="summary-reconstruction" class="summary-value">—</strong><p id="summary-reconstruction-detail"></p></div>
+            <div><h3>Největší příspěvek v číslech</h3><p id="summary-component-score"></p></div>
+          </div>
+
+      <details class="result-panel secondary-chart" id="local-raw-panel">
+        <summary>
+          <div>
+            <h3 id="local-raw-title">Lokální RAW čtení</h3>
+            <p>
+              Volitelný neaditivní kontext. Každý mezistav používá vlastní
+              RMSNorm, proto má graf samostatnou osu a jeho výšky se
+              neporovnávají s aditivní trajektorií.
+            </p>
+          </div>
+        </summary>
+        <div class="secondary-chart-content">
+          <div class="chart-scroll">
+            <svg
+              id="local-raw-chart"
+              class="chart compact"
+              role="img"
+              aria-labelledby="local-raw-title local-raw-description"
+            ></svg>
+            <p id="local-raw-description" class="token-help">
+              Lokální kontrast po každé vrstvě s nově vypočtenou RMSNorm.
+            </p>
+          </div>
+        </div>
+      </details>
+
+      <div class="two-column">
+        <section class="result-panel" aria-labelledby="contract-title">
+          <div class="panel-heading">
+            <div>
+              <h3 id="contract-title">Parametry měření</h3>
+              <p>Co přesně bylo porovnáno a jaký model průchod provedl.</p>
+            </div>
+          </div>
+          <dl id="token-contract" class="token-contract"></dl>
+        </section>
+
+        <section class="result-panel" aria-labelledby="strongest-title">
+          <div class="panel-heading">
+            <div>
+              <h3 id="strongest-title">Seřazené příspěvky</h3>
+              <p>
+                Absolutně nejsilnější attention/MLP komponenty. Pořadí
+                neříká, co by se stalo po jejich vypnutí.
+              </p>
+            </div>
+          </div>
+          <ol id="strongest-list" class="ranked-list"></ol>
+        </section>
+      </div>
+
+      <section class="result-panel" aria-labelledby="table-title">
+        <div class="panel-heading">
+          <div>
+            <h3 id="table-title">Vrstva po vrstvě</h3>
+            <p>
+              Příspěvky používají pevnou finální normalizaci; poslední sloupec
+              ukazuje neaditivní RAW čtení aktuálního mezistavu.
+            </p>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Vrstva</th>
+                <th>Attention Δlogit</th>
+                <th>MLP Δlogit</th>
+                <th>Celkem vrstva</th>
+                <th>Kumulativně</th>
+                <th>Lokální RAW</th>
+              </tr>
+            </thead>
+            <tbody id="layer-table"></tbody>
+          </table>
+        </div>
+      </section>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <div id="compute-overlay" class="compute-overlay" hidden>
+    <div class="compute-card" role="dialog" aria-modal="true" aria-labelledby="compute-title">
+      <p class="eyebrow">Jeden dopředný průchod</p>
+      <h2 id="compute-title">Rozepisuji příspěvky</h2>
+      <p id="compute-detail">Sleduji jeden průchod modelu…</p>
+      <div class="compute-track" aria-hidden="true"></div>
+      <button id="cancel-request" type="button">Zrušit čekání</button>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    (() => {
+      const form = document.querySelector("#attribution-form");
+      const promptInput = document.querySelector("#prompt");
+      const tokenAInput = document.querySelector("#token-a");
+      const tokenBInput = document.querySelector("#token-b");
+      const swapButton = document.querySelector("#swap-tokens");
+      const runButton = document.querySelector("#run-attribution");
+      const modelState = document.querySelector("#model-state");
+      const modelStateText = document.querySelector("#model-state-text");
+      const message = document.querySelector("#message");
+      const results = document.querySelector("#results");
+      const resultTitle = document.querySelector("#result-title");
+      const resultContext = document.querySelector("#result-context");
+      const contributionChart = document.querySelector("#contribution-chart");
+      const trajectoryChart = document.querySelector("#trajectory-chart");
+      const localRawChart = document.querySelector("#local-raw-chart");
+      const tokenContract = document.querySelector("#token-contract");
+      const strongestList = document.querySelector("#strongest-list");
+      const layerTable = document.querySelector("#layer-table");
+      const downloadButton = document.querySelector("#download-json");
+      const computeOverlay = document.querySelector("#compute-overlay");
+      const computeDetail = document.querySelector("#compute-detail");
+      const cancelButton = document.querySelector("#cancel-request");
+
+      const summaryWinner = document.querySelector("#summary-winner");
+      const summaryGap = document.querySelector("#summary-gap");
+      const summaryProbability = document.querySelector("#summary-probability");
+      const summaryRanks = document.querySelector("#summary-ranks");
+      const summaryComponent = document.querySelector("#summary-component");
+      const summaryComponentDetail = document.querySelector("#summary-component-detail");
+      const summaryComponentScore = document.querySelector("#summary-component-score");
+      const contributionDirection = document.querySelector("#contribution-direction");
+      const technicalResults = document.querySelector("#technical-results");
+      const summaryReconstruction = document.querySelector("#summary-reconstruction");
+      const summaryReconstructionDetail = document.querySelector("#summary-reconstruction-detail");
+
+      const progressMessages = [
+        "Ověřuji obě zvolená pokračování…",
+        "Sleduji, co přidaly jednotlivé vrstvy modelu…",
+        "Přepočítávám všechny příspěvky stejným měřítkem…",
+        "Kontroluji, že součet odpovídá výslednému rozdílu skóre…"
+      ];
+
+      let health = null;
+      let busy = false;
+      let controller = null;
+      let progressTimer = null;
+      let healthTimer = null;
+      let currentResult = null;
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+      const finite = (value, fallback = 0) => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      };
+
+      const formatNumber = (value, digits = 3) => {
+        const number = finite(value);
+        const absolute = Math.abs(number);
+        const maximumFractionDigits = absolute > 0 && absolute < 0.001 ? 6 : digits;
+        return new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+          minimumFractionDigits: 0,
+          maximumFractionDigits
+        }).format(number);
+      };
+
+      const formatSigned = (value, digits = 3) => {
+        const number = finite(value);
+        const prefix = number > 0 ? "+" : "";
+        return `${prefix}${formatNumber(number, digits)}`;
+      };
+
+      const formatPercent = (value, digits = 2) => `${new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: digits
+      }).format(100 * finite(value))} %`;
+
+      const formatInteger = (value) => new Intl.NumberFormat(window.ProbabilityGardenI18n?.localeTag() ?? "cs-CZ", {
+        maximumFractionDigits: 0
+      }).format(finite(value));
+
+      const formatMilliseconds = (value) => {
+        const number = finite(value);
+        return number < 1000
+          ? `${formatNumber(number, 0)} ms`
+          : `${formatNumber(number / 1000, 2)} s`;
+      };
+
+      const setMessage = (text, error = false) => {
+        message.textContent = text;
+        message.dataset.state = error ? "error" : "info";
+      };
+
+      const activeModelSupported = () => (
+        ["hybrid", "bf16", "mock"].includes(health?.active_model?.id)
+      );
+
+      const syncControls = () => {
+        const ready = health?.status === "ready";
+        const supported = activeModelSupported();
+        runButton.disabled = busy || !ready || !supported;
+        swapButton.disabled = busy;
+        promptInput.disabled = busy;
+        tokenAInput.disabled = busy;
+        tokenBInput.disabled = busy;
+      };
+
+      const applyHealth = (data) => {
+        health = data;
+        const state = data?.status === "ready"
+          ? "ready"
+          : data?.status === "error"
+          ? "error"
+          : "loading";
+        modelState.dataset.state = state;
+        if (state === "ready" && activeModelSupported()) {
+          modelStateText.textContent = `${data.active_model?.label || data.model} je připraven`;
+        } else if (state === "ready") {
+          modelStateText.textContent = "Přepni na Hybrid nebo BF16";
+        } else if (state === "error") {
+          modelStateText.textContent = "Model není dostupný";
+        } else {
+          modelStateText.textContent = "Model se připravuje…";
+        }
+        syncControls();
+      };
+
+      const fetchJson = (...arguments_) => (
+        window.ProbabilityGardenApi.fetchJson(...arguments_)
+      );
+
+      const pollHealth = async () => {
+        window.clearTimeout(healthTimer);
+        try {
+          const data = await fetchJson("/api/health");
+          applyHealth(data);
+          if (data.status !== "ready") {
+            healthTimer = window.setTimeout(pollHealth, 1200);
+          } else if (!activeModelSupported()) {
+            setMessage(
+              "Exaktní řádkový rozklad potřebuje plnou BF16 výstupní hlavu. " +
+              "V horním menu zvol Hybrid nebo BF16.",
+              true
+            );
+          } else if (!busy && message.dataset.state === "error") {
+            setMessage("");
+          }
+        } catch {
+          modelState.dataset.state = "error";
+          modelStateText.textContent = "Server není dostupný";
+          runButton.disabled = true;
+          setMessage("Server neodpovídá. Zkusím to znovu.", true);
+          healthTimer = window.setTimeout(pollHealth, 1800);
+        }
+      };
+
+      const showOverlay = () => {
+        let index = 0;
+        computeDetail.textContent = progressMessages[index];
+        computeOverlay.hidden = false;
+        document.body.classList.add("is-computing");
+        results.setAttribute("aria-busy", "true");
+        progressTimer = window.setInterval(() => {
+          index = Math.min(index + 1, progressMessages.length - 1);
+          computeDetail.textContent = progressMessages[index];
+        }, 1400);
+      };
+
+      const hideOverlay = () => {
+        window.clearInterval(progressTimer);
+        progressTimer = null;
+        computeOverlay.hidden = true;
+        document.body.classList.remove("is-computing");
+        results.removeAttribute("aria-busy");
+      };
+
+      const svgElement = (name, attributes = {}) => {
+        const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+        Object.entries(attributes).forEach(([key, value]) => {
+          element.setAttribute(key, String(value));
+        });
+        return element;
+      };
+
+      const addSvgText = (svg, text, x, y, attributes = {}) => {
+        const element = svgElement("text", {x, y, ...attributes});
+        element.textContent = text;
+        svg.append(element);
+        return element;
+      };
+
+      const renderContributionChart = (layers) => {
+        contributionChart.replaceChildren();
+        const width = 88 + layers.length * 58;
+        const height = 330;
+        const top = 28;
+        const bottom = 54;
+        const center = (top + height - bottom) / 2;
+        const plotHeight = height - top - bottom;
+        const values = layers.flatMap((layer) => [
+          finite(layer.attention?.contrast_contribution),
+          finite(layer.mlp?.contrast_contribution)
+        ]);
+        const maxAbs = Math.max(0.001, ...values.map((value) => Math.abs(value)));
+        const scale = (plotHeight / 2 - 12) / maxAbs;
+        contributionChart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        contributionChart.setAttribute("width", width);
+        contributionChart.setAttribute("height", height);
+
+        [-1, -0.5, 0, 0.5, 1].forEach((ratio) => {
+          const y = center - ratio * maxAbs * scale;
+          const line = svgElement("line", {
+            x1: 56,
+            x2: width - 18,
+            y1: y,
+            y2: y,
+            class: ratio === 0 ? "axis" : "grid"
+          });
+          contributionChart.append(line);
+          addSvgText(
+            contributionChart,
+            formatSigned(ratio * maxAbs, 2),
+            48,
+            y + 4,
+            {"text-anchor": "end", "font-size": 10}
+          );
+        });
+
+        layers.forEach((layer, index) => {
+          const baseX = 66 + index * 58;
+          [
+            {
+              value: finite(layer.attention?.contrast_contribution),
+              x: baseX,
+              className: "attention-bar",
+              label: `L${layer.layer} attention`
+            },
+            {
+              value: finite(layer.mlp?.contrast_contribution),
+              x: baseX + 19,
+              className: "mlp-bar",
+              label: `L${layer.layer} MLP`
+            }
+          ].forEach((bar) => {
+            const barHeight = Math.max(1, Math.abs(bar.value) * scale);
+            const y = bar.value >= 0 ? center - barHeight : center;
+            const rect = svgElement("rect", {
+              x: bar.x,
+              y,
+              width: 14,
+              height: barHeight,
+              rx: 3,
+              class: bar.className,
+              "data-contribution": bar.value,
+              tabindex: 0,
+              "aria-label": `${bar.label}: ${formatSigned(bar.value)} · příspěvek ke skóre`
+            });
+            const title = svgElement("title");
+            title.textContent = `${bar.label}: ${formatSigned(bar.value)} · příspěvek ke skóre`;
+            rect.append(title);
+            contributionChart.append(rect);
+          });
+          if (index % 4 === 0 || index === layers.length - 1) {
+            addSvgText(
+              contributionChart,
+              `L${layer.layer}`,
+              baseX + 16,
+              height - 24,
+              {"text-anchor": "middle", "font-size": 10}
+            );
+          }
+        });
+      };
+
+      const renderTrajectoryChart = (data) => {
+        trajectoryChart.replaceChildren();
+        const layers = data.layers || [];
+        const width = Math.max(900, 96 + layers.length * 25);
+        const height = 330;
+        const left = 58;
+        const right = 26;
+        const top = 24;
+        const bottom = 48;
+        const cumulative = layers.map((layer) => finite(layer.cumulative_after_layer));
+        const values = [finite(data.embedding?.contrast_contribution), ...cumulative];
+        let minimum = Math.min(0, ...values);
+        let maximum = Math.max(0, ...values);
+        if (Math.abs(maximum - minimum) < 1e-9) {
+          minimum -= 1;
+          maximum += 1;
+        }
+        const padding = 0.08 * (maximum - minimum);
+        minimum -= padding;
+        maximum += padding;
+        const x = (index) => left + index * ((width - left - right) / layers.length);
+        const y = (value) => top + (maximum - value) * (
+          (height - top - bottom) / (maximum - minimum)
+        );
+        trajectoryChart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        trajectoryChart.setAttribute("width", width);
+        trajectoryChart.setAttribute("height", height);
+
+        [0, 0.25, 0.5, 0.75, 1].forEach((ratio) => {
+          const value = maximum - ratio * (maximum - minimum);
+          const rowY = y(value);
+          trajectoryChart.append(svgElement("line", {
+            x1: left,
+            x2: width - right,
+            y1: rowY,
+            y2: rowY,
+            class: Math.abs(value) < (maximum - minimum) / 20 ? "axis" : "grid"
+          }));
+          addSvgText(
+            trajectoryChart,
+            formatSigned(value, 2),
+            left - 9,
+            rowY + 4,
+            {"text-anchor": "end", "font-size": 10}
+          );
+        });
+
+        const cumulativePoints = [
+          [x(0), y(finite(data.embedding?.contrast_contribution))],
+          ...cumulative.map((value, index) => [x(index + 1), y(value)])
+        ];
+        const pathData = (points) => points.map(
+          ([pointX, pointY], index) => `${index ? "L" : "M"}${pointX},${pointY}`
+        ).join(" ");
+        trajectoryChart.append(svgElement("path", {
+          d: pathData(cumulativePoints),
+          class: "cumulative-line"
+        }));
+
+        cumulativePoints.forEach(([pointX, pointY], index) => {
+          if (index % 4 !== 0 && index !== cumulativePoints.length - 1) return;
+          trajectoryChart.append(svgElement("circle", {
+            cx: pointX,
+            cy: pointY,
+            r: 3.4,
+            class: "point"
+          }));
+        });
+        layers.forEach((layer, index) => {
+          if (index % 4 !== 0 && index !== layers.length - 1) return;
+          addSvgText(
+            trajectoryChart,
+            `L${layer.layer}`,
+            x(index + 1),
+            height - 21,
+            {"text-anchor": "middle", "font-size": 10}
+          );
+        });
+      };
+
+      const renderLocalRawChart = (data) => {
+        localRawChart.replaceChildren();
+        const layers = data.layers || [];
+        const local = layers.map((layer) => finite(
+          layer.local_reader_after_layer?.contrast
+        ));
+        const width = Math.max(900, 96 + layers.length * 25);
+        const height = 230;
+        const left = 58;
+        const right = 26;
+        const top = 22;
+        const bottom = 44;
+        let minimum = Math.min(0, ...local);
+        let maximum = Math.max(0, ...local);
+        if (Math.abs(maximum - minimum) < 1e-9) {
+          minimum -= 1;
+          maximum += 1;
+        }
+        const padding = 0.08 * (maximum - minimum);
+        minimum -= padding;
+        maximum += padding;
+        const x = (index) => left + index * (
+          (width - left - right) / Math.max(1, layers.length)
+        );
+        const y = (value) => top + (maximum - value) * (
+          (height - top - bottom) / (maximum - minimum)
+        );
+        localRawChart.setAttribute("viewBox", `0 0 ${width} ${height}`);
+        localRawChart.setAttribute("width", width);
+        localRawChart.setAttribute("height", height);
+
+        [0, 0.25, 0.5, 0.75, 1].forEach((ratio) => {
+          const value = maximum - ratio * (maximum - minimum);
+          const rowY = y(value);
+          localRawChart.append(svgElement("line", {
+            x1: left,
+            x2: width - right,
+            y1: rowY,
+            y2: rowY,
+            class: Math.abs(value) < (maximum - minimum) / 20 ? "axis" : "grid"
+          }));
+          addSvgText(
+            localRawChart,
+            formatSigned(value, 2),
+            left - 9,
+            rowY + 4,
+            {"text-anchor": "end", "font-size": 10}
+          );
+        });
+
+        const points = local.map((value, index) => [x(index + 1), y(value)]);
+        const pathData = points.map(
+          ([pointX, pointY], index) => `${index ? "L" : "M"}${pointX},${pointY}`
+        ).join(" ");
+        localRawChart.append(svgElement("path", {
+          d: pathData,
+          class: "local-line"
+        }));
+        points.forEach(([pointX, pointY], index) => {
+          if (index % 4 !== 3 && index !== points.length - 1) return;
+          localRawChart.append(svgElement("circle", {
+            cx: pointX,
+            cy: pointY,
+            r: 2.8,
+            class: "local-point"
+          }));
+        });
+        layers.forEach((layer, index) => {
+          if (index % 4 !== 0 && index !== layers.length - 1) return;
+          addSvgText(
+            localRawChart,
+            `L${layer.layer}`,
+            x(index + 1),
+            height - 18,
+            {"text-anchor": "middle", "font-size": 10}
+          );
+        });
+      };
+
+      const signClass = (value) => finite(value) >= 0 ? "positive" : "negative";
+
+      const renderSummary = (data) => {
+        const final = data.final || {};
+        const contrast = data.contrast || {};
+        const tokenA = contrast.a || {};
+        const tokenB = contrast.b || {};
+        const winner = final.winner === "A" ? tokenA : final.winner === "B" ? tokenB : null;
+        const strongest = data.strongest_components?.[0] || {};
+        const error = Math.abs(finite(final.reconstruction_error));
+        const preClosure = finite(data.diagnostics?.pre_closure_contrast_error);
+
+        summaryWinner.innerHTML = winner?.display
+          ? `<span class="observed-token">${escapeHtml(winner.display)}</span>`
+          : "Remíza";
+        summaryWinner.className = "summary-value";
+        summaryGap.textContent = `${formatSigned(final.contrast)} logitu · definice A − B`;
+        summaryProbability.innerHTML = [
+          [tokenA, final.probability_a],
+          [tokenB, final.probability_b]
+        ].map(([token, probability]) => `<span class="probability-line"><span class="observed-token">${escapeHtml(token.display || "—")}</span><span>${formatPercent(probability)}</span></span>`).join("");
+        summaryRanks.textContent = `A rank #${formatInteger(final.rank_a)} · B rank #${formatInteger(final.rank_b)}`;
+        summaryComponent.textContent = strongest.label || "—";
+        const contribution = finite(strongest.contrast_contribution);
+        const direction = contribution >= 0 ? tokenA : tokenB;
+        summaryComponentDetail.innerHTML = strongest.label
+          ? Math.abs(contribution) < 1e-12
+            ? "Tento příspěvek obě možnosti nerozlišuje."
+            : `<span>Směr příspěvku:</span> <span class="observed-token">${escapeHtml(direction.display || "—")}</span>`
+          : "Bez komponent";
+        summaryComponentScore.textContent = strongest.label
+          ? `${strongest.label} · ${formatSigned(contribution)} logitu · ${strongest.kind}`
+          : "Bez komponent";
+        contributionDirection.innerHTML = `<span>Nad nulou je příspěvek ve směru</span> <strong class="observed-token">${escapeHtml(tokenA.display || "A")}</strong> <span>(A); pod nulou ve směru</span> <strong class="observed-token">${escapeHtml(tokenB.display || "B")}</strong> <span>(B).</span>`;
+        summaryReconstruction.textContent = error < 1e-9 ? "uzavřeno" : formatNumber(error, 7);
+        summaryReconstruction.className = `summary-value ${error < 1e-6 ? "positive" : "negative"}`;
+        summaryReconstructionDetail.textContent = [
+          `chyba po uzávěrce ${formatNumber(error, 8)}`,
+          `před ní ${formatSigned(preClosure, 7)}`
+        ].join(" · ");
+
+        resultTitle.innerHTML = (
+          `<span class="observed-token">${escapeHtml(tokenA.display || "A")}</span> ` +
+          `proti <span class="observed-token">${escapeHtml(tokenB.display || "B")}</span>`
+        );
+        resultContext.innerHTML = (
+          `<span class="experiment-text">„${escapeHtml(data.text)}“</span> · ` +
+          `<span>${escapeHtml(data.model_label || data.model)}</span> · ` +
+          `<span>${escapeHtml(formatMilliseconds(data.timing_ms?.total))}</span> · ` +
+          `<span>${data.cached ? "z cache" : "živý výpočet"}</span>`
+        );
+      };
+
+      const renderContract = (data) => {
+        const tokenA = data.contrast?.a || {};
+        const tokenB = data.contrast?.b || {};
+        const normalization = data.normalization || {};
+        const diagnostics = data.diagnostics || {};
+        const rows = [
+          ["A", `${tokenA.display || "—"} · #${formatInteger(tokenA.token_id)}`, true],
+          ["B", `${tokenB.display || "—"} · #${formatInteger(tokenB.token_id)}`, true],
+          ["Definice", "logit(A) − logit(B)", false],
+          ["Model", data.model_label || data.model || "—", false],
+          ["Prefix", `${formatInteger(data.token_ids?.length)} tokenů`, false],
+          ["Normalizace", `finální RMSNorm · ε ${formatNumber(normalization.epsilon, 7)}`, false],
+          ["Rounding", `${formatNumber(diagnostics.residual_rounding_relative_norm, 8)} relativně`, false],
+          ["Top 1 modelu", `${data.final?.top1?.display || "—"} · ${formatPercent(data.final?.top1?.probability)}`, true]
+        ];
+        tokenContract.innerHTML = rows.map(([term, value, protect]) => `
+          <div>
+            <dt>${escapeHtml(term)}</dt>
+            <dd class="${protect ? "observed-token" : ""}">${escapeHtml(value)}</dd>
+          </div>
+        `).join("");
+      };
+
+      const renderStrongest = (components) => {
+        const maxAbs = Math.max(
+          1e-9,
+          ...components.map((component) => Math.abs(finite(component.contrast_contribution)))
+        );
+        strongestList.innerHTML = components.map((component) => {
+          const value = finite(component.contrast_contribution);
+          const width = 50 * Math.abs(value) / maxAbs;
+          return `
+            <li class="ranked-item">
+              <span>${escapeHtml(component.label)}</span>
+              <span class="ranked-bar" aria-hidden="true">
+                <span
+                  class="${value < 0 ? "negative" : ""}"
+                  style="width:${width}%"
+                ></span>
+              </span>
+              <strong class="${signClass(value)}">${escapeHtml(formatSigned(value))}</strong>
+            </li>
+          `;
+        }).join("");
+      };
+
+      const renderLayerTable = (layers) => {
+        layerTable.innerHTML = layers.map((layer) => {
+          const attention = finite(layer.attention?.contrast_contribution);
+          const mlp = finite(layer.mlp?.contrast_contribution);
+          const total = finite(layer.layer_contrast_contribution);
+          const cumulative = finite(layer.cumulative_after_layer);
+          const local = finite(layer.local_reader_after_layer?.contrast);
+          return `
+            <tr>
+              <td><strong>L${formatInteger(layer.layer)}</strong></td>
+              <td class="${signClass(attention)}">${escapeHtml(formatSigned(attention))}</td>
+              <td class="${signClass(mlp)}">${escapeHtml(formatSigned(mlp))}</td>
+              <td class="${signClass(total)}">${escapeHtml(formatSigned(total))}</td>
+              <td class="${signClass(cumulative)}">${escapeHtml(formatSigned(cumulative))}</td>
+              <td class="${signClass(local)}">${escapeHtml(formatSigned(local))}</td>
+            </tr>
+          `;
+        }).join("");
+      };
+
+      const renderResult = (data) => {
+        const layers = Array.isArray(data.layers) ? data.layers : [];
+        if (layers.length !== 32) {
+          throw new Error("Server nevrátil všech 32 vrstev.");
+        }
+        renderSummary(data);
+        renderContributionChart(layers);
+        renderTrajectoryChart(data);
+        renderLocalRawChart(data);
+        renderContract(data);
+        renderStrongest(data.strongest_components || []);
+        renderLayerTable(layers);
+        technicalResults.open = false;
+        document.querySelector("#local-raw-panel").open = false;
+        results.hidden = false;
+      };
+
+      const analyze = async () => {
+        if (busy) return;
+        const rawText = promptInput.value;
+        const text = rawText.trimEnd();
+        if (!text) {
+          setMessage("Napiš prefix.", true);
+          promptInput.focus();
+          return;
+        }
+        if (text !== rawText) promptInput.value = text;
+        if (!tokenAInput.value.trim() || !tokenBInput.value.trim()) {
+          setMessage("Vyplň oba tokeny kontrastu.", true);
+          return;
+        }
+        if (health?.status !== "ready" || !activeModelSupported()) {
+          setMessage("Přepni na připravený Hybrid nebo BF16.", true);
+          return;
+        }
+
+        busy = true;
+        controller = new AbortController();
+        syncControls();
+        setMessage("");
+        showOverlay();
+        try {
+          const data = await fetchJson("/api/component-attribution", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            signal: controller.signal,
+            body: JSON.stringify({
+              text,
+              token_a: tokenAInput.value,
+              token_b: tokenBInput.value,
+              model_id: health.active_model?.id,
+              model_generation: health.model_generation,
+              server_instance_id: health.server_instance_id
+            })
+          });
+          currentResult = data;
+          renderResult(data);
+          setMessage(
+            data.cached
+              ? "Hotovo — rozpis příspěvků byl načten z mezipaměti."
+              : "Hotovo — rozpis příspěvků odpovídá výslednému rozdílu skóre."
+          );
+          window.requestAnimationFrame(() => {
+            results.scrollIntoView({behavior: "smooth", block: "start"});
+          });
+        } catch (error) {
+          if (error.name === "AbortError") {
+            setMessage(
+              "Čekání v prohlížeči bylo zrušeno. Již spuštěný modelový výpočet může doběhnout na serveru."
+            );
+          } else {
+            if (error.health) applyHealth(error.health);
+            setMessage(error.message || "Rozklad se nepodařilo dokončit.", true);
+            if (error.code === "model_changed") await pollHealth();
+          }
+        } finally {
+          busy = false;
+          controller = null;
+          hideOverlay();
+          syncControls();
+        }
+      };
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        analyze();
+      });
+
+      const invalidateResult = () => {
+        if (!currentResult) return;
+        currentResult = null;
+        results.hidden = true;
+        setMessage("Zadání se změnilo — spusť nový rozpis příspěvků.");
+        syncControls();
+      };
+      [promptInput, tokenAInput, tokenBInput].forEach((input) => {
+        input.addEventListener("input", invalidateResult);
+      });
+
+      swapButton.addEventListener("click", () => {
+        const valueA = tokenAInput.value;
+        tokenAInput.value = tokenBInput.value;
+        tokenBInput.value = valueA;
+        invalidateResult();
+      });
+
+      cancelButton.addEventListener("click", () => {
+        controller?.abort();
+      });
+
+      downloadButton.addEventListener("click", () => {
+        if (!currentResult) return;
+        const blob = new Blob(
+          [JSON.stringify(currentResult, null, 2)],
+          {type: "application/json"}
+        );
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `component-attribution-${currentResult.model_id || "model"}-${new Date().toISOString().replaceAll(":", "-")}.json`;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+      });
+
+      window.addEventListener("probability-garden:workbench-state", (event) => {
+        if (event.detail?.health) applyHealth(event.detail.health);
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          analyze();
+        }
+      });
+
+      pollHealth();
+    })();
+  </script>
+</body>
+</html>
