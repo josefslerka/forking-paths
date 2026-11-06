@@ -37,6 +37,9 @@ It covers connect/verify/enable, model-specific availability, checksum failure,
 CZ/EN and non-destructive disconnection. Placeholder tensors are not numerical
 reader validation. Real artifact checks are separate and use private local
 packages; never copy those packages, receipts, corpora or absolute paths into Git.
+This isolated addon fixture emulates a supported Metal host even on Linux;
+the normal administration suite and platform-matrix unit tests retain the real
+host guards. There is no production flag for bypassing platform checks.
 
 `test_predictive_detector.py` contains historical regressions against private
 calibration assets and skips them if absent. No private corpus is required by

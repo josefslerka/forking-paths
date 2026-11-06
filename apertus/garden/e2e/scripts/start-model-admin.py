@@ -69,6 +69,10 @@ with tempfile.TemporaryDirectory(prefix="apertus-admin-e2e-") as temporary:
     port="8896"
     if "--addons-only" in sys.argv:
         # Independent synthetic MLX-metadata fixture, not a production flag.
+        # The backend is fake, so emulate its supported Metal host as well.
+        # Normal setup tests retain the real host detection and runtime guards.
+        from apertus.garden import runtime_environment
+        runtime_environment.recommended_backend = lambda: "mlx"
         sys.path.insert(0,str(ROOT / "apertus/garden/tests"))
         from test_tuned_lens import artifact_manifest
         fixture_files(directory/"cache/models/bf16",family="apertus",layers=32,vocab=131072)

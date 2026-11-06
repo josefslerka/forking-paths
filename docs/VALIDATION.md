@@ -199,6 +199,9 @@ the backend. These were application guidance/preflight defects, not user errors.
   New synthetic cases reproduce the invisible modal error, missing runtime
   prerequisites and recovery from an old Linux/MLX configuration. A dialog
   screenshot was inspected. Desktop helper suite: **13 passed**.
+  The isolated addon launcher explicitly emulates a supported Metal host along
+  with its fake backend when running on Linux; normal first-run/setup tests
+  retain the real platform protection.
 - Updated wheel/sdist built, including the portable presets and environment
   preflight. The wheel passed the outside-checkout, NumPy-only installation
   gate: demo, model-free setup, platform-appropriate defaults, registration
