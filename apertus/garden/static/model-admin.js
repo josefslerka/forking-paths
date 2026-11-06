@@ -14,7 +14,9 @@
     addon_conflict:"Nastavení doplňků se mezitím změnilo. Obnov přehled a akci zopakuj; po ruční úpravě souboru restartuj server.",
     invalid_addon_path:"Vyber existující složku s balíčkem doplňku.",invalid_addon_files:"Balíček neprošel kontrolou souborů, kontrolních součtů nebo formátu.",
     addon_missing:"Nejdřív připoj balíček doplňku.",addon_unverified:"Nejdřív ověř balíček pro kompatibilní model.",addon_incompatible:"Pro tento model není připojený balíček kompatibilní.",
-    dependency_missing:"Nejdřív doinstaluj potřebné výpočetní knihovny podle návodu. Žádné váhy se zatím nestáhly.",
+    dependency_missing:"Chybí knihovny v Pythonu, ve kterém běží server. Použij uvedený příkaz a server restartuj. Tato akce žádné váhy nestáhla.",
+    unsupported_platform:"Tento výpočetní režim naše aplikace na tomto počítači nepodporuje. Přejdi na PyTorch; původní BF16 váhy není třeba stahovat znovu.",
+    incompatible_profile:"Tento profil nepatří ke zvolenému výpočetnímu prostředí. Vyber původní HF model pro PyTorch nebo odpovídající MLX profil na Macu s čipem Apple.",
     registry_conflict:"Nastavení se mezitím změnilo. Přehled jsme obnovili; zkontroluj jej a akci zopakuj.",
     reload_required:"Nejdřív použij změny registru ze souboru.",model_busy:"Právě probíhá jiná operace. Počkej na její dokončení.",
     active_model:"Nejdřív načti jiný model. Aktivní model nelze skrýt ani odpojit.",default_model:"Nejdřív nastav jiný výchozí model.",
@@ -39,9 +41,11 @@
   const formatBytes = (number) => number ? `${(number/1e9).toLocaleString(window.ProbabilityGardenI18n?.localeTag?.() || "cs",{maximumFractionDigits:1})} GB` : t("Bez dalšího stahování");
   const isBusy = () => pending || snapshot?.readonly || snapshot?.busy;
   function message(text="", error=null) {
-    const target=$("admin-message"); target.replaceChildren(); target.classList.toggle("error",Boolean(error));
+    for(const item of document.querySelectorAll("#admin-message,.dialog-message")){item.replaceChildren();item.classList.remove("error");}
+    const target=document.querySelector("dialog[open] .dialog-message")||$("admin-message"); target.classList.toggle("error",Boolean(error));
     if(text)target.append(node("span",text));
     if(error) {const details=node("details"); details.append(node("summary",t("Technické podrobnosti")),userNode("pre",[error.message, error.payload?.details ? JSON.stringify(error.payload.details,null,2):""].filter(Boolean).join("\n")));target.append(details);}
+    if(error){target.scrollIntoView({block:"center"});if(target.classList.contains("dialog-message"))target.focus({preventScroll:true});}
   }
   async function request(path, payload) {
     return api.fetchJson(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),silent:true,timeoutMs:20000});
@@ -53,7 +57,10 @@
   }
   function lockForms() {
     for(const id of ["inspect-model","review-installation","add-model","reload-registry"])$(id).disabled=Boolean(isBusy()) || (id==="add-model" && !inspection?.files_ok);
-    $("start-installation").disabled=Boolean(isBusy()) || !$("confirm-download").checked || !plan;
+    $("start-installation").disabled=Boolean(isBusy()) || !$("confirm-download").checked || !plan || plan.environment?.ready===false;
+    $("review-installation").disabled=Boolean(isBusy()) || !snapshot?.profiles.length;
+    $("profile-id").disabled=Boolean(isBusy()) || !snapshot?.profiles.length;
+    $("use-torch").disabled=Boolean(isBusy()) || Boolean(snapshot?.active_model_id);
     $("confirm-disconnect").disabled=Boolean(isBusy());
     for(const button of document.querySelectorAll("[data-admin-action]"))button.disabled=pending||button.dataset.blocked==="true";
     for(const control of addonControls.values())control.lock();
@@ -65,7 +72,7 @@
     return "Pro tento adaptér zatím není pohled implementovaný.";
   }
   function renderCards() {
-    const signature=JSON.stringify([snapshot.models,snapshot.busy,snapshot.readonly,snapshot.status]);
+    const signature=JSON.stringify([snapshot.models,snapshot.busy,snapshot.readonly,snapshot.status,snapshot.environment?.ready]);
     if(signature===cardSignature)return;cardSignature=signature;
     const list=$("model-list");list.replaceChildren();
     for(const model of snapshot.models) {
@@ -88,8 +95,8 @@
       const actions=node("div",undefined,"actions card-actions");
       function button(text,callback,disabled=false,primary=false) {const b=node("button",t(text),primary?"primary":undefined);b.type="button";b.dataset.adminAction="true";b.dataset.blocked=String(Boolean(disabled||snapshot.readonly||snapshot.busy));b.disabled=pending||b.dataset.blocked==="true";b.addEventListener("click",()=>action(callback));actions.append(b);return b;}
       if(model.kind!=="source") {
-        button(model.active?"Používá se":"Použít",async()=>{await request("/api/model",{model_id:model.id});message(t("Model se načítá. Stav se průběžně obnovuje."));await refresh();},!model.files_ok||!model.enabled||model.active,true);
-        button("Ověřit výpočtem",async()=>{const job=await request("/api/model-admin/jobs",{action:"smoke",model_id:model.id,registry_sha256:snapshot.registry_sha256});installJob=job;renderJob(job);await refresh();},!model.files_ok||!model.enabled);
+        button(model.active?"Používá se":"Použít",async()=>{await request("/api/model",{model_id:model.id});message(t("Model se načítá. Stav se průběžně obnovuje."));await refresh();},!model.files_ok||!model.enabled||model.active||snapshot.environment?.ready===false,true);
+        button("Ověřit výpočtem",async()=>{const job=await request("/api/model-admin/jobs",{action:"smoke",model_id:model.id,registry_sha256:snapshot.registry_sha256});installJob=job;renderJob(job);await refresh();},!model.files_ok||!model.enabled||snapshot.environment?.ready===false);
         if(!model.default)button("Nastavit jako výchozí",()=>edit("set_default",model.id),!model.enabled);
         button(model.enabled?"Skrýt z nabídky":"Vrátit do nabídky",()=>edit("set_enabled",model.id,{enabled:!model.enabled}),model.active||model.default);
       }
@@ -161,15 +168,21 @@
     try {
       const value=await api.fetchJson("/api/model-admin",{silent:true});snapshot=value;
       $("demo-notice").hidden=!value.mock;$("legacy-notice").hidden=!value.readonly||value.mock;$("setup-notice").hidden=value.status!=="setup_required";
-      $("backend-notice").hidden=value.backend_installed||value.readonly;
-      $("backend-command").textContent=`python -m pip install -e '.[${value.backend}]'`;
+      const environment=value.environment;
+      $("backend-notice").hidden=environment?.ready!==false||value.readonly;
+      $("backend-notice-title").textContent=t(environment?.supported===false?"Zvolený režim není pro tento počítač.":"Chybí výpočetní knihovny.");
+      $("backend-platform-help").hidden=environment?.supported!==false;
+      $("profile-runtime-notice").hidden=environment?.supported!==false||value.readonly;
+      $("use-torch").hidden=$("backend-switch-note").hidden=environment?.supported!==false||value.readonly;
+      $("backend-command").textContent=environment?.install_command||`python -m pip install -e '.[${value.backend}]'`;
+      $("backend-python").textContent=environment?.python_executable||"";
       $("load-error-notice").hidden=value.status!=="error";
       $("load-error-details").textContent=value.error||"";
       $("reload-notice").hidden=value.registry_sha256===value.applied_sha256||value.readonly;
       $("registry-path").textContent=value.registry_path;$("cache-path").textContent=value.cache_path;$("backup-path").textContent=value.backup_directory;$("backend-name").textContent=value.backend;
       $("model-state-text").textContent=t(value.status==="setup_required"?"Vyber model, který chceš načíst.":value.busy?"Probíhá operace s modelem…":"Nastavení je připravené.");
       const current=$("profile-id").value;
-      if(JSON.stringify(value.profiles.map(p=>p.id))!==JSON.stringify([...$("profile-id").options].map(p=>p.value))){$("profile-id").replaceChildren(...value.profiles.map(p=>{const option=node("option",profiles[p.id]||p.id);option.value=p.id;option.dataset.i18nIgnore="true";return option;}));if(current)$("profile-id").value=current;}
+      if(JSON.stringify(value.profiles.map(p=>p.id))!==JSON.stringify([...$("profile-id").options].map(p=>p.value))){$("profile-id").replaceChildren(...value.profiles.map(p=>{const option=node("option",profiles[p.id]||p.id);option.value=p.id;option.dataset.i18nIgnore="true";return option;}));if(value.profiles.some(p=>p.id===current))$("profile-id").value=current;}
       renderCards();renderJob(value.job);renderAddons(await api.fetchJson("/api/model-admin/addons",{silent:true}));lockForms();
     } catch(error) {message(t(errors[error.code]||"Nastavení se nepodařilo načíst."),error);}
     finally{refreshRunning=false;}
@@ -185,11 +198,16 @@
   $("install-profile-form").addEventListener("submit",event=>{event.preventDefault();action(async()=>{
     plan=await request("/api/model-admin/plan",{profile_id:$("profile-id").value,registry_sha256:snapshot.registry_sha256});$("install-size").textContent=`${t("Odhad nového místa na disku")}: ${formatBytes(plan.estimated_bytes)}`;
     $("install-steps").replaceChildren(...plan.steps.map(step=>{const item=node("li",undefined,"install-step");item.append(node("strong",profiles[step.model_id]||step.model_id),node("small",` · ${t(step.ready?"Už připraveno":phases[step.operation]||"Připravit")} · ${formatBytes(step.estimated_bytes)}`),userNode("code",step.path));return item;}));
+    const environment=plan.environment;
+    $("install-environment").hidden=environment?.ready!==false;
+    $("install-environment-reason").textContent=environment?.supported===false?t(errors.unsupported_platform):`${t("Chybí knihovny v Pythonu serveru")}: ${(environment?.missing_modules||[]).join(", ")}`;
+    $("install-command").textContent=environment?.install_command||"";
     $("confirm-download").checked=false;$("install-dialog").showModal();
   });});
   $("confirm-download").addEventListener("change",lockForms);
   $("close-install-dialog").addEventListener("click",()=>$("install-dialog").close());
-  $("start-installation").addEventListener("click",()=>action(async()=>{if(!plan||!$("confirm-download").checked)return;const job=await request("/api/model-admin/jobs",{action:"install",plan_id:plan.id,registry_sha256:plan.registry_sha256,confirmed:true});$("install-dialog").close();plan=null;renderJob(job);await refresh();}));
+  $("start-installation").addEventListener("click",()=>action(async()=>{if(!plan||!$("confirm-download").checked||plan.environment?.ready===false)return;const job=await request("/api/model-admin/jobs",{action:"install",plan_id:plan.id,registry_sha256:plan.registry_sha256,confirmed:true});$("install-dialog").close();plan=null;renderJob(job);$("job-panel").scrollIntoView({block:"center"});await refresh();}));
+  $("use-torch").addEventListener("click",()=>action(async()=>{plan=null;await edit("use_torch",null);message(t("Používáme PyTorch. Soubory vah zůstaly beze změny. Pokud chybí knihovny, doinstaluj je uvedeným příkazem a server restartuj."));}));
   $("cancel-job").addEventListener("click",()=>action(async()=>{if(installJob)renderJob(await request("/api/model-admin/cancel",{job_id:installJob.id}));}));
   $("cancel-disconnect").addEventListener("click",()=>$("disconnect-dialog").close());
   $("confirm-disconnect").addEventListener("click",()=>action(async()=>{if(disconnect?.addon){await addonAction(disconnect.kind,"disconnect");await refresh();}else if(disconnect)await edit("remove",disconnect.id);$("disconnect-dialog").close();$("disconnect-title").textContent=t("Odpojit model?");disconnect=null;}));

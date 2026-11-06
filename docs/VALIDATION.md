@@ -169,3 +169,41 @@ No numerical method, checkpoint or experimental stimulus was changed.
 
 The repository is still local. No GitHub repository, push or package publication
 was performed during this naming update.
+
+## First-install portability correction — 6 November 2026
+
+The first external Linux installation exposed two onboarding bugs: the shared
+factory registry selected MLX on every host, and an installation error could be
+rendered above the viewport behind an open modal. A successful pip command in a
+different Python environment also did not establish that the server could load
+the backend. These were application guidance/preflight defects, not user errors.
+
+- Fresh defaults now choose this release's MLX/Metal runtime only on Apple
+  silicon macOS, otherwise PyTorch, in both Python and desktop launchers. An
+  explicit or existing registry is preserved; no machine configuration is
+  silently rewritten. Torch presets contain only original HF profiles.
+- An old MLX registry can be switched explicitly to PyTorch while no model is
+  loaded. The exact registry is backed up, original HF paths (including hidden
+  BF16 sources) are retained, and MLX-only profiles are disconnected only from
+  configuration. No weight files are deleted or downloaded by this action.
+- Runtime and download dependencies are checked before a job/registry mutation
+  and before automatic loading. Installation plans show prerequisites and the
+  actual server-Python command inside the dialog; late errors stay visible and
+  focused inside it. UI copies and recovery instructions are Czech/English.
+- Full Python suite: **501 passed, 17 skipped**. New cases cover the host matrix,
+  missing packages, unsupported MLX even when packages are present, no-download
+  failure, exact backup/path preservation, loaded-model protection and protected
+  portable factory presets. Platform matrix cases are simulations, not claims
+  of running every physical OS/GPU combination.
+- Browser suites: **34 general + 9 administration + 4 addon tests passed**.
+  New synthetic cases reproduce the invisible modal error, missing runtime
+  prerequisites and recovery from an old Linux/MLX configuration. A dialog
+  screenshot was inspected. Desktop helper suite: **13 passed**.
+- Updated wheel/sdist built, including the portable presets and environment
+  preflight. The wheel passed the outside-checkout, NumPy-only installation
+  gate: demo, model-free setup, platform-appropriate defaults, registration
+  and backups. No inference frameworks or model weights were installed there.
+- This change does not add PyTorch quantization, enable Linux MLX/CUDA, validate
+  arbitrary GPU drivers, or guarantee that an 8B checkpoint fits available RAM
+  or VRAM. Existing numerical/scientific methods are unchanged; no large real
+  model download or new real-GPU benchmark was performed for this correction.

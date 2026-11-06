@@ -15081,6 +15081,9 @@ class GardenHandler(BaseHTTPRequestHandler):
         target_model_id = request.get("model_id")
         if not isinstance(target_model_id, str):
             raise ValueError("model_id musí být řetězec.")
+        admin = getattr(getattr(self, "server", None), "model_admin", None)
+        if not self.state.mock and admin is not None and not admin.readonly:
+            admin.require_runtime()
         result = self.state.request_model_switch(target_model_id)
         self.send_json(
             result,
@@ -16613,7 +16616,12 @@ def main() -> None:
         device=args.device,
         mock=args.mock,
     )
-    load_initial = not args.setup_only and state._model_available_unlocked(initial_model, model_path)
+    try:
+        from .runtime_environment import environment_report
+    except ImportError:
+        from runtime_environment import environment_report
+    environment = environment_report(backend_name)
+    load_initial = not args.setup_only and (args.mock or environment["ready"]) and state._model_available_unlocked(initial_model, model_path)
 
     server = GardenServer(
         (args.host, args.port),

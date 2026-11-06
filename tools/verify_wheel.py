@@ -8,8 +8,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import venv
@@ -51,6 +53,11 @@ def check_model_management(python: Path, root: Path, env: dict) -> None:
             with urlopen(base + "/api/model-admin") as response:
                 settings = json.load(response)
             assert not settings["readonly"] and not settings["backend_installed"]
+            expected = "mlx" if sys.platform == "darwin" and platform.machine().lower() in {"arm64", "aarch64"} else "torch"
+            assert settings["backend"] == expected
+            assert not settings["environment"]["ready"]
+            if expected == "torch":
+                assert {profile["id"] for profile in settings["profiles"]} == {"bf16", "eurollm9-hf"}
             model = root / "synthetic-local-model"
             model.mkdir()
             (model / "config.json").write_text('{"model_type":"gpt2","num_hidden_layers":2}')

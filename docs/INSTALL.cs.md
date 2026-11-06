@@ -30,11 +30,11 @@ Vpravo nahoře přepínáte češtinu a angličtinu. Server zastavíte Ctrl+C.
 
 ## Skutečný model na Macu s čipem Apple
 
-Do stejného prostředí doinstalujte výpočetní část a zkopírujte vzor nastavení:
+Do stejného prostředí doinstalujte výpočetní část. Při prvním spuštění se
+správné výchozí prostředí vybere podle systému; vlastní registr má přednost:
 
 ```sh
 python -m pip install -e '.[mlx]'
-cp models.example.toml models.toml
 apertus-workbench serve
 ```
 
@@ -113,10 +113,11 @@ kvalitu modelu ani numerickou shodu s jinou přesností.
 
 ```sh
 python -m pip install -e '.[torch]'
-cp models.torch.example.toml models.toml
+forking-paths serve --device auto
 ```
 
-Spusťte `apertus-workbench serve` a připojte původní HF váhy ve formátu
+Při prvním spuštění na Linuxu, Windows a Intel Macu se bez vlastního registru
+vybere PyTorch a nabídnou se pouze původní HF profily. Připojte váhy ve formátu
 safetensors přes Správu modelů. Musí jít o kauzální jazykový model podporovaný
 knihovnou Transformers. Připravené stahované profily zde jsou Apertus BF16 a
 původní EuroLLM 9B HF; kvantizované MLX varianty pro tento backend nejsou.
@@ -131,6 +132,34 @@ Tento režim umí tokenizaci, pravděpodobnosti, surprisal, kontrasty kontextů 
 porovnání modelů. Pohledy dovnitř vrstev zatím vyžadují podporovanou
 architekturu v MLX. Soubor z Ollamy/GGUF ani MLX kvantizaci nelze jednoduše
 použít jako PyTorch checkpoint. Na CPU mohou velké modely běžet velmi pomalu.
+
+### Linux a hlášení o MLX
+
+Starší výchozí konfigurace mohla na Ubuntu nabídnout MLX a 4bit instalaci.
+Jde o chybu průvodce, ne o potřebu pořídit si Mac. Základní pravděpodobnostní
+nástroje na Linuxu používají PyTorch; experimentální vnitřní nástroje a naše
+MLX kvantizace mají nadále vlastní platformní omezení.
+
+1. V adresáři projektu aktualizujte zdroje pomocí `git pull --ff-only`.
+2. Aktivujte prostředí, ze kterého aplikaci spouštíte, a nainstalujte
+   `python -m pip install -e '.[torch]'`.
+3. Ukončete dosavadní server pomocí Ctrl+C a spusťte
+   `forking-paths serve --setup-only`.
+4. Pokud Správa modelů ukazuje staré MLX nastavení, zvolte **Přejít na
+   PyTorch**. Přepnutí zálohuje původní registr a odpojí jen nepřenositelné
+   MLX profily. Váhy na disku nemaže ani nestahuje.
+5. U již staženého původního **Apertus 8B · BF16** použijte **Použít**.
+   Jeho původní cesta zůstává zachovaná, takže není potřeba znovu stahovat váhy.
+
+Instalační dialog vždy ukazuje chybějící knihovny dřív, než spustí stahování.
+Příkaz obsahuje přesný Python aktuálního serveru: instalace přes jiné `pip`
+může skončit úspěšně, ale aplikaci nepomůže. Po instalaci knihoven server
+restartujte; obnova stránky není restartem Pythonu.
+
+Volba `--device auto` použije dostupné CUDA, jinak CPU. Nezaručuje, že každý
+model půjde načíst do paměti daného počítače. Při nedostatku paměti zvolte
+menší kompatibilní HF model. Naše 4bit/8bit/Hybrid recepty nejsou PyTorch
+kvantizace. MLX/CUDA na Linuxu tato verze aplikace zatím neověřuje ani nenabízí.
 
 ## Přidání modelu a běžné potíže
 

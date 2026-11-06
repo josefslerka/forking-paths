@@ -40,6 +40,10 @@ API. All model/registry actions use the same guarded local server as the browser
 Changes made from bundled presets create a user-owned registry under the data
 directory. On subsequent launches the shell prefers an explicit registry, then
 the checkout's `models.toml`, then the user registry, then bundled presets.
+Fresh defaults use MLX only on Apple silicon macOS, otherwise PyTorch. This
+matches the Python launcher. An old MLX registry on another host is preserved
+until the user chooses **Switch to PyTorch** in Model management; original HF
+paths and weights remain, with an exact backup of the old registrations.
 
 To connect to a server you explicitly manage, set `APERTUS_WORKBENCH_URL`
 (see the shell's source for the accepted URL contract). Only use trusted,

@@ -47,7 +47,9 @@ class TestBackend:
 
 
 @pytest.fixture
-def managed(tmp_path):
+def managed(tmp_path, monkeypatch):
+    # This fixture supplies its own numerical backend, not optional libraries.
+    monkeypatch.setattr("apertus.garden.model_admin.dependency_available", lambda module: True)
     for name in ("one","two"):
         local_files(tmp_path / name)
     path = tmp_path / "models.toml"

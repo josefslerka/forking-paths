@@ -69,3 +69,47 @@ test.describe.serial("Local model management — synthetic filesystem/backend",(
     await page.screenshot({path:"test-results/admin/model-management-mobile.png",fullPage:true});
   });
 });
+
+test("missing libraries are explained inside the install dialog before any download",async({page})=>{
+  let jobs=0;
+  page.on("request",request=>{if(request.method()==="POST"&&new URL(request.url()).pathname==="/api/model-admin/jobs")jobs++;});
+  await page.route("**/api/model-admin/plan",async route=>{
+    const response=await route.fetch(), plan=await response.json();
+    plan.environment={...plan.environment,supported:true,ready:false,code:"dependency_missing",missing_modules:["torch"],install_command:"/tmp/runtime-fixture/bin/python -m pip install -e '.[torch]'"};
+    await route.fulfill({response,json:plan});
+  });
+  await page.goto("/sprava-modelu");
+  await page.locator("#profile-id").selectOption("bf16");await page.locator("#review-installation").click();
+  await expect(page.locator("#install-environment")).toBeVisible();
+  await expect(page.locator("#install-command")).toContainText("/tmp/runtime-fixture/bin/python");
+  await page.locator("#confirm-download").check();await expect(page.locator("#start-installation")).toBeDisabled();
+  expect(jobs).toBe(0);
+  await page.screenshot({path:"test-results/admin/install-missing-runtime.png",fullPage:true});
+});
+
+test("a rejected install remains visible and focused inside the modal, including in English",async({page})=>{
+  await page.route("**/api/model-admin/jobs",route=>route.fulfill({status:400,json:{code:"dependency_missing",error:"Synthetic dependency change",details:{missing_modules:["torch"]}}}));
+  await page.goto("/sprava-modelu?lang=en");
+  await page.locator("#profile-id").selectOption("bf16");await page.locator("#review-installation").click();
+  await page.locator("#confirm-download").check();await page.locator("#start-installation").click();
+  await expect(page.locator("#install-dialog")).toBeVisible();
+  await expect(page.locator("#install-error")).toBeVisible();
+  await expect(page.locator("#install-error")).toContainText("Python environment running this server");
+  await expect(page.locator("#install-error")).toBeFocused();
+  await expect(page.locator("#admin-message")).toBeEmpty();
+});
+
+test("an old Linux MLX configuration offers a non-destructive switch instead of 4-bit profiles",async({page,request})=>{
+  const original=await (await request.get("/api/model-admin")).json();let switched=false;
+  const value=()=>switched?{...original,active_model_id:null}:{...original,backend:"mlx",active_model_id:null,profiles:[],environment:{...original.environment,backend:"mlx",supported:false,ready:false,system:"linux",machine:"x86_64",recommended_backend:"torch",missing_modules:[],install_command:"python -m pip install -e '.[torch]'"}};
+  await page.route("**/api/model-admin",route=>route.fulfill({json:value()}));
+  await page.route("**/api/model-admin/edit",async route=>{expect(route.request().postDataJSON().action).toBe("use_torch");switched=true;await route.fulfill({json:value()});});
+  await page.goto("/sprava-modelu?lang=cs");
+  await expect(page.locator("#backend-platform-help")).toBeVisible();
+  await expect(page.locator("#profile-id option")).toHaveCount(0);
+  await expect(page.locator("#review-installation")).toBeDisabled();
+  await page.locator("#use-torch").click();
+  await expect(page.locator("#profile-id option")).toHaveCount(2);
+  await expect(page.locator("#profile-id")).toHaveValue("bf16");
+  await expect(page.locator("#admin-message")).toContainText("Soubory vah zůstaly beze změny");
+});

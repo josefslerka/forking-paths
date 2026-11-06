@@ -10,6 +10,10 @@ export const DEFAULT_PORT = 8765;
 export const DEFAULT_MODEL = null; // Registry default, not a hard-coded model ID.
 export const HEALTH_PATH = "/api/health";
 
+export function defaultPresetFilename(platform = process.platform, arch = process.arch) {
+  return platform === "darwin" && arch === "arm64" ? "model_presets.toml" : "model_presets.torch.toml";
+}
+
 // A display-name change must not create an empty Electron profile. Keep the
 // established directory (settings, cookies, language and saved source path).
 export function desktopUserDataPath(appData) {
@@ -157,7 +161,7 @@ export function validateApertusRoot(candidate) {
     "pyproject.toml",
     "apertus/garden/server.py",
     "apertus/garden/static/index.html",
-    "apertus/garden/model_presets.toml",
+    `apertus/garden/${defaultPresetFilename()}`,
   ]) {
     if (!fs.existsSync(path.join(root, relativePath))) {
       problems.push(`chybí ${relativePath}`);
@@ -169,7 +173,7 @@ export function validateApertusRoot(candidate) {
   const dataDir = process.env.APERTUS_DATA_DIR || userData;
   const registryPath = process.env.APERTUS_MODEL_REGISTRY || (
     fs.existsSync(path.join(root, "models.toml")) ? path.join(root, "models.toml") :
-    fs.existsSync(path.join(dataDir, "models.toml")) ? path.join(dataDir, "models.toml") : path.join(gardenDir, "model_presets.toml")
+    fs.existsSync(path.join(dataDir, "models.toml")) ? path.join(dataDir, "models.toml") : path.join(gardenDir, defaultPresetFilename())
   );
   return {
     ok: problems.length === 0,

@@ -35,15 +35,18 @@ try:
     from .model_registry import model_descriptor, read_json
     from .registry_config import ADAPTERS, ModelRegistry, load_registry, parse_registry, validate_model_files
     from .settings import cache_directory, data_directory
+    from .runtime_environment import environment_report
 except ImportError:
     from experimental_addons import AddonError, ExperimentalAddons
     from cli import check_model
     from model_registry import model_descriptor, read_json
     from registry_config import ADAPTERS, ModelRegistry, load_registry, parse_registry, validate_model_files
     from settings import cache_directory, data_directory
+    from runtime_environment import environment_report
 
 HERE = Path(__file__).resolve().parent
 PRESETS = HERE / "model_presets.toml"
+BUILTIN_REGISTRIES = {PRESETS.resolve(), (HERE / "model_presets.torch.toml").resolve()}
 CAPABILITIES = ("tokenization", "garden", "surprise", "contrast", "model-comparison", "embeddings", "raw", "steering", "attribution", "patching", "tuned", "jlens", "detector")
 # Rounded planning estimates, not a remote manifest or a RAM-fit guarantee.
 SOURCE_BYTES = {"bf16": 17_000_000_000, "eurollm9-source": 37_000_000_000, "eurollm9-hf": 37_000_000_000}
@@ -187,13 +190,15 @@ class ModelAdmin:
     def snapshot(self) -> dict:
         with self.lock, self.state.state_lock:
             registry, _data, _raw = self._current()
-            backend_module = "mlx_lm" if registry.backend == "mlx" else "torch"
-            modules = (backend_module,"transformers","safetensors")
-            installed = all(dependency_available(module) for module in modules)
+            environment = environment_report(registry.backend, available=dependency_available)
+            installed = not environment["missing_modules"]
             legacy = self.readonly and not self.state.mock
             profiles = ["bf16", "8bit", "4bit", "hybrid", "eurollm9"] if registry.backend == "mlx" else ["bf16", "eurollm9-hf"]
+            if not environment["supported"]:
+                profiles = []
             return {"registry_sha256":registry.sha256,"applied_sha256":self.state.registry.sha256 if self.state.registry else None,
                     "registry_path":str(registry.path) if not legacy else "", "backend":registry.backend if not legacy else self.state.backend_name,"backend_installed":installed,
+                    "environment":environment,
                     "readonly":self.readonly,"mock":self.state.mock,"status":self.state.status,
                     "error":self.state.error,
                     "active_model_id":self.state.active_model_id if self.state.model is not None else None,
@@ -276,7 +281,7 @@ class ModelAdmin:
         if self.state.registry and self.state.registry.sha256 != expected.sha256:
             raise AdminError("reload_required", "Apply the externally edited registry before saving another change.")
         source = expected.path
-        target = self.data_root / "models.toml" if source == PRESETS.resolve() else source
+        target = self.data_root / "models.toml" if source in BUILTIN_REGISTRIES else source
         if source.parent != target.parent:
             for entry in value["models"].values():
                 if "path" in entry:
@@ -313,7 +318,29 @@ class ModelAdmin:
             registry, value, raw = self._current()
             self._revision(registry, request)
             action, model_id = request.get("action"), request.get("model_id")
-            if action == "add":
+            if action == "use_torch":
+                if self.state.model is not None:
+                    raise AdminError("active_model", "Restart in setup-only mode before changing the numerical backend.")
+                if registry.backend != "mlx":
+                    raise AdminError("invalid_action", "The registry already uses PyTorch.")
+                # Preserve original HF paths; only disconnect MLX-specific
+                # registrations. _commit backs up the exact original registry.
+                retained = {}
+                for key, entry in value["models"].items():
+                    config = read_json(registry.models[key].path / "config.json")
+                    if entry.get("kind") == "apertus-hybrid" or entry.get("convert_from") or entry.get("bits") or config.get("quantization") or config.get("quantization_config"):
+                        continue
+                    retained[key] = entry
+                defaults = tomllib.loads((HERE / "model_presets.torch.toml").read_text())
+                if not any(entry.get("kind", "native") != "source" and entry.get("enabled", True) for entry in retained.values()):
+                    if "bf16" in retained:
+                        retained["bf16"].update(kind="native", enabled=True)
+                    else:
+                        retained["bf16"] = defaults["models"]["bf16"]
+                preferred = [registry.default_model, "bf16", *retained]
+                value["default_model"] = next(key for key in preferred if key in retained and retained[key].get("kind", "native") != "source" and retained[key].get("enabled", True))
+                value["backend"], value["models"] = "torch", retained
+            elif action == "add":
                 inspected = self.inspect(request)
                 if not inspected["files_ok"]:
                     raise AdminError("invalid_model_files", "The selected directory is not a complete compatible model.", details=inspected["errors"])
@@ -419,6 +446,8 @@ class ModelAdmin:
             if not isinstance(profile_id, str):
                 raise AdminError("unknown_profile", "Select a prepared profile.")
             plan = self._profile_plan(registry, value, profile_id)
+            plan["environment"] = environment_report(registry.backend, available=dependency_available,
+                                                       download=any(step["operation"] == "download" and not step["ready"] for step in plan["steps"]))
             plan.update({"id":uuid.uuid4().hex,"registry_sha256":registry.sha256,"created":time.monotonic()})
             self.plans[plan["id"]] = plan
             while len(self.plans) > 16:
@@ -453,6 +482,7 @@ class ModelAdmin:
                     raise AdminError("plan_expired", "Review a new installation plan before starting.")
                 if request.get("confirmed") is not True:
                     raise AdminError("confirmation_required", "Explicitly confirm the disk usage and source downloads.")
+                self.require_runtime(download=any(step["operation"] == "download" and not step["ready"] for step in plan["steps"]))
                 if any(step["operation"]=="convert" and not step["ready"] for step in plan["steps"]) and not dependency_available("mlx_lm"):
                     raise AdminError("dependency_missing", "Install the MLX extra before starting a conversion recipe.")
                 if any(step["operation"]=="download" and not step["ready"] for step in plan["steps"]) and not dependency_available("huggingface_hub"):
@@ -466,6 +496,7 @@ class ModelAdmin:
                     raise AddonError("addon_missing", "Connect the package first.")
                 steps, model_id = [], registry.default_model
             elif action == "smoke":
+                self.require_runtime()
                 model_id = request.get("model_id")
                 if model_id not in registry.model_paths():
                     raise AdminError("unknown_model", "Enable a registered inference model first.")
@@ -489,6 +520,11 @@ class ModelAdmin:
                 del self.jobs[job["id"]]
                 raise
             return self.job_status(job["id"])
+
+    def require_runtime(self, *, download: bool = False) -> None:
+        environment = environment_report(self.registry.backend, available=dependency_available, download=download)
+        if not environment["ready"]:
+            raise AdminError(environment["code"], "The selected runtime is not ready in this server's Python environment.", details=environment)
 
     def job_status(self, job_id: str, *, cancel: bool = False) -> dict:
         with self.lock:

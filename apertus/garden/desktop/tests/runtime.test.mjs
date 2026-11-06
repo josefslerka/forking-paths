@@ -8,6 +8,7 @@ import { PRODUCT_NAME, CZECH_PRODUCT_NAME } from "../lib/branding.mjs";
 import {
   buildServerArguments,
   desktopUserDataPath,
+  defaultPresetFilename,
   normalizeWorkbenchURL,
   fetchWorkbenchHealth,
   candidateApertusRoots,
@@ -36,6 +37,7 @@ function fixture() {
   fs.writeFileSync(path.join(garden, "server.py"), "# server\n");
   fs.writeFileSync(path.join(garden, "static", "index.html"), "ok\n");
   fs.writeFileSync(path.join(garden, "model_presets.toml"), "schema_version = 1\n");
+  fs.writeFileSync(path.join(garden, "model_presets.torch.toml"), "schema_version = 1\n");
   fs.writeFileSync(path.join(root, "pyproject.toml"), "[project]\n");
   return fs.realpathSync(root);
 }
@@ -51,6 +53,13 @@ test("Forking Paths branding preserves the existing desktop profile and bundle i
   assert.equal(metadata.build.appId, "cz.cuni.apertus.workbench");
   const branding = fs.readFileSync(new URL("../lib/branding.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(branding, /from ["'](?:node:|electron)/u);
+});
+
+test("default presets select Metal only on Apple silicon, and Torch on other hosts", () => {
+  assert.equal(defaultPresetFilename("darwin", "arm64"), "model_presets.toml");
+  for (const [platform, arch] of [["darwin", "x64"], ["linux", "x64"], ["linux", "arm64"], ["win32", "x64"]]) {
+    assert.equal(defaultPresetFilename(platform, arch), "model_presets.torch.toml");
+  }
 });
 
 test("native model folder picker accepts only the current model-manager origin and route", () => {
@@ -108,7 +117,7 @@ test("validates source independently of optional external weights", (t) => {
   const result = validateApertusRoot(root);
   assert.equal(result.ok, true);
   assert.equal(result.root, root);
-  assert.equal(result.registryPath, path.join(root, "apertus", "garden", "model_presets.toml"));
+  assert.equal(result.registryPath, path.join(root, "apertus", "garden", defaultPresetFilename()));
   assert.notEqual(result.dataDir, path.join(root, "data"));
 });
 

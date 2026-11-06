@@ -65,12 +65,16 @@ learn the controls, not to draw linguistic conclusions.
 
 Choose **one** numerical backend per server. Models in a paired comparison
 must use the same backend. You do not need both optional installations.
+On first launch without an existing registry, the application selects **MLX
+on Apple silicon macOS** and **PyTorch on Linux, Windows or Intel Macs**.
+An existing registry is not silently rewritten. If it selects an unsupported
+MLX runtime, Model management offers **Switch to PyTorch**, preserving original
+HF paths and all weight files, with an exact registry backup.
 
 ### Apple silicon Mac: MLX
 
 ```sh
 python -m pip install -e '.[mlx]'
-cp models.example.toml models.toml
 forking-paths serve
 ```
 
@@ -130,12 +134,12 @@ See [model setup and disk requirements](docs/MODELS.md#included-presets).
 
 ```sh
 python -m pip install -e '.[torch]'
-cp models.torch.example.toml models.toml
+forking-paths serve --device auto
 ```
 
-Edit `models.toml` to point to **original HF safetensors** for a causal language
-model supported by Transformers, or run `serve` and connect it through
-**Model management**. Its prepared downloads are Apertus BF16 and original
+Connect **original HF safetensors** for a causal language model supported by
+Transformers through **Model management**, or use `models.torch.example.toml`
+as an optional manual configuration template. Prepared downloads are Apertus BF16 and original
 EuroLLM 9B HF weights (not the MLX conversions). For the command-line route:
 
 ```sh
@@ -148,6 +152,26 @@ be slow and memory-intensive. Install the PyTorch build appropriate for your
 hardware if you need a particular CUDA version. MLX affine checkpoints and
 Ollama/GGUF files are not interchangeable with HF safetensors. This backend
 currently supports the core probability tools, **not** internal layer tools.
+The 4-bit/8-bit/Hybrid recipes are specific to this application's Apple-silicon
+MLX runtime; they are not portable PyTorch quantizations. MLX/CUDA on Linux is
+not an enabled/validated backend in this release.
+
+**If installation appears to do nothing:** prerequisites and errors are shown
+inside the installation dialog, before any weight download. Use its exact
+Python command, not pip from another environment, then restart the server.
+If you already downloaded original Apertus BF16 weights under an old MLX
+configuration on Linux, stop the old server, activate the existing project
+environment, and run:
+
+```sh
+git pull --ff-only
+python -m pip install -e '.[torch]'
+forking-paths serve --setup-only
+```
+
+Choose **Switch to PyTorch**, then **Use** on the existing BF16 model. Do not
+delete or download its original weights again. The [Czech recovery guide](docs/INSTALL.cs.md#linux-a-hlášení-o-mlx)
+has the same steps in more detail.
 
 ## Add your own model
 

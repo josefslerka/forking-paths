@@ -25,7 +25,15 @@
   <aside id="setup-notice" class="notice" hidden><strong>Zatím není načtený žádný model.</strong><p>Připoj váhy níže nebo zvol připravený profil. Pak u modelu klikni na Použít. Není potřeba restartovat aplikaci.</p></aside>
   <aside id="demo-notice" class="notice" hidden><strong>V demu je správa pouze k prohlédnutí.</strong><p>Ukázkový režim nemění skutečný registr ani nestahuje váhy. Pro správu spusť aplikaci v běžném režimu.</p></aside>
   <aside id="legacy-notice" class="notice" hidden><p>Tento způsob spuštění nepoužívá registr. Spusť aplikaci běžným příkazem podle návodu.</p></aside>
-  <aside id="backend-notice" class="notice" hidden><strong>Chybí výpočetní knihovny.</strong><p>Modely můžeš zaregistrovat, ale před načtením doinstaluj zvolený výpočetní doplněk podle návodu.</p><code id="backend-command"></code></aside>
+  <aside id="backend-notice" class="notice" hidden role="alert">
+    <strong id="backend-notice-title">Chybí výpočetní knihovny.</strong>
+    <p id="backend-platform-help" hidden>MLX režim této verze aplikace je ověřený jen na Macu s čipem Apple. Na tomto počítači použij PyTorch. Už stažené původní BF16 váhy zůstanou použitelné.</p>
+    <p>Instaluj do stejného Pythonu, ve kterém běží server, ne do jiného prostředí. Po instalaci server restartuj; samotné obnovení stránky nestačí.</p>
+    <code id="backend-command" data-i18n-ignore></code>
+    <details><summary>Python používaný serverem</summary><code id="backend-python" data-i18n-ignore></code><p>Pokud je v příkazu tečka, spusť ho v adresáři staženého projektu.</p></details>
+    <button id="use-torch" type="button" hidden>Přejít na PyTorch</button>
+    <p id="backend-switch-note" class="small" hidden>Přepnutí zachová soubory vah a cesty původních HF modelů. MLX kvantizované profily se odpojí pouze z registru; původní nastavení zůstane v záloze. Nic se nemaže ani nestahuje.</p>
+  </aside>
   <aside id="load-error-notice" class="notice" hidden><p>Model se nepodařilo načíst. Zkontroluj formát vah, výpočetní knihovny a volnou paměť.</p><details><summary>Technické podrobnosti</summary><pre id="load-error-details" data-i18n-ignore></pre></details></aside>
   <aside id="reload-notice" class="notice" hidden><p>Registr byl změněn mimo aplikaci. Nejdřív použij nové nastavení.</p><button id="reload-registry" type="button">Použít změny ze souboru</button></aside>
   <div id="admin-message" class="message" role="status" aria-live="polite"></div>
@@ -61,7 +69,9 @@
       <p class="eyebrow">CHCI VÁHY PŘIPRAVIT</p><h2>Nainstalovat připravený profil</h2>
       <p class="muted">Oficiální zdroje jsou připnuté ke konkrétní verzi. Před spuštěním uvidíš, co se stáhne a kolik místa bude přibližně potřeba.</p>
       <label for="profile-id">Připravený profil</label><select id="profile-id"></select>
+      <aside id="profile-runtime-notice" class="notice" hidden><p>Pro tento počítač je potřeba jiné výpočetní prostředí.</p><a href="#backend-notice">Zobrazit postup pro tento počítač</a></aside>
       <button id="review-installation" type="submit">Ukázat plán instalace</button>
+      <p class="muted small">4bit, 8bit a Hybrid jsou profily pro náš MLX režim na Apple silicon. PyTorch nyní používá původní HF váhy, ne tyto MLX kvantizace.</p>
       <p class="muted small">Hybrid potřebuje také původní BF16 váhy. Kvantizované profily se připravují z původního modelu; zdroje se potom automaticky nemažou.</p>
       <p class="muted small">Jde o velké soubory, nikoli malý doplněk prohlížeče. Odhad velikosti nepotvrzuje, že model poběží v dostupné operační paměti.</p>
     </form>
@@ -86,6 +96,9 @@
     <form method="dialog"><button class="dialog-close" aria-label="Zavřít" value="close">×</button></form>
     <p class="eyebrow">NEJDŘÍV SI PROHLÉDNI ROZSAH</p><h2 id="install-dialog-title">Plán instalace</h2>
     <p id="install-size"></p><ol id="install-steps"></ol>
+    <p class="muted small">Odhad se týká místa na disku, nikoli záruky, že se model vejde do RAM nebo paměti GPU.</p>
+    <aside id="install-environment" class="notice" hidden role="alert"><strong>Instalaci zatím nelze spustit.</strong><p id="install-environment-reason"></p><code id="install-command" data-i18n-ignore></code><p>Po instalaci knihoven restartuj server a znovu otevři plán instalace. Zatím se žádné váhy nestahují.</p></aside>
+    <div id="install-error" class="message dialog-message" role="alert" tabindex="-1"></div>
     <p>Oficiální stahované zdroje používají licenci Apache 2.0. Pro opětovně použité vlastní váhy platí jejich původní podmínky. Stahování se připojí k Hugging Face. Existující adresáře se nepřepisují.</p>
     <label class="check-label"><input id="confirm-download" type="checkbox">Souhlasím se stažením uvedených souborů a jejich velikostí.</label>
     <p class="muted small">Instalace může trvat delší dobu. Případné přerušení zachová dokončené váhy i původní modely.</p>
@@ -93,6 +106,7 @@
   </dialog>
   <dialog id="disconnect-dialog" aria-labelledby="disconnect-title">
     <h2 id="disconnect-title">Odpojit model?</h2><p id="disconnect-name" data-i18n-ignore></p><p>Odstraní se jen záznam v registru. Váhy a ostatní soubory zůstanou na disku.</p>
+    <div class="message dialog-message" role="alert" tabindex="-1"></div>
     <div class="actions"><button id="confirm-disconnect" type="button">Odpojit bez smazání souborů</button><button id="cancel-disconnect" type="button">Zpět</button></div>
   </dialog>
 </main>

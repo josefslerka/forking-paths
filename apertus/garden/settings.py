@@ -5,6 +5,11 @@ import os
 import sys
 from pathlib import Path
 
+try:
+    from .runtime_environment import builtin_registry_path
+except ImportError:
+    from runtime_environment import builtin_registry_path
+
 
 def data_directory() -> Path:
     override = os.environ.get("APERTUS_DATA_DIR")
@@ -36,4 +41,4 @@ def registry_path(*, data_root: Path | None = None) -> Path:
     if local.is_file():
         return local
     user_registry = (data_root or data_directory()) / "models.toml"
-    return user_registry if user_registry.is_file() else Path(__file__).with_name("model_presets.toml")
+    return user_registry if user_registry.is_file() else builtin_registry_path()

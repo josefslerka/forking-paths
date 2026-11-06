@@ -66,6 +66,10 @@ Správa modelů je v tomto režimu jen ke čtení.
 
 Pro jeden server zvolte jeden výpočetní backend. Také modely v párovém
 porovnání musí používat stejný backend. Oba doplňky instalovat nemusíte.
+Při prvním spuštění bez vlastního registru aplikace sama volí **MLX na macOS
+s čipem Apple**, jinde **PyTorch**. Existující nastavení nepřepisuje potichu;
+u nevhodného MLX nastavení nabídne **Přejít na PyTorch**, se zálohou registru
+a zachováním původních HF cest i všech souborů vah.
 
 ### Mac s čipem Apple: MLX
 
@@ -73,7 +77,6 @@ Do stejného virtuálního prostředí doinstalujte výpočetní část:
 
 ```sh
 python -m pip install -e '.[mlx]'
-cp models.example.toml models.toml
 forking-paths serve
 ```
 
@@ -103,7 +106,6 @@ a [připravené profily](docs/MODELS.md#included-presets).
 
 ```sh
 python -m pip install -e '.[torch]'
-cp models.torch.example.toml models.toml
 forking-paths serve --device auto
 ```
 
@@ -116,6 +118,13 @@ ani kvantizované MLX checkpointy zde nejsou zaměnitelné s HF safetensors.
 velký model může být pomalý a náročný na paměť. Tento backend nyní poskytuje
 základní pravděpodobnostní nástroje, nikoli nástroje pro vnitřní vrstvy.
 Konkrétní instalace PyTorch pro GPU závisí na vašem hardwaru.
+4bit, 8bit a Hybrid v nabídce jsou profily našeho MLX režimu na Apple silicon,
+ne přenositelné PyTorch kvantizace. Linuxové MLX/CUDA v této verzi nezpřístupňujeme.
+
+Chybějící knihovny a chyby instalace se ukazují přímo v instalačním dialogu.
+Použijte uvedený příkaz se stejným Pythonem, ve kterém běží server, a potom
+server restartujte. Už stažené původní BF16 váhy lze po přepnutí na PyTorch
+použít znovu. Viz [řešení staršího MLX nastavení na Linuxu](docs/INSTALL.cs.md#linux-a-hlášení-o-mlx).
 
 ## Další modely a experimentální doplňky
 

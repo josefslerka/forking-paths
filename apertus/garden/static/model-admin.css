@@ -10,6 +10,7 @@ p { max-width:85ch; margin:10px 0 16px; }.lede { font-size:1.1rem; max-width:80c
 .panel,.model-card,.notice { border:1px solid var(--line); border-radius:16px; padding:24px; background:var(--panel); }
 .panel { margin:24px 0; }.notice { margin:16px 0; background:#eef5ef; }.notice p { margin-bottom:0; }
 #load-error-notice { background:#faede5; color:#833d2d; }
+#backend-notice { scroll-margin-top:100px; }
 .section-heading,.card-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; }.section-heading { margin:30px 0 18px; align-items:center; }.section-heading h2 { margin:0; }
 .model-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }.model-card { display:flex; flex-direction:column; min-width:0; }.model-card.active { border-color:#459c74; box-shadow:inset 3px 0 #287b56; }
 .add-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:22px; }.add-grid .panel { align-self:start; }
