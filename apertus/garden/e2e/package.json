@@ -6,6 +6,7 @@
   "scripts": {
     "test": "npm run test:stub",
     "test:stub": "playwright test --config=playwright.stub.config.mjs",
+    "test:admin": "playwright test --config=playwright.admin.config.mjs",
     "test:live": "playwright test --config=playwright.live.config.mjs",
     "test:regression": "npm run test:stub && npm run test:live",
     "report:stub": "playwright show-report playwright-report/stub",

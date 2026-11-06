@@ -49,12 +49,27 @@ must use the same backend. You do not need both optional installations.
 ```sh
 python -m pip install -e '.[mlx]'
 cp models.example.toml models.toml
-apertus-workbench models list
+apertus-workbench serve
 ```
 
-Already have local MLX/Hugging Face safetensors? Add a `path` to the relevant
-registration in `models.toml`; paths can point outside this repository. Nothing
-is copied. Otherwise explicitly download the pinned official Apertus checkpoint:
+Open **Model management / Správa modelů** in the navigation, or go to
+[http://127.0.0.1:8765/sprava-modelu](http://127.0.0.1:8765/sprava-modelu).
+If no weights are ready, the application opens this page automatically:
+
+- **Connect a local model:** paste its directory path (or use the native folder
+  picker in Electron), check it and choose a display name. Files are not copied.
+- **Install a prepared profile:** review the pinned sources, estimated disk
+  space and conversion steps, then explicitly confirm the download. Apertus
+  BF16/8-bit/4-bit/Hybrid and EuroLLM 9B 6-bit are included for MLX.
+- **Test computation** checks loading and one next-token distribution.
+  **Use** loads the model now; **Set as default** selects it for the next launch.
+
+Hiding or disconnecting a registration **never deletes its weights**. Settings
+edits are backed up and applied without restarting. Demo mode is read-only.
+You still install the numerical Python extra once in the terminal; the GUI does
+not run pip or install arbitrary Python code.
+
+The command line remains available for reproducible setup:
 
 ```sh
 apertus-workbench models download bf16
@@ -90,7 +105,9 @@ cp models.torch.example.toml models.toml
 ```
 
 Edit `models.toml` to point to **original HF safetensors** for a causal language
-model supported by Transformers. Then:
+model supported by Transformers, or run `serve` and connect it through
+**Model management**. Its prepared downloads are Apertus BF16 and original
+EuroLLM 9B HF weights (not the MLX conversions). For the command-line route:
 
 ```sh
 apertus-workbench models check
@@ -105,7 +122,11 @@ currently supports the core probability tools, **not** internal layer tools.
 
 ## Add your own model
 
-Add a table to `models.toml`, then restart the server:
+Use **Model management → Connect a local model**. The application detects a
+reviewed adapter from the configuration, or falls back to core probability
+tools. Registration does not implement missing architecture hooks.
+
+For a version-controlled setup recipe, add a table to a local `models.toml`:
 
 ```toml
 [models.my_model]
@@ -122,6 +143,8 @@ For a compatible, full-attention Llama model on MLX, the reviewed
 An unfamiliar architecture starts with `causal-lm`; adding a genuinely new
 internal architecture requires an adapter implementation and numerical tests,
 not an unchecked feature flag. See [the registry guide](docs/MODELS.md).
+After a valid manual edit, use **Apply file changes** in Model management.
+Changes affecting a model that is already loaded require a restart.
 
 ## Your data stays separate
 
@@ -152,6 +175,7 @@ cd apertus/garden/e2e
 npm ci
 npx playwright install chromium
 npm run test:stub
+npm run test:admin
 ```
 
 The default tests do not download model weights. Numerical backend tests are

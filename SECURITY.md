@@ -17,6 +17,20 @@ complex software: only use trusted checkpoints, keep dependencies updated, and
 run as an ordinary user. The registry is local configuration, not an untrusted
 upload format. Source/revision metadata alone does not authenticate local files.
 
+Model management is a **privileged local interface**: it can inspect supplied
+local model paths, edit its selected registry and explicitly download/convert
+prepared checkpoints. Anyone who can use this local session can perform those
+actions. Host/Origin checks still apply; there is no additional administrator
+password. Registry edits have backups and revision-conflict protection, but
+backup files and installation logs can themselves contain local paths.
+Disconnecting/hiding a model never deletes its weights. Cancellation only
+removes a fresh staging directory owned by that installation; completed outputs
+remain. The GUI never installs Python packages or accepts arbitrary remote-code
+instructions. Only curated, pinned public sources can be downloaded through it;
+manual registry edits and separately acquired checkpoints are the user's trust
+decision. The Electron picker exposes directory selection only on trusted
+model-management routes, with context isolation and Node integration disabled.
+
 Normal inference does not call a cloud model API. Explicit setup downloads
 contact Hugging Face; pip/npm installation contacts their package registries.
 Dependency behaviour and infrastructure are outside this project's complete

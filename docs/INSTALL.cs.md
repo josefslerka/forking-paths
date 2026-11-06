@@ -31,13 +31,32 @@ Do stejného prostředí doinstalujte výpočetní část a zkopírujte vzor nas
 ```sh
 python -m pip install -e '.[mlx]'
 cp models.example.toml models.toml
-apertus-workbench models list
+apertus-workbench serve
 ```
 
-Soubor `models.toml` je váš seznam modelů. Máte-li už stažené kompatibilní
-váhy, doplňte k modelu řádek `path = "/cesta/k/modelu"`. Nic se nekopíruje.
-Pokud váhy nemáte, tyto příkazy stáhnou konkrétní oficiální verzi Apertusu a
-spustí aplikaci:
+Otevřete **Správa modelů** v nabídce nebo adresu
+[http://127.0.0.1:8765/sprava-modelu](http://127.0.0.1:8765/sprava-modelu).
+Bez připravených vah se tato stránka otevře sama. Běžné přidání už nevyžaduje
+ruční úpravu konfiguračního souboru.
+
+1. **Váhy už máte:** zvolte Připojit lokální model, vložte celou cestu ke
+   složce a klikněte na Zkontrolovat složku. V Electronu je i tlačítko pro
+   výběr složky. Zvolte název a potvrďte připojení. Soubory se nekopírují.
+2. **Váhy nemáte:** vyberte připravený profil. Nejdřív si prohlédnete odhad
+   místa a potřebné zdroje; teprve zaškrtnutí souhlasu a Spustit instalaci
+   zahájí stahování. Nabídka zahrnuje Apertus BF16/8bit/4bit/Hybrid a
+   EuroLLM 9B 6bit. Hybrid i kvantizace potřebují původní zdrojové váhy.
+3. **Ověřit výpočtem** zkusí načtení a jednu distribuci pravděpodobností.
+   Nejde o úplnou validaci modelu nebo všech nástrojů.
+4. **Použít** načte model hned. **Nastavit jako výchozí** ho vybere pro další
+   start. Skrytí a odpojení upravují pouze seznam; váhy na disku nemažou.
+
+Před změnou nastavení vzniká záloha. Běžné změny se projeví bez restartu.
+V demu je správa jen ke čtení; pro připojení skutečných modelů použijte
+`serve`, nikoli `demo`. Pro otevření správy bez načtení existujících vah lze
+přidat `serve --setup-only`.
+
+Terminálové příkazy jsou dál dostupné, například:
 
 ```sh
 apertus-workbench models download bf16
@@ -72,9 +91,11 @@ python -m pip install -e '.[torch]'
 cp models.torch.example.toml models.toml
 ```
 
-Do `models.toml` doplňte cestu k původním HF vahám ve formátu safetensors.
-Musí jít o kauzální jazykový model podporovaný knihovnou Transformers.
-Pak spusťte:
+Spusťte `apertus-workbench serve` a připojte původní HF váhy ve formátu
+safetensors přes Správu modelů. Musí jít o kauzální jazykový model podporovaný
+knihovnou Transformers. Připravené stahované profily zde jsou Apertus BF16 a
+původní EuroLLM 9B HF; kvantizované MLX varianty pro tento backend nejsou.
+Případně nastavte cestu ručně v `models.toml` a ověřte ji příkazem:
 
 ```sh
 apertus-workbench models check
@@ -88,9 +109,14 @@ použít jako PyTorch checkpoint. Na CPU mohou velké modely běžet velmi pomal
 
 ## Přidání modelu a běžné potíže
 
-Nový model přidáte tabulkou `[models.nazev]` se jménem, cestou a adaptérem.
-Nemusíte měnit server. Podrobnosti a příklady jsou v
+Nový model přidáte formulářem nebo tabulkou `[models.nazev]` se jménem,
+cestou a adaptérem. Nemusíte měnit server. Podrobnosti a příklady jsou v
 [návodu k registru](MODELS.md).
+
+Při ruční změně registru nabídne správa tlačítko **Použít změny ze souboru**.
+Změna backendu, cesty nebo adaptéru právě načteného modelu vyžaduje restart.
+Backend se volí pro celý server, nelze libovolně míchat MLX a PyTorch v jednom
+běhu. Výpočetní knihovny se instalují přes pip; správa je sama nestahuje.
 
 - „Port je obsazený“: použijte `serve --port 8766` a otevřete tuto adresu.
 - „Model není dostupný“: spusťte `models check JEHO_ID`; zkontrolujte cestu,

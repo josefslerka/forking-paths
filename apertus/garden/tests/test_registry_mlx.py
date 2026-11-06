@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import asdict
 
 import numpy as np
@@ -66,6 +67,30 @@ def test_new_mlx_checkpoint_registry_conversion_and_replay(tmp_path, tied):
         assert np.isfinite(native).all()
         assert state.model_descriptor(model_id)["layers"] == 3
         state._release_model_local()
+
+    # First-run loading, then test another real precision and restore the original.
+    from apertus.garden.model_admin import ModelAdmin
+    managed = ModelState(source, model_paths=registry.model_paths(), registry=registry,
+                         active_model_id="new-model", backend_name="mlx")
+    admin = ModelAdmin(managed, tmp_path / "admin-data")
+    managed.start(load_initial=False)
+    try:
+        for model_id in ("new-model", "new-q6"):
+            job = admin.start_job({"action":"smoke","model_id":model_id,"registry_sha256":registry.sha256})
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                result = admin.job_status(job["id"])
+                if result["phase"] == "done" and managed.outstanding_operation is None:
+                    break
+                time.sleep(.02)
+            assert result["status"] == "completed", result
+            assert result["result"]["passed"] and managed.status == "ready"
+            assert managed.active_model_id == "new-model"
+        assert all(model["check"]["passed"] for model in admin.snapshot()["models"])
+        assert managed.next_tokens("Ahoj",1.0,3)["candidates"]
+    finally:
+        admin.close(); managed.stop(); managed.worker_thread.join(10)
+        managed._release_model_local()
 
 
 def test_apertus_native_conversion_remains_compatible_with_hybrid(tmp_path):

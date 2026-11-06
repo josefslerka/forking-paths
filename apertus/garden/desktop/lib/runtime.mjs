@@ -10,6 +10,13 @@ export const DEFAULT_PORT = 8765;
 export const DEFAULT_MODEL = null; // Registry default, not a hard-coded model ID.
 export const HEALTH_PATH = "/api/health";
 
+export function isModelManagerSender(url, base) {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === new URL(base).origin && ["/", "/sprava-modelu", "/sprava-modelu/", "/model-admin"].includes(parsed.pathname);
+  } catch { return false; }
+}
+
 export function normalizeWorkbenchURL(value) {
   const url = new URL(value);
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
@@ -150,18 +157,20 @@ export function validateApertusRoot(candidate) {
       problems.push(`chybí ${relativePath}`);
     }
   }
-  const registryPath = process.env.APERTUS_MODEL_REGISTRY || (
-    fs.existsSync(path.join(root, "models.toml")) ? path.join(root, "models.toml") : path.join(gardenDir, "model_presets.toml")
-  );
   const userData = process.platform === "darwin" ? path.join(os.homedir(), "Library", "Application Support", "Apertus Workbench") :
     process.platform === "win32" ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "Apertus Workbench") :
     path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share"), "apertus-workbench");
+  const dataDir = process.env.APERTUS_DATA_DIR || userData;
+  const registryPath = process.env.APERTUS_MODEL_REGISTRY || (
+    fs.existsSync(path.join(root, "models.toml")) ? path.join(root, "models.toml") :
+    fs.existsSync(path.join(dataDir, "models.toml")) ? path.join(dataDir, "models.toml") : path.join(gardenDir, "model_presets.toml")
+  );
   return {
     ok: problems.length === 0,
     root,
     gardenDir,
     registryPath: path.resolve(root, registryPath),
-    dataDir: process.env.APERTUS_DATA_DIR || userData,
+    dataDir,
     problems,
   };
 }

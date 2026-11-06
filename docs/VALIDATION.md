@@ -61,3 +61,47 @@ complete end-user GUI lifecycle on the updated Electron were not exhaustively
 tested. GitHub Actions definitions are included but have **not run on GitHub**.
 The repository is local, and a public release still requires the owner's
 explicit approval and the checklist in [RELEASE.md](RELEASE.md).
+
+## Model-management update — 6 November 2026
+
+Added `/sprava-modelu` / `/model-admin`, local registration, prepared-profile
+plans, explicit download consent, cancellation, computation checks and atomic
+registry editing. All work remains in the new local repository; no remote was
+configured and nothing was published.
+
+Checks actually completed for this update:
+
+- Full Python suite in the MLX-extra development environment: **475 passed,
+  17 explicitly skipped**. New checks cover exact backups, registry discovery
+  and conflicting revisions, protected active/default/dependency entries,
+  hidden sources, first-run setup, worker restoration after failure, missing
+  dependencies, and transport Host/Origin guards. Cancellation tests use owned
+  dummy child/grandchild processes, not real downloads or user model paths.
+- Optional numerical checks: **3 MLX passed** and **3 Torch passed**, using
+  tiny random local weights. Admin jobs loaded a first model on the numerical
+  worker; MLX also tested another precision and restored the original model.
+  These remain numerical plumbing tests, not linguistic model validation.
+- Existing synthetic browser regression suite: **33 passed**. Dedicated
+  administration suite: **6 passed**, including CZ/EN, model-free first launch,
+  add/default/test/use, loading failure and recovery, hide/disconnect without
+  deletion, install consent and cancellation/restoration. Download and inference
+  doubles exist only in the isolated E2E launcher. No large model was fetched.
+- Desktop helper suite: **11 passed**, including directory-picker origin/route
+  restrictions and user-registry discovery. Updated unsigned Apple-silicon app
+  directory built locally; publishing and signing-identity discovery disabled.
+  The native directory dialog was not exhaustively tested interactively on all
+  operating systems. Python and model weights remain external to the app.
+- Inspected Czech first-run, normal cards, English and mobile browser captures.
+  No horizontal overflow at the tested 390-pixel width.
+- Built wheel/sdist, then installed the wheel outside the checkout in a
+  disposable venv with **only NumPy**, no MLX/Torch/Transformers. Demo routes
+  and synthetic inference passed. A separate real, model-free server served
+  the management page/assets and saved a synthetic local-file registration
+  with a backup into its temporary user-data registry. No existing registry or
+  model weights were edited, copied or downloaded by these checks.
+
+Large prepared downloads/conversions are implemented but were not repeated
+end-to-end for this update. Platform, authentication and numerical limitations
+above still apply. The GUI is a privileged **local-only** interface, not a
+multi-user administrator service. A passing one-distribution computation check
+does not validate every tool or the full weight provenance.

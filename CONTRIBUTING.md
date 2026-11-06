@@ -13,6 +13,7 @@ cd apertus/garden/e2e
 npm ci
 npx playwright install chromium
 npm run test:stub
+npm run test:admin
 cd ../desktop
 npm ci
 npm test
@@ -23,6 +24,12 @@ interpreter. `GARDEN_BROWSER_CHANNEL=chrome` optionally uses an installed Chrome
 instead of Playwright's Chromium. Tests use dedicated ports/data, not your
 normal archive. Real-model suites are explicit opt-ins and may require large
 amounts of RAM; see the test code's checkpoint assumptions.
+
+`test:admin` uses a separate first-run server and temporary registry. Its
+download/inference doubles exist only in the test launcher, never as a
+production environment switch. Cancellation, conflict guards and exact backup
+behaviour also have Python tests; tiny numerical suites exercise real admin
+loading/restoration on MLX and Torch. Keep all such tests free of large downloads.
 
 `test_predictive_detector.py` contains historical regressions against private
 calibration assets and skips them if absent. No private corpus is required by
@@ -43,6 +50,10 @@ readout and intervention claims distinct.
 Maintain Czech and English together. Translations are served locally; the
 catalogue-generation utility is a developer tool, not a runtime dependency.
 Do not send private text to a translation or inference service.
+Curated model-management translations live in
+`apertus/garden/scripts/model-admin-en.json`; regenerate the local catalogue
+without a translation service using
+`python apertus/garden/scripts/build-i18n-catalog.py --curated-only`.
 
 Before publication, follow [docs/RELEASE.md](docs/RELEASE.md). Do not attach real
 user documents or detector results to bug reports. Minimize examples to safe,

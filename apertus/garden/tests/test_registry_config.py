@@ -39,6 +39,36 @@ def test_new_model_id_paths_and_registry_snapshot_are_not_hardcoded(tmp_path, mo
     assert registry.sha256 == before != load_registry(path).sha256
 
 
+def test_registry_discovery_respects_explicit_environment_and_local_files(tmp_path, monkeypatch):
+    from apertus.garden.settings import registry_path
+    working = tmp_path / "working"
+    data = tmp_path / "data"
+    working.mkdir()
+    data.mkdir()
+    monkeypatch.chdir(working)
+    monkeypatch.delenv("APERTUS_MODEL_REGISTRY", raising=False)
+    user_registry = data / "models.toml"
+    user_registry.write_text("# user config")
+    assert registry_path(data_root=data) == user_registry
+    local = working / "models.toml"
+    local.write_text("# checkout config")
+    assert registry_path(data_root=data) == local
+    explicit = tmp_path / "explicit.toml"
+    monkeypatch.setenv("APERTUS_MODEL_REGISTRY", str(explicit))
+    assert registry_path(data_root=data) == explicit
+
+
+def test_server_rejects_conflicting_backend_before_creating_user_data(tmp_path, monkeypatch):
+    import sys
+    from apertus.garden import server
+    path = registry_file(tmp_path)
+    destination = tmp_path / "new-user-data"
+    monkeypatch.setattr(sys, "argv", ["apertus-workbench", "--registry", str(path), "--backend", "mlx", "--data-dir", str(destination)])
+    with pytest.raises(SystemExit, match="backend conflicts"):
+        server.main()
+    assert not destination.exists()
+
+
 @pytest.mark.parametrize("tables,values", [
     ('[models.other_name]\nadapter="made-up"', {}),
     ('[models.other_name]\ncapabilities=["steering"]', {}),

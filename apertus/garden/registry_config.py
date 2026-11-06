@@ -18,7 +18,7 @@ try:
 except ImportError:
     from settings import cache_directory
 
-CORE_CAPABILITIES = ("tokenization", "garden", "surprise", "contrast", "model-comparison", "archive", "guide")
+CORE_CAPABILITIES = ("tokenization", "garden", "surprise", "contrast", "model-comparison", "archive", "guide", "model-admin")
 
 
 @dataclass(frozen=True)
@@ -74,6 +74,7 @@ class ModelRegistration:
     convert_from: str | None = None
     bits: int | None = None
     group_size: int = 64
+    enabled: bool = True
 
     def source(self) -> dict[str, Any]:
         return {"repository": self.repository, "revision": self.revision,
@@ -91,7 +92,7 @@ class ModelRegistry:
     sha256: str = ""
 
     def model_paths(self) -> dict[str, Path]:
-        return {key: model.path for key, model in self.models.items() if model.kind != "source"}
+        return {key: model.path for key, model in self.models.items() if model.kind != "source" and model.enabled}
 
     def source_identity(self, model_id: str) -> dict[str, Any]:
         model = self.models[model_id]
@@ -116,6 +117,14 @@ def load_registry(path: Path) -> ModelRegistry:
     if path.stat().st_size > 1_000_000:
         raise ValueError("Model registry exceeds 1 MB.")
     raw = path.read_bytes()
+    return parse_registry(raw, path)
+
+
+def parse_registry(raw: bytes, path: Path) -> ModelRegistry:
+    """Validate a candidate without writing it or importing an inference backend."""
+    path = path.expanduser().resolve()
+    if len(raw) > 1_000_000:
+        raise ValueError("Model registry exceeds 1 MB.")
     value = tomllib.loads(raw.decode("utf-8"))
     _unknown(value, {"schema_version", "backend", "default_model", "models", "enable_research_artifacts"}, "registry")
     if type(value.get("schema_version")) is not int or value["schema_version"] != 1:
@@ -135,7 +144,7 @@ def load_registry(path: Path) -> ModelRegistry:
             raise ValueError(f"Invalid or reserved model ID: {model_id}")
         if not isinstance(entry, dict):
             raise ValueError(f"models.{model_id} must be a table.")
-        _unknown(entry, {"label", "path", "adapter", "kind", "repository", "revision", "convert_from", "bits", "group_size"}, f"models.{model_id}")
+        _unknown(entry, {"label", "path", "adapter", "kind", "repository", "revision", "convert_from", "bits", "group_size", "enabled"}, f"models.{model_id}")
         label = entry.get("label", model_id)
         if not isinstance(label, str) or not label.strip() or len(label) > 120:
             raise ValueError(f"Invalid label for {model_id}.")
@@ -167,8 +176,11 @@ def load_registry(path: Path) -> ModelRegistry:
         group_size = entry.get("group_size", 64)
         if type(group_size) is not int or group_size not in {32, 64, 128}:
             raise ValueError("Supported quantization group sizes: 32, 64, 128.")
+        enabled = entry.get("enabled", True)
+        if type(enabled) is not bool:
+            raise ValueError(f"{model_id}: enabled must be true or false.")
         models[model_id] = ModelRegistration(model_id, label.strip(), resolved.resolve(), adapter_id, kind,
-                                              repository, revision, entry.get("convert_from"), bits, group_size)
+                                              repository, revision, entry.get("convert_from"), bits, group_size, enabled)
     for model_id, model in list(models.items()):
         if model.kind == "apertus-hybrid":
             if model.convert_from or model.bits or model.repository or model.revision:
@@ -177,7 +189,7 @@ def load_registry(path: Path) -> ModelRegistry:
                 raise ValueError("Apertus Hybrid requires MLX and registrations bf16 and 8bit.")
             if any(models[key].adapter != "apertus" for key in ("bf16", "8bit")):
                 raise ValueError("Both Hybrid sources must use the apertus adapter.")
-            models[model_id] = ModelRegistration(model_id, model.label, models["8bit"].path, "apertus", kind="apertus-hybrid")
+            models[model_id] = ModelRegistration(model_id, model.label, models["8bit"].path, "apertus", kind="apertus-hybrid", enabled=model.enabled)
         if model.convert_from is not None and (not isinstance(model.convert_from, str) or model.convert_from not in models or model.convert_from == model_id):
             raise ValueError(f"Invalid conversion source for {model_id}.")
         if model.convert_from is not None and models[model.convert_from].kind == "apertus-hybrid":
@@ -200,6 +212,8 @@ def load_registry(path: Path) -> ModelRegistry:
         raise ValueError("default_model is not registered.")
     if models[default].kind == "source":
         raise ValueError("A conversion-only source cannot be the default model.")
+    if not models[default].enabled:
+        raise ValueError("The default model must be enabled.")
     return ModelRegistry(path, backend, default, models, enabled_artifacts, hashlib.sha256(raw).hexdigest())
 
 

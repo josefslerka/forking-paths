@@ -29,6 +29,7 @@ class EnglishInterfaceContractTest(unittest.TestCase):
             set(self.catalogue),
             {
                 "model-comparison",
+                "model-admin",
                 "model-comparison-runtime",
                 "comparison-api",
                 "detector-readers-api",

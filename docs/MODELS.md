@@ -4,6 +4,55 @@ The registry separates **which checkpoint to load** from **how its architecture
 can be inspected**. A new compatible checkpoint needs a new TOML table, not a
 server edit. An actually new internal architecture needs tested code.
 
+## Clickable model management
+
+Start `apertus-workbench serve` and open **Model management** (`/sprava-modelu`,
+also `/model-admin`). A model-free first launch opens it automatically. Use
+`serve --setup-only` to avoid loading any existing checkpoint on startup.
+The base installation can display the page; inference/conversion still needs
+the selected numerical extra. Demo and legacy path-only launches are read-only.
+
+**Connect a local model** validates a local directory and registers its path
+without copying files. In a browser, paste an absolute path; the optional
+Electron shell has a restricted native directory picker. The UI detects a
+reviewed adapter or uses `causal-lm`; advanced users can explicitly choose one.
+No arbitrary Python module, remote-code hook or GGUF loader is enabled.
+
+**Prepared profiles** build a plan from the pinned sources below. The dialog
+shows required sources, conversions, target paths and rough additional disk
+space. There is no network request for model weights until explicit consent.
+Estimates are not remote manifests or guarantees of RAM fit; source weights
+remain on disk. Existing incomplete output directories are refused, not erased.
+For gated/private/unlisted models, acquire trusted weights under their terms
+separately and connect the local directory.
+
+The page distinguishes **files ready** (metadata and completeness) from
+**computation checked** (model loading and one finite, normalized next-token
+distribution). That check is session-only and invalidated by observed file
+metadata changes. It is not a full content rehash, benchmark or validation of
+all tools. Available capabilities are determined by the reviewed adapter,
+backend, precision and optional matching research artifacts.
+
+Only one installation/test runs at a time, on the numerical worker. The active
+model is released when necessary and restored afterward. With no previous
+model, a successful computation test leaves the tested model loaded. Cancel
+cleans only the fresh incomplete staging directory; completed steps and all
+pre-existing weights remain. Native model loading may finish its safe step
+before cancellation takes effect. Closing the server requests cancellation.
+
+**Use** loads now. **Set as default** selects the next launch. **Hide** removes
+an entry from the inference selector. **Disconnect** removes only its registry
+entry, never its directory. Loaded/default entries are protected; conversion
+inputs cannot be disconnected while another profile depends on them.
+
+Changes use the same TOML registry, exact backups under
+`<data>/model-registry-backups`, a process lock and optimistic revision hashes.
+Writes are atomic. TOML comments/formatting are canonicalized; the backup
+retains the original bytes. When starting from bundled presets, the first save
+creates `<data>/models.toml`, never edits installed package files. The launcher
+finds that user registry next time. An explicit registry or one in the current
+working directory takes precedence.
+
 ## A minimal registration
 
 Copy `models.example.toml` (MLX) or `models.torch.example.toml` (PyTorch) to
@@ -30,8 +79,11 @@ apertus-workbench models check my_experiment --registry models.toml
 apertus-workbench serve --registry models.toml
 ```
 
-Restart after changing the registry. The server snapshots registrations for
-its lifetime. One process uses **one backend**; cross-model comparison currently
+UI edits are applied live while the worker is idle. After a manual edit, use
+**Apply file changes** on the management page. If the edit changes the loaded
+model's path, adapter, enabled state or backend, finish work and restart instead.
+Replacing weight contents also requires a reload/revalidation, not just a new
+registry label. One process uses **one backend**; cross-model comparison currently
 requires both models to work with that backend. There is no automatic switch
 between MLX, Torch, Ollama, and a remote API.
 
@@ -48,6 +100,7 @@ between MLX, Torch, Ollama, and a remote API.
 | `repository`, `revision` | Optional HF source metadata; both needed to download. Revision must be a full 40-character commit hash. |
 | `convert_from`, `bits`, `group_size` | Explicit MLX conversion recipe; bits 4/6/8, groups 32/64/128. |
 | `kind` | `native` (default), `source` (conversion input, hidden from toolbar), or reserved `apertus-hybrid`. |
+| `enabled` | Optional boolean, default true. False hides the inference entry without deleting files or conversion references; the default must remain enabled. |
 | `enable_research_artifacts` | Top-level opt-in for separately validated Apertus lens/detector artifacts; defaults to false. Not a download switch. |
 
 Unknown fields, unknown adapters and cyclic conversion dependencies fail
@@ -93,7 +146,11 @@ The installed `apertus/garden/model_presets.toml` records pinned official source
   `3f5bacd0762eb45170985d6b699035f6a385ee3e`; official F32 source followed by
   a BF16-to-6-bit affine MLX conversion.
 
-To use the built-in EuroLLM recipe, either add its two tables from the presets
+For the GUI, choose EuroLLM in **Install a prepared profile**; it adds the needed
+source/recipe registrations after consent. On Torch the prepared EuroLLM option
+is the original HF checkpoint (`eurollm9-hf`), not an MLX conversion.
+
+For command-line setup, either add its two tables from the presets
 to your registry or explicitly select the preset file. You can print its path:
 
 ```sh
@@ -115,7 +172,7 @@ space for source, output and download cache is still required. The converter
 does **not** delete sources after conversion. Model acquisition is explicit,
 public/unauthenticated, pinned, safetensors-only, and refuses existing output
 directories. A failed staged setup may require re-downloading files; it is not
-a general model-management application. For private/gated models, acquire the
+a resumable arbitrary-model package manager. For private/gated models, acquire the
 weights yourself under their terms and register the local path.
 
 GGUF files from Ollama are not supported by these numerical adapters. Renaming

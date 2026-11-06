@@ -1,6 +1,9 @@
 # Local model registrations may include machine-specific paths.
 /models.toml
 /models.local*.toml
+/models.toml.lock
+/models.local*.toml.lock
+**/.models-*.toml
 /.venv/
 /.venv-*/
 /models/

@@ -6,8 +6,12 @@ import json
 import sys
 from pathlib import Path
 
-from .registry_config import ADAPTERS, load_registry, validate_model_files
-from .settings import cache_directory, data_directory, registry_path
+try:
+    from .registry_config import ADAPTERS, load_registry, validate_model_files
+    from .settings import cache_directory, data_directory, registry_path
+except ImportError:
+    from registry_config import ADAPTERS, load_registry, validate_model_files
+    from settings import cache_directory, data_directory, registry_path
 
 
 def check_model(registry, model_id: str) -> list[str]:
@@ -27,7 +31,10 @@ def check_model(registry, model_id: str) -> list[str]:
                 errors.append(f"{model.id}: Torch requires original, unquantized HF safetensors, not MLX/GGUF weights.")
     if not errors and registration.kind == "apertus-hybrid":
         # Same compatibility gate used by the live loader, without initializing Metal.
-        from .server import ModelState
+        try:
+            from .server import ModelState
+        except ImportError:
+            from server import ModelState
         state = ModelState(model_path=registration.path, model_paths=registry.model_paths(),
                            active_model_id=model_id, backend_name=registry.backend, registry=registry)
         if not state._model_available_unlocked(model_id, registration.path):

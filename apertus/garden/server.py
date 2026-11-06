@@ -30,6 +30,11 @@ from urllib.parse import parse_qs, urlparse
 import numpy as np
 
 try:
+    from .model_admin import AdminError, ModelAdmin
+except ImportError:
+    from model_admin import AdminError, ModelAdmin
+
+try:
     from .registry_config import ADAPTERS, ModelRegistry, load_registry, resolve_weight_file, validate_model_files
     from .settings import cache_directory, data_directory, registry_path
 except ImportError:
@@ -509,7 +514,7 @@ RUNTIME_PROVENANCE = {
     "transformers_version": installed_package_version("transformers"),
     "analysis_source_sha256": {
         name: hashlib.sha256((APP_DIR / name).read_bytes()).hexdigest()
-        for name in ("server.py", "backends.py", "model_registry.py", "registry_config.py", "settings.py", "model_comparison.py", "steering_comparison.py", "detector_readers.py", "domains/steering.py", "domains/tokenization.py", "domains/teacher_forced.py", "domains/representations.py")
+        for name in ("server.py", "backends.py", "model_registry.py", "registry_config.py", "model_admin.py", "model_setup.py", "settings.py", "model_comparison.py", "steering_comparison.py", "detector_readers.py", "domains/steering.py", "domains/tokenization.py", "domains/teacher_forced.py", "domains/representations.py")
     },
     "source_control": source_control_provenance(),
 }
@@ -739,6 +744,7 @@ class ModelState:
     outstanding_operation: str | None = None
     outstanding_operation_started_monotonic: float | None = None
     predictive_detector_engine: PredictiveDetector | None = None
+    load_initial_model: bool = field(default=True, init=False)
 
     def __post_init__(self) -> None:
         self.backend = create_backend(self.backend_name, self.device)
@@ -775,6 +781,51 @@ class ModelState:
 
     def is_quantized(self) -> bool:
         return not self.mock and (self.active_model_id == HYBRID_MODEL_ID or bool(self.model_descriptor(self.active_model_id).get("quantization")))
+
+    def apply_registry(self, registry: ModelRegistry) -> None:
+        """Apply validated metadata only while idle; never reload weights on HTTP threads."""
+        with self.state_lock:
+            if self.outstanding_operation is not None or self.status in {"loading", "switching", "maintenance"}:
+                raise RuntimeError("The model worker is busy.")
+            if self.model is not None and self.registry:
+                before = self.registry.models[self.active_model_id]
+                after = registry.models.get(self.active_model_id)
+                if registry.backend != self.backend_name or after is None or not after.enabled or (before.path,before.adapter,before.kind) != (after.path,after.adapter,after.kind):
+                    raise ValueError("The loaded model cannot be replaced by a registry edit.")
+            self.registry = registry
+            if self.backend_name != registry.backend:
+                self.backend_name = registry.backend
+                self.backend = create_backend(self.backend_name, self.device)
+            self.model_paths = registry.model_paths()
+            if self.active_model_id not in self.model_paths or self.model is None:
+                self.active_model_id = registry.default_model
+            self.model_path = self.model_paths[self.active_model_id]
+            self.model_descriptors.clear()
+            self.model_provenance_cache.clear()
+            self.model_content_fingerprint_cache.clear()
+            self.hybrid_weight_paths = self._resolve_hybrid_weight_paths()
+            with self.cache_lock:
+                for name in MODEL_BOUND_CACHE_FIELDS:
+                    getattr(self, name).clear()
+            self.active_ids = self.active_cache = self.active_logits = self.tokenizer_identity_cache = None
+            self.model_generation += 1
+            if self.model is None:
+                self.status, self.phase, self.error = "setup_required", None, None
+
+    def enqueue_model_admin(self, callback: Any) -> None:
+        with self.state_lock:
+            if self.outstanding_operation is not None or self.status in {"loading", "switching", "maintenance"}:
+                raise RuntimeError("The model worker is busy.")
+            previous = (self.status, self.phase)
+            self.status, self.phase = "maintenance", "queued"
+            self.outstanding_operation = "model_admin"
+            self.outstanding_operation_started_monotonic = time.monotonic()
+            try:
+                self.work_queue.put_nowait(("model_admin", (callback,), None, None))
+            except queue.Full:
+                self.status, self.phase = previous
+                self.outstanding_operation = self.outstanding_operation_started_monotonic = None
+                raise RuntimeError("The model worker queue is full.")
 
     def require_capability(self, capability: str) -> None:
         with self.state_lock:
@@ -980,7 +1031,7 @@ class ModelState:
         if self.active_model_id == HYBRID_MODEL_ID:
             return [
                 ("quantized_body", self.model_paths[HYBRID_MODEL_ID]),
-                ("bf16_io", self.model_paths["bf16"]),
+                ("bf16_io", self.registry.models["bf16"].path if self.registry else self.model_paths["bf16"]),
             ]
         return [("model", self.model_paths[self.active_model_id])]
 
@@ -1111,8 +1162,8 @@ class ModelState:
             return response
 
     def _resolve_hybrid_weight_paths(self) -> dict[str, Path]:
-        bf16_path = self.model_paths.get("bf16")
-        quantized_path = self.model_paths.get("8bit")
+        bf16_path = self.registry.models["bf16"].path if self.registry and "bf16" in self.registry.models else self.model_paths.get("bf16")
+        quantized_path = self.registry.models["8bit"].path if self.registry and "8bit" in self.registry.models else self.model_paths.get("8bit")
         if bf16_path is None or quantized_path is None:
             return {}
         bf16_path = bf16_path.resolve()
@@ -1288,16 +1339,20 @@ class ModelState:
                 self.status = "error"
                 self.phase = None
 
-    def start(self) -> None:
+    def start(self, *, load_initial: bool = True) -> None:
         if self.worker_thread is not None:
             return
+        self.load_initial_model = load_initial
+        if not load_initial:
+            self.status, self.phase = "setup_required", None
         self.worker_thread = threading.Thread(
             target=self._worker_loop, name="apertus-model-worker", daemon=True
         )
         self.worker_thread.start()
 
     def _worker_loop(self) -> None:
-        self.load()
+        if self.load_initial_model:
+            self.load()
         while True:
             job = self.work_queue.get()
             if job is None:
@@ -1384,6 +1439,8 @@ class ModelState:
                     run_comparison(self, *arguments)
                 elif operation == "detector_readers":
                     run_detector_reader_comparison(self, *arguments)
+                elif operation == "model_admin":
+                    arguments[0]()
                 elif operation == "switch":
                     self._switch_model_local(*arguments)
                 else:
@@ -1459,7 +1516,7 @@ class ModelState:
             "server_instance_id": self.server_instance_id,
             "mock": self.mock,
             "backend": "mock" if self.mock else self.backend_name,
-            "capabilities": self.model_descriptor(self.active_model_id)["capabilities"],
+            "capabilities": (["guide", "archive", "model-admin"] if self.status == "setup_required" else self.model_descriptor(self.active_model_id)["capabilities"]),
             "error": self.error,
             "cache_entries": len(self.logits_cache),
             "performance": {
@@ -1492,6 +1549,7 @@ class ModelState:
             return self._health_unlocked()
 
     def _release_model_local(self) -> None:
+        had_model = self.model is not None
         with self.cache_lock:
             for field_name in MODEL_BOUND_CACHE_FIELDS:
                 getattr(self, field_name).clear()
@@ -1499,7 +1557,7 @@ class ModelState:
             self.tuned_lens_catalog.clear_runtime_cache()
         if self.jacobian_lens_catalog is not None:
             self.jacobian_lens_catalog.clear_runtime_cache()
-        if not self.mock:
+        if not self.mock and had_model:
             self.backend.synchronize()
         self.active_ids = None
         self.active_cache = None
@@ -1508,7 +1566,7 @@ class ModelState:
         self.tokenizer_identity_cache = None
         self.tokenizer = None
         self.model = None
-        if self.mock:
+        if self.mock or not had_model:
             return
         gc.collect()
         self.backend.clear_cache()
@@ -14391,6 +14449,24 @@ class GardenHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed_url = urlparse(self.path)
         path = parsed_url.path
+        if path in {"/sprava-modelu", "/sprava-modelu/", "/model-admin"}:
+            self.send_html_file(APP_DIR / "static/model-admin.html", "Missing model-admin.html")
+            return
+        if path in {"/static/model-admin.js", "/static/model-admin.css"}:
+            self.send_static_file(APP_DIR / path.removeprefix("/"),
+                                  "text/javascript; charset=utf-8" if path.endswith(".js") else "text/css; charset=utf-8", "Missing model administration asset")
+            return
+        if path == "/api/model-admin" or path.startswith("/api/model-admin/jobs/"):
+            if not self.require_safe_archive_read():
+                return
+            try:
+                admin = self.server.model_admin
+                self.send_json(admin.snapshot() if path == "/api/model-admin" else admin.job_status(path.rsplit("/",1)[-1]))
+            except AdminError as exc:
+                self.send_json({"code":exc.code,"error":str(exc),"details":exc.details}, HTTPStatus.NOT_FOUND if exc.code == "unknown_job" else HTTPStatus.CONFLICT)
+            except (OSError, ValueError) as exc:
+                self.send_json({"code":"registry_unavailable","error":str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return
         if path in {"/porovnani-modelu", "/porovnani-modelu/", "/model-comparison"}:
             self.send_html_file(MODEL_COMPARISON_FILE, "Chybí static/model-comparison.html")
             return
@@ -14428,7 +14504,10 @@ class GardenHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         if path in {"/", "/index.html"}:
-            self.send_index()
+            if self.state.status == "setup_required":
+                self.send_html_file(APP_DIR / "static/model-admin.html", "Missing model-admin.html")
+            else:
+                self.send_index()
             return
         if path in {
             "/jak-to-cist",
@@ -16089,6 +16168,24 @@ class GardenHandler(BaseHTTPRequestHandler):
             )
         self.send_json(result)
 
+    def _post_model_admin(self, path: str, request: dict) -> None:
+        admin = self.server.model_admin
+        if path.endswith("/inspect"):
+            result = admin.inspect(request)
+        elif path.endswith("/edit"):
+            result = admin.edit(request)
+        elif path.endswith("/plan"):
+            result = admin.plan_install(request)
+        elif path.endswith("/jobs"):
+            result = admin.start_job(request)
+        elif path.endswith("/cancel"):
+            result = admin.job_status(request.get("job_id"), cancel=True)
+        elif path.endswith("/reload"):
+            result = admin.reload(request)
+        else:
+            raise ValueError("Unknown model administration route.")
+        self.send_json(result)
+
     def _dispatch_post_request(
         self,
         path: str,
@@ -16166,6 +16263,9 @@ class GardenHandler(BaseHTTPRequestHandler):
                     "Tělo požadavku musí být JSON objekt."
                 )
             self._dispatch_post_request(path, request)
+        except AdminError as exc:
+            self.send_json({"code":exc.code,"error":str(exc),"details":exc.details},
+                           HTTPStatus.CONFLICT if exc.code in {"registry_conflict","reload_required","model_busy","active_model","default_model","model_dependency","target_exists","profile_conflict"} else HTTPStatus.BAD_REQUEST)
         except ExperimentConflictError as exc:
             self.send_json(
                 {
@@ -16365,11 +16465,18 @@ class GardenServer(ThreadingHTTPServer):
         address: tuple[str, int],
         state: ModelState,
         experiment_store: ExperimentStore,
+        model_admin_data_dir: Path | None = None,
     ):
         super().__init__(address, GardenHandler)
         self.state = state
         self.experiment_store = experiment_store
         state.comparison_store = experiment_store
+        self.model_admin = ModelAdmin(state, model_admin_data_dir)
+
+    def server_close(self) -> None:
+        if hasattr(self, "model_admin"):
+            self.model_admin.close()
+        super().server_close()
 
 
 def parse_args() -> argparse.Namespace:
@@ -16399,6 +16506,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--setup-only", action="store_true", help="Open model management without loading weights.")
     parser.add_argument(
         "--database",
         type=Path,
@@ -16444,9 +16552,11 @@ def main() -> None:
     registry = None
     if not args.mock and (args.registry is not None or not legacy_paths):
         try:
-            registry = load_registry(args.registry or registry_path())
+            registry = load_registry(args.registry or registry_path(data_root=run_data))
         except (OSError, ValueError) as exc:
             raise SystemExit(f"Cannot load model registry: {exc}") from exc
+    if registry and args.backend and args.backend != registry.backend:
+        raise SystemExit("--backend conflicts with the registry. Set backend in models.toml; one server uses one numerical backend.")
     backend_name = args.backend or (registry.backend if registry else "mlx")
     initial_model = args.initial_model or (registry.default_model if registry else HYBRID_MODEL_ID)
     try:
@@ -16478,27 +16588,25 @@ def main() -> None:
         device=args.device,
         mock=args.mock,
     )
-    if not state._model_available_unlocked(initial_model, model_path):
-        raise SystemExit(
-            f"Model {initial_model!r} is incomplete or incompatible: {model_path}\n"
-            "Check: apertus-workbench models check MODEL_ID --registry PATH\n"
-            "Download: apertus-workbench models download MODEL_ID --registry PATH\n"
-            "Simulated interface: apertus-workbench demo"
-        )
-    state.start()
+    load_initial = not args.setup_only and state._model_available_unlocked(initial_model, model_path)
 
     server = GardenServer(
         (args.host, args.port),
         state,
         experiment_store,
+        model_admin_data_dir=run_data,
     )
+    state.start(load_initial=load_initial)
     url = f"http://{args.host}:{args.port}"
     print(f"Pravděpodobnostní zahrada: {url}")
-    print(
-        "Model is loading in the background…"
-        if not args.mock
-        else "Vývojový režim: demonstrační data."
-    )
+    if not load_initial:
+        print(f"Model setup: {url}/sprava-modelu")
+    if args.mock:
+        print("Vývojový režim: demonstrační data.")
+    elif load_initial:
+        print("Model is loading in the background…")
+    else:
+        print("No weights are loaded or downloaded. Choose a model in Model management.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -16506,6 +16614,8 @@ def main() -> None:
     finally:
         server.server_close()
         state.stop()
+        if state.worker_thread is not None:
+            state.worker_thread.join(timeout=12)
 
 
 if __name__ == "__main__":

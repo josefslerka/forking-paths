@@ -12,6 +12,7 @@ import {
   coerceApertusRoot,
   isValidHealthPayload,
   validateApertusRoot,
+  isModelManagerSender,
 } from "../lib/runtime.mjs";
 
 function makeModel(root, name, shard = "model-00001-of-00001.safetensors") {
@@ -36,6 +37,36 @@ function fixture() {
   fs.writeFileSync(path.join(root, "pyproject.toml"), "[project]\n");
   return fs.realpathSync(root);
 }
+
+test("native model folder picker accepts only the current model-manager origin and route", () => {
+  const base = "http://127.0.0.1:8766";
+  for (const route of ["/", "/sprava-modelu", "/sprava-modelu/?lang=en", "/model-admin"]) {
+    assert.equal(isModelManagerSender(base + route, base), true);
+  }
+  for (const url of ["http://127.0.0.1:8765/sprava-modelu", "https://example.org/sprava-modelu", "file:///tmp/sprava-modelu", base+"/kontrast", "not a URL"]) {
+    assert.equal(isModelManagerSender(url, base), false);
+  }
+});
+
+test("first-run registry is found in user data without modifying the bundled preset", (t) => {
+  const root = fixture();
+  const oldData = process.env.APERTUS_DATA_DIR;
+  const oldRegistry = process.env.APERTUS_MODEL_REGISTRY;
+  const data = path.join(root, "test-user-data");
+  fs.mkdirSync(data);
+  fs.writeFileSync(path.join(data,"models.toml"), "# created through model management\n");
+  process.env.APERTUS_DATA_DIR = data;
+  delete process.env.APERTUS_MODEL_REGISTRY;
+  t.after(() => {
+    if (oldData === undefined) delete process.env.APERTUS_DATA_DIR; else process.env.APERTUS_DATA_DIR = oldData;
+    if (oldRegistry === undefined) delete process.env.APERTUS_MODEL_REGISTRY; else process.env.APERTUS_MODEL_REGISTRY = oldRegistry;
+    fs.rmSync(root, {recursive:true,force:true});
+  });
+  assert.equal(validateApertusRoot(root).registryPath, path.join(data,"models.toml"));
+  fs.writeFileSync(path.join(root,"models.toml"), "# explicit checkout registry\n");
+  assert.equal(validateApertusRoot(root).registryPath, path.join(root,"models.toml"));
+  assert.equal(fs.readFileSync(path.join(root,"apertus/garden/model_presets.toml"),"utf8"), "schema_version = 1\n");
+});
 
 test("normalizes a remote workbench URL and rejects credentials and paths", () => {
   assert.equal(normalizeWorkbenchURL("http://127.0.0.1:8780/"), "http://127.0.0.1:8780");

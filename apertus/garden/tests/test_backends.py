@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import time
 
 from apertus.garden.backends import TorchBackend, create_backend
 
@@ -61,3 +62,25 @@ def test_torch_backend_loads_and_serves_the_existing_probability_api(tmp_path) -
     with pytest.raises(ValueError):
         state.require_capability("embeddings")
     state._release_model_local()
+
+    # Exercise the real admin worker from model-free first launch, not a fake backend.
+    from apertus.garden.model_admin import ModelAdmin
+    managed = ModelState(tmp_path, model_paths=registry.model_paths(), active_model_id=registry.default_model,
+                         registry=registry, backend_name="torch", device="cpu")
+    admin = ModelAdmin(managed, tmp_path / "admin-data")
+    managed.start(load_initial=False)
+    try:
+        job = admin.start_job({"action":"smoke","model_id":registry.default_model,"registry_sha256":registry.sha256})
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            result = admin.job_status(job["id"])
+            if result["phase"] == "done" and managed.outstanding_operation is None:
+                break
+            time.sleep(.02)
+        assert result["status"] == "completed", result
+        assert result["result"]["passed"] and managed.status == "ready"
+        assert admin.snapshot()["models"][0]["check"]["passed"]
+        assert managed.next_tokens("Ahoj",1.0,3)["candidates"]
+    finally:
+        admin.close(); managed.stop(); managed.worker_thread.join(10)
+        managed._release_model_local()

@@ -114,7 +114,7 @@ test.describe("Pravděpodobnostní zahrada — deset klíčových cest nad stube
     const routes = [
       "/", "/tokenizace", "/embeddingy", "/prekvapeni", "/detektor",
       "/kontrast", "/vrstvy", "/tuned-lens", "/j-lens", "/atribuce",
-      "/kauzalni-prenos", "/steering", "/jak-to-cist", "/archiv"
+      "/kauzalni-prenos", "/steering", "/jak-to-cist", "/archiv", "/sprava-modelu"
     ];
 
     for (const route of routes) {
@@ -122,6 +122,16 @@ test.describe("Pravděpodobnostní zahrada — deset klíčových cest nad stube
       const untranslated = await untranslatedInterfaceCopy(page);
       expect(untranslated, `Untranslated copy on ${route}`).toEqual([]);
     }
+  });
+
+  test("00bc · Správa modelů je v demu jen ke čtení", async ({appPage: page, request}) => {
+    await openWorkbench(page, "/sprava-modelu", {mock:true});
+    await expect(page.locator("#demo-notice")).toBeVisible();
+    await expect(page.locator("#inspect-model")).toBeDisabled();
+    await expect(page.locator("#review-installation")).toBeDisabled();
+    const result = await request.post("/api/model-admin/edit", {data:{action:"remove",model_id:"bf16"}});
+    expect(result.status()).toBe(400);
+    expect((await result.json()).code).toBe("demo_readonly");
   });
 
   test("00c · Angličtina překládá i dynamický výsledek a zachová jeho hodnoty", async ({appPage: page}) => {

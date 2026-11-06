@@ -44,12 +44,14 @@ def write_receipt(directory: Path, payload: dict) -> None:
 
 
 @contextmanager
-def staged_target(target: Path):
+def staged_target(target: Path, temporary_root: Path | None = None):
     if target.exists() or target.is_symlink():
         raise ValueError(f"Refusing to overwrite existing target: {target}. Choose another model path.")
     target.parent.mkdir(parents=True, exist_ok=True)
     # TemporaryDirectory owns exactly this fresh path; never delete a user model.
-    with tempfile.TemporaryDirectory(prefix=f".{target.name}-setup-", dir=target.parent) as temporary:
+    if temporary_root is not None and temporary_root.resolve().parent != target.parent.resolve():
+        raise ValueError("Temporary setup workspace must be next to the target for atomic publication.")
+    with tempfile.TemporaryDirectory(prefix=f".{target.name}-setup-", dir=temporary_root or target.parent) as temporary:
         stage = Path(temporary) / "model"
         yield stage
         problems = validate_model_files(stage)
@@ -61,7 +63,7 @@ def staged_target(target: Path):
     print(f"Ready: {target}", flush=True)
 
 
-def download_model(registry: ModelRegistry, model_id: str) -> None:
+def download_model(registry: ModelRegistry, model_id: str, *, temporary_root: Path | None = None) -> None:
     model = registry.models[model_id]
     if model.kind == "apertus-hybrid":
         raise ValueError("Hybrid combines bf16 and 8bit; download bf16, then convert 8bit. It has no separate weights.")
@@ -81,7 +83,7 @@ def download_model(registry: ModelRegistry, model_id: str) -> None:
     metadata = sorted(set(remote) & METADATA_FILES)
     if "config.json" not in metadata:
         raise ValueError("The remote repository has no supported root config.json.")
-    with staged_target(model.path) as stage:
+    with staged_target(model.path, temporary_root) as stage:
         stage.mkdir()
 
         def fetch(name: str) -> Path:
@@ -172,7 +174,7 @@ def _stream_llama(source: Path, target: Path, bits: int, group_size: int) -> Non
     (target / "model.safetensors.index.json").write_text(json.dumps({"metadata": {"total_size": total_size}, "weight_map": output_map}, indent=2) + "\n")
 
 
-def convert_model(registry: ModelRegistry, model_id: str) -> None:
+def convert_model(registry: ModelRegistry, model_id: str, *, temporary_root: Path | None = None) -> None:
     model = registry.models[model_id]
     if registry.backend != "mlx" or not model.convert_from or model.bits is None:
         raise ValueError("Conversion needs backend mlx, convert_from and bits in the registry.")
@@ -186,7 +188,7 @@ def convert_model(registry: ModelRegistry, model_id: str) -> None:
     ADAPTERS[model.adapter].validate(config)
     if config.get("quantization") or config.get("quantization_config"):
         raise ValueError("Do not quantize an already quantized source.")
-    with staged_target(model.path) as stage:
+    with staged_target(model.path, temporary_root) as stage:
         if config.get("model_type") == "llama":
             _stream_llama(source.path, stage, model.bits, model.group_size)
         else:
@@ -208,3 +210,26 @@ def convert_model(registry: ModelRegistry, model_id: str) -> None:
                               "source_repository": source.repository, "source_revision": source.revision,
                               "quantization": {"bits": model.bits, "group_size": model.group_size, "mode": "affine"},
                               "mlx_lm_version": version("mlx-lm")})
+
+
+def main() -> None:
+    """Private subprocess entry point used by the local model manager."""
+    import argparse
+    import signal
+    from .registry_config import load_registry
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("operation", choices=["download", "convert"])
+    parser.add_argument("model_id")
+    parser.add_argument("--registry", required=True, type=Path)
+    parser.add_argument("--temporary-root", required=True, type=Path)
+    args = parser.parse_args()
+    def interrupted(_number, _frame):
+        raise KeyboardInterrupt("Model setup cancelled")
+    signal.signal(signal.SIGTERM, interrupted)
+    registry = load_registry(args.registry)
+    action = download_model if args.operation == "download" else convert_model
+    action(registry, args.model_id, temporary_root=args.temporary_root)
+
+
+if __name__ == "__main__":
+    main()

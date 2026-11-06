@@ -29,6 +29,8 @@ BATCH_SIZE = 40
 MAX_BATCH_CHARACTERS = 1_800
 
 PAGES = {
+    "model-admin.html": "model-admin",
+    "model-admin.js": "model-admin",
     "model-comparison.html": "model-comparison",
     "model-comparison.js": "model-comparison-runtime",
     "steering-comparison.js": "model-comparison-runtime",
@@ -456,6 +458,27 @@ def write_javascript(data: dict[str, dict[str, str]]) -> None:
 
 def main() -> int:
     sources = collect()
+    curated = json.loads((ROOT / "scripts/model-admin-en.json").read_text())
+    if "--curated-only" in sys.argv:
+        existing = OUTPUT.read_text().split("window.ProbabilityGardenEnglishCatalogue = ",1)[1].strip().removesuffix(";")
+        translations = json.loads(existing)
+        translations.setdefault("model-admin", {}).update(curated)
+        known = {source:target for page_map in translations.values() for source,target in page_map.items()}
+        missing = {}
+        for page, values in sources.items():
+            page_map = translations.setdefault(page,{})
+            for source in values:
+                if source not in page_map and source in known:
+                    page_map[source] = known[source]
+            pending = [source for source in values if source not in page_map]
+            if pending:
+                missing[page] = pending
+        if missing:
+            print(json.dumps(missing,ensure_ascii=False,indent=2))
+            return 1
+        write_javascript(translations)
+        print("Merged curated translations locally; no translation service called.")
+        return 0
     translations: dict[str, dict[str, str]] = {}
     if CHECKPOINT.exists():
         translations = json.loads(CHECKPOINT.read_text(encoding="utf-8"))
@@ -468,6 +491,7 @@ def main() -> int:
         }
         for page, values in sources.items()
     }
+    translations.setdefault("model-admin",{}).update(curated)
     known_by_source: dict[str, str] = {}
     for page_map in translations.values():
         for source, translated in page_map.items():

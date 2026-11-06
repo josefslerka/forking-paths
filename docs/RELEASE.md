@@ -7,6 +7,9 @@ Before an actual public release:
 
 - Run the Python, synthetic browser, desktop-helper and wheel-install gates
   from CONTRIBUTING. Record versions and skipped asset-dependent checks.
+- Check first launch without weights, model-management consent/cancellation,
+  registry backups and the native desktop directory chooser. Never run release
+  tests against a normal user's registry or delete their weight directories.
 - Numerically smoke-test each advertised adapter on real local weights and
   keep the test registry private. Include the checkpoint/precision in results.
 - Review `git ls-files`, sizes, source strings and the complete Git history for

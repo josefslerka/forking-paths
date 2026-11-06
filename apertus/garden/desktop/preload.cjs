@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld("apertusDesktop", {
   chooseApertusRoot() {
     return ipcRenderer.invoke("desktop:choose-root");
   },
+  chooseModelDirectory() {
+    return ipcRenderer.invoke("desktop:choose-model-directory");
+  },
   retry() {
     return ipcRenderer.invoke("desktop:retry");
   },

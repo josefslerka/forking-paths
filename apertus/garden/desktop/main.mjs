@@ -27,6 +27,7 @@ import {
   resolveApertusRoot,
   validateApertusRoot,
   waitForHealth,
+  isModelManagerSender,
 } from "./lib/runtime.mjs";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -222,7 +223,7 @@ function runPreflight(python, validation) {
   return new Promise((resolve, reject) => {
     execFile(
       python,
-      ["-m", "apertus.garden", "models", "check", "--registry", validation.registryPath],
+      ["-m", "apertus.garden", "models", "list", "--registry", validation.registryPath],
       {
         cwd: validation.root,
         encoding: "utf8",
@@ -466,6 +467,11 @@ async function chooseRoot(event) {
 }
 
 function installIPC() {
+  ipcMain.handle("desktop:choose-model-directory", async (event) => {
+    if (!currentBaseURL || !isModelManagerSender(event.senderFrame.url, currentBaseURL)) throw new Error("Nedůvěryhodný požadavek.");
+    const result = await dialog.showOpenDialog(mainWindow, {title:"Vyberte adresář s modelem", properties:["openDirectory"]});
+    return result.canceled || result.filePaths.length !== 1 ? {canceled:true} : {canceled:false,path:result.filePaths[0]};
+  });
   ipcMain.handle("desktop:choose-root", chooseRoot);
   ipcMain.handle("desktop:retry", async (event) => {
     if (!isSplashSender(event)) throw new Error("Nedůvěryhodný požadavek.");

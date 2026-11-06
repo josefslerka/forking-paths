@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Správa modelů · Pravděpodobnostní zahrada</title>
+  <link rel="stylesheet" href="/static/workbench-shell.css">
+  <link rel="stylesheet" href="/static/model-admin.css">
+  <script src="/static/i18n-catalog.generated.js"></script>
+  <script src="/static/i18n.js"></script>
+  <script src="/static/api-client.js"></script>
+  <script src="/static/workbench-shell.js" defer></script>
+  <script src="/static/model-admin.js" defer></script>
+</head>
+<body data-workbench-page="model-admin">
+<a class="skip-link" href="#main-content">Přejít k obsahu</a>
+<main id="main-content" class="shell">
+  <header class="admin-heading">
+    <p class="eyebrow">NASTAVENÍ · JEN NA TOMTO POČÍTAČI</p>
+    <h1>Správa modelů</h1>
+    <p class="lede">Připoj vlastní váhy nebo nainstaluj připravený profil. Zkontrolujeme soubory, ukážeme dostupné nástroje a na přání vyzkoušíme krátký výpočet.</p>
+    <p id="model-state-text" role="status">Načítám nastavení…</p>
+    <nav class="actions" aria-label="Přidání modelu"><a class="admin-link" href="#local-model-form">Připojit lokální model</a><a class="admin-link" href="#install-profile-form">Nainstalovat připravený profil</a></nav>
+  </header>
+  <aside id="setup-notice" class="notice" hidden><strong>Zatím není načtený žádný model.</strong><p>Připoj váhy níže nebo zvol připravený profil. Pak u modelu klikni na Použít. Není potřeba restartovat aplikaci.</p></aside>
+  <aside id="demo-notice" class="notice" hidden><strong>V demu je správa pouze k prohlédnutí.</strong><p>Ukázkový režim nemění skutečný registr ani nestahuje váhy. Pro správu spusť aplikaci v běžném režimu.</p></aside>
+  <aside id="legacy-notice" class="notice" hidden><p>Tento způsob spuštění nepoužívá registr. Spusť aplikaci běžným příkazem podle návodu.</p></aside>
+  <aside id="backend-notice" class="notice" hidden><strong>Chybí výpočetní knihovny.</strong><p>Modely můžeš zaregistrovat, ale před načtením doinstaluj zvolený výpočetní doplněk podle návodu.</p><code id="backend-command"></code></aside>
+  <aside id="load-error-notice" class="notice" hidden><p>Model se nepodařilo načíst. Zkontroluj formát vah, výpočetní knihovny a volnou paměť.</p><details><summary>Technické podrobnosti</summary><pre id="load-error-details" data-i18n-ignore></pre></details></aside>
+  <aside id="reload-notice" class="notice" hidden><p>Registr byl změněn mimo aplikaci. Nejdřív použij nové nastavení.</p><button id="reload-registry" type="button">Použít změny ze souboru</button></aside>
+  <div id="admin-message" class="message" role="status" aria-live="polite"></div>
+  <section id="job-panel" class="panel job-panel" hidden aria-labelledby="job-title" aria-live="polite">
+    <div class="section-heading"><div><p class="eyebrow">PRŮBĚH OPERACE</p><h2 id="job-title">Připravuji model</h2></div><button id="cancel-job" type="button">Přerušit</button></div>
+    <p id="job-message"></p><progress id="job-progress" aria-label="Průběh přípravy modelu"></progress>
+    <p class="muted">Během přípravy se neprovádějí další výpočty. Původní model se po dokončení znovu načte. Dokončené váhy se při přerušení nemažou.</p>
+    <details><summary>Technické podrobnosti operace</summary><pre id="job-details"></pre></details>
+  </section>
+  <section aria-labelledby="registered-title">
+    <div class="section-heading"><div><p class="eyebrow">VAŠE MODELY</p><h2 id="registered-title">Co je připojené</h2></div><button id="refresh-models" type="button">Obnovit přehled</button></div>
+    <p class="muted">Výchozí model se vybere při příštím spuštění. Tlačítko Použít ho načte hned. Skrytí ani odpojení nemaže soubory na disku.</p>
+    <div id="model-list" class="model-grid" aria-live="polite"></div>
+  </section>
+  <section class="add-grid" aria-label="Přidání modelu">
+    <form id="local-model-form" class="panel">
+      <p class="eyebrow">UŽ MÁM VÁHY NA DISKU</p><h2>Připojit lokální model</h2>
+      <p class="muted">Vyber adresář s konfigurací, tokenizerem a vahami safetensors. Soubory se nikam nekopírují.</p>
+      <p class="muted small">Soubory GGUF z Ollamy zatím nejsou podporované.</p>
+      <label for="model-path">Cesta ke složce modelu</label>
+      <div class="path-row"><input id="model-path" name="path" required maxlength="4096" autocomplete="off" spellcheck="false" placeholder="/path/to/model" data-i18n-ignore><button id="choose-model-directory" type="button" hidden>Vybrat složku</button></div>
+      <p id="browser-path-help" class="muted small">V prohlížeči vlož celou cestu ke složce. V desktopové aplikaci ji můžeš vybrat tlačítkem.</p>
+      <details><summary>Pokročilé nastavení adaptéru</summary><label for="model-adapter">Způsob čtení modelu</label><select id="model-adapter"><option value="">Automaticky podle konfigurace</option><option value="causal-lm">Základní měření · causal-lm</option><option value="apertus">Apertus · včetně vrstev</option><option value="llama-full-attention">Llama · úplná attention</option></select><p class="muted small">Jiná architektura může vyžadovat nový adaptér. Samotná registrace nezpřístupní nepodporované nástroje.</p></details>
+      <button id="inspect-model" class="primary" type="submit">Zkontrolovat složku</button>
+      <div id="inspection-result" hidden>
+        <p id="inspection-summary"></p><ul id="inspection-errors"></ul>
+        <label for="model-label">Název v nabídce</label><input id="model-label" maxlength="120" data-i18n-ignore>
+        <details><summary>Identifikátor v registru</summary><label for="model-id">Jedinečné ID</label><input id="model-id" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_.-]{0,63}" data-i18n-ignore></details>
+        <button id="add-model" class="primary" type="button">Připojit model</button>
+      </div>
+    </form>
+    <form id="install-profile-form" class="panel">
+      <p class="eyebrow">CHCI VÁHY PŘIPRAVIT</p><h2>Nainstalovat připravený profil</h2>
+      <p class="muted">Oficiální zdroje jsou připnuté ke konkrétní verzi. Před spuštěním uvidíš, co se stáhne a kolik místa bude přibližně potřeba.</p>
+      <label for="profile-id">Připravený profil</label><select id="profile-id"></select>
+      <button id="review-installation" type="submit">Ukázat plán instalace</button>
+      <p class="muted small">Hybrid potřebuje také původní BF16 váhy. Kvantizované profily se připravují z původního modelu; zdroje se potom automaticky nemažou.</p>
+      <p class="muted small">Jde o velké soubory, nikoli malý doplněk prohlížeče. Odhad velikosti nepotvrzuje, že model poběží v dostupné operační paměti.</p>
+    </form>
+  </section>
+  <details class="panel"><summary>Kam se ukládá nastavení a jak fungují kontroly</summary>
+    <dl class="technical-info"><dt>Registr modelů</dt><dd><code id="registry-path"></code></dd><dt>Adresář pro nové váhy</dt><dd><code id="cache-path"></code></dd><dt>Zálohy nastavení</dt><dd><code id="backup-path"></code></dd><dt>Výpočetní prostředí</dt><dd id="backend-name"></dd></dl>
+    <p class="muted">Formulář upravuje stejný TOML registr jako ruční nastavení. Před zápisem se uloží jeho přesná záloha; komentáře v nové verzi nahradí jednotný formát.</p>
+    <p class="muted">Kontrola souborů potvrzuje jejich přítomnost a slučitelnost nastavení. Zkušební výpočet ověří načtení a jednu distribuci pravděpodobností — nikoli jazykovou kvalitu, všechny nástroje nebo přesný původ vah.</p>
+    <p class="muted">Ověření platí pro tento běh a zjištěnou podobu souborů. Není to úplný kontrolní součet všech vah. Po restartu nebo změně souborů model podle potřeby otestuj znovu.</p>
+  </details>
+  <dialog id="install-dialog" aria-labelledby="install-dialog-title">
+    <form method="dialog"><button class="dialog-close" aria-label="Zavřít" value="close">×</button></form>
+    <p class="eyebrow">NEJDŘÍV SI PROHLÉDNI ROZSAH</p><h2 id="install-dialog-title">Plán instalace</h2>
+    <p id="install-size"></p><ol id="install-steps"></ol>
+    <p>Oficiální stahované zdroje používají licenci Apache 2.0. Pro opětovně použité vlastní váhy platí jejich původní podmínky. Stahování se připojí k Hugging Face. Existující adresáře se nepřepisují.</p>
+    <label class="check-label"><input id="confirm-download" type="checkbox">Souhlasím se stažením uvedených souborů a jejich velikostí.</label>
+    <p class="muted small">Instalace může trvat delší dobu. Případné přerušení zachová dokončené váhy i původní modely.</p>
+    <div class="actions"><button id="start-installation" class="primary" type="button" disabled>Spustit instalaci</button><button id="close-install-dialog" type="button">Zpět</button></div>
+  </dialog>
+  <dialog id="disconnect-dialog" aria-labelledby="disconnect-title">
+    <h2 id="disconnect-title">Odpojit model?</h2><p id="disconnect-name" data-i18n-ignore></p><p>Odstraní se jen záznam v registru. Váhy a ostatní soubory zůstanou na disku.</p>
+    <div class="actions"><button id="confirm-disconnect" type="button">Odpojit bez smazání souborů</button><button id="cancel-disconnect" type="button">Zpět</button></div>
+  </dialog>
+</main>
+</body>
+</html>

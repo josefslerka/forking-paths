@@ -6,8 +6,9 @@ does not bundle Python or model weights.
 
 ## Development launch
 
-First finish the Python/model setup in the root README, with `.venv` and your
-`models.toml`. Then, with Node.js 22.12 or newer:
+First install Python into `.venv` as in the root README (and the numerical
+extra for your platform). Model weights are not required to open the shell.
+Then, with Node.js 22.12 or newer:
 
 ```sh
 cd apertus/garden/desktop
@@ -17,12 +18,22 @@ npm start
 ```
 
 The shell finds the repository above its source directory, prefers the
-repository's `.venv`, validates the default model through the same Python CLI,
+repository's `.venv`, validates the registry through the same Python CLI,
 and starts a loopback server using the same registry and user-data location.
 Override with `APERTUS_ROOT`, `APERTUS_PYTHON`, `APERTUS_MODEL_REGISTRY` or
 `APERTUS_DATA_DIR`. No Anaconda path or author-specific model layout is needed.
 It may attach to an already running compatible local server on port 8765;
 check the displayed model rather than assuming a new server was started.
+Without ready weights the server opens **Model management** instead of refusing
+to start. There you can connect a local directory with **Choose folder**, review
+a prepared installation, test loading, select a default or disconnect an entry.
+Disconnecting never deletes weights. The native picker is limited to the
+current workbench origin and model-management routes, not a general filesystem
+API. All model/registry actions use the same guarded local server as the browser.
+
+Changes made from bundled presets create a user-owned registry under the data
+directory. On subsequent launches the shell prefers an explicit registry, then
+the checkout's `models.toml`, then the user registry, then bundled presets.
 
 To connect to a server you explicitly manage, set `APERTUS_WORKBENCH_URL`
 (see the shell's source for the accepted URL contract). Only use trusted,

@@ -28,9 +28,12 @@ def cache_directory() -> Path:
     return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "apertus-workbench"
 
 
-def registry_path() -> Path:
+def registry_path(*, data_root: Path | None = None) -> Path:
     override = os.environ.get("APERTUS_MODEL_REGISTRY")
     if override:
         return Path(override).expanduser().resolve()
     local = Path.cwd() / "models.toml"
-    return local if local.is_file() else Path(__file__).with_name("model_presets.toml")
+    if local.is_file():
+        return local
+    user_registry = (data_root or data_directory()) / "models.toml"
+    return user_registry if user_registry.is_file() else Path(__file__).with_name("model_presets.toml")

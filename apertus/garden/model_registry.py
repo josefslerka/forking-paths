@@ -14,7 +14,7 @@ except ImportError:
 EUROLLM_ID = "eurollm9"
 EUROLLM_REVISION = "3f5bacd0762eb45170985d6b699035f6a385ee3e"
 EUROLLM_REPO = "utter-project/EuroLLM-9B-2512"
-COMMON_CAPABILITIES = ["tokenization", "garden", "surprise", "contrast", "model-comparison", "archive", "guide"]
+COMMON_CAPABILITIES = ["tokenization", "garden", "surprise", "contrast", "model-comparison", "archive", "guide", "model-admin"]
 APERTUS_CAPABILITIES = ["embeddings", "raw", "tuned", "jlens", "attribution", "patching", "steering", "detector"]
 
 

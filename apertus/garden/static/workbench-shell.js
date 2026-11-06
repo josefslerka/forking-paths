@@ -127,6 +127,13 @@
       label: "Archiv měření",
       short: "Archiv",
       meta: "lokální záznamy"
+    },
+    {
+      id: "model-admin",
+      href: "/sprava-modelu",
+      label: "Správa modelů",
+      short: "Správa modelů",
+      meta: "instalace a nastavení"
     }
   ];
 
@@ -436,15 +443,22 @@
     const availableModels = Array.isArray(health?.available_models)
       ? health.available_models
       : [];
-    const signature = JSON.stringify(
+    const noLoadedModel = !health?.active_model && !health?.target_model;
+    const signature = JSON.stringify([
+      noLoadedModel,
       availableModels.map(({id, label, available}) => [
         id,
         label,
         Boolean(available)
       ])
-    );
-    if (signature !== modelOptionsSignature && availableModels.length) {
+    ]);
+    if (signature !== modelOptionsSignature) {
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = t("Žádný načtený model");
+      placeholder.disabled = true;
       modelSelect.replaceChildren(
+        ...(noLoadedModel ? [placeholder] : []),
         ...availableModels.map((model) => {
           const option = document.createElement("option");
           option.value = model.id;
@@ -467,18 +481,20 @@
       [...modelSelect.options].some((option) => option.value === selectedId)
     ) {
       modelSelect.value = selectedId;
+    } else if (noLoadedModel) {
+      modelSelect.value = "";
     }
 
     const availableCount = availableModels.filter(
       (model) => model.available
     ).length;
     const serverBusy = Boolean(health?.worker?.busy);
-    const transitionBusy = ["loading", "switching"].includes(health?.status);
+    const transitionBusy = ["loading", "switching", "maintenance"].includes(health?.status);
     modelSelect.disabled = (
       modelSwitching ||
       serverBusy ||
       transitionBusy ||
-      availableCount < 2
+      availableCount === 0 || (availableCount < 2 && Boolean(health?.active_model))
     );
     modelSelect.setAttribute(
       "aria-busy",
@@ -497,6 +513,17 @@
       const activeModel = health?.active_model ?? {};
       renderModelSelect(health);
       const capabilities = health?.capabilities;
+      let setupNotice = root.querySelector("[data-model-setup-notice]");
+      if (health.status === "setup_required" && page !== "model-admin") {
+        if (!setupNotice) {
+          setupNotice = element("p", "pg-model-capability-notice");
+          setupNotice.dataset.modelSetupNotice = "true";
+          const setupLink = element("a", "", "Otevřít správu modelů");
+          setupLink.href = "/sprava-modelu";
+          setupNotice.append(element("span", "", "Nejdřív připoj nebo načti model. "), setupLink);
+          root.prepend(setupNotice);
+        }
+      } else setupNotice?.remove();
       if (Array.isArray(capabilities)) {
         const detectorComparison = page === "detector" && health?.worker?.operation === "detector_readers";
         for (const link of viewNav.querySelectorAll(".pg-view-link")) {
@@ -517,7 +544,7 @@
         } else notice?.remove();
       }
       updateContext({
-        model: activeModel.label ?? activeModel.id ?? "Apertus",
+        model: activeModel.label ?? activeModel.id ?? t("Žádný načtený model"),
         run: health?.model_generation === undefined
           ? "lokální"
           : `generace ${health.model_generation}`
