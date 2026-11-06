@@ -1,7 +1,7 @@
 {
-  "name": "apertus-workbench-desktop",
+  "name": "forking-paths-desktop",
   "version": "0.1.0",
-  "description": "Local macOS desktop shell for the Apertus research workbench",
+  "description": "Forking Paths / Rozcestí — a local research and teaching workbench for language models",
   "author": "Josef Šlerka",
   "license": "Apache-2.0",
   "engines": {"node": ">=22.12.0"},
@@ -16,7 +16,7 @@
   },
   "build": {
     "appId": "cz.cuni.apertus.workbench",
-    "productName": "Apertus Workbench",
+    "productName": "Forking Paths",
     "asar": true,
     "directories": {
       "output": "dist"
@@ -38,7 +38,7 @@
     "mac": {
       "category": "public.app-category.education",
       "icon": "assets/icon.png",
-      "artifactName": "Apertus-Workbench-${version}-${arch}.${ext}",
+      "artifactName": "Forking-Paths-${version}-${arch}.${ext}",
       "target": [
         "dir",
         "zip"

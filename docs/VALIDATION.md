@@ -135,3 +135,37 @@ does not validate every tool or the full weight provenance.
 The current connections deliberately have different scopes: this TUNED reader
 and the frozen detector are Hybrid-specific, while J-LENS is BF16-only. A green
 package badge does not override the native reader's stricter runtime checks.
+
+## Forking Paths / Rozcestí naming — 6 November 2026
+
+The application brand is now **Rozcestí** in Czech and **Forking Paths** in
+English. **Probability Garden / Pravděpodobnostní zahrada** remains the name of
+the branching-probability view; Apertus and EuroLLM remain model identities.
+No numerical method, checkpoint or experimental stimulus was changed.
+
+- Full Python suite: **488 passed, 17 skipped**. Added contracts distinguish
+  the product brand from the garden view and require product-branded page titles.
+- Browser checks with the installed Chrome: **34 general + 6 administration +
+  4 addon tests passed**. A new regression switches the brand, accessible home
+  link and page titles between Czech and English, including navigation to model
+  management, without changing the garden view's name.
+- Desktop helper suite: **12 passed**, including the original profile path,
+  unchanged bundle identifier and a browser-safe shared branding module.
+- The unsigned Apple-silicon **Forking Paths.app** built successfully. The
+  native window was opened on the new repository's local server, the real
+  Hybrid distribution loaded, and Czech → English → Czech branding was checked
+  interactively. The application was left open in Czech.
+- Existing Hybrid TUNED/detector connections remained available; the J-LENS
+  connection remained BF16-only. This update did not repeat their earlier
+  numerical reader/detector validation or edit the external packages.
+- Both `forking-paths` and the original `apertus-workbench` command resolve to
+  the same entry point and report identical data/cache/registry locations.
+  The Python namespace, environment variables, data paths and native bundle
+  identity are deliberately unchanged to preserve existing installations.
+- Wheel/sdist built successfully. The wheel passed the disposable-environment
+  gate outside the checkout with only NumPy, including both command names,
+  synthetic probability requests and model-free model-management setup.
+  No model weights or inference frameworks were downloaded by that check.
+
+The repository is still local. No GitHub repository, push or package publication
+was performed during this naming update.

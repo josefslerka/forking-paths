@@ -1,8 +1,12 @@
-# Instalace česky
+# Rozcestí — instalace česky
 
-Workbench běží na vašem počítači. Prohlížeč zobrazuje rozhraní, Python počítá
+Rozcestí (anglicky Forking Paths) běží na vašem počítači. Prohlížeč zobrazuje rozhraní, Python počítá
 výsledky. Není třeba účet ani placené API. Velký jazykový model ale zabírá
 několik až desítky GB; není součástí tohoto repozitáře.
+
+Původní příkaz `apertus-workbench` zůstává funkční; nově lze místo něj použít
+`forking-paths`. Technické názvy adresářů dat a proměnných `APERTUS_*` se kvůli
+kompatibilitě nemění. Přejmenování aplikace neodpojí modely, doplňky ani archiv.
 
 ## Nejdřív zkuste rozhraní
 

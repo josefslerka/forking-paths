@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> None:
         finally:
             sys.argv = previous
         return
-    parser = argparse.ArgumentParser(description="Local Apertus Workbench (nothing is downloaded on startup).")
+    parser = argparse.ArgumentParser(description="Local Forking Paths / Rozcestí workbench (nothing is downloaded on startup).")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("serve", help="Run a local model (see serve --help)")
     sub.add_parser("demo", help="Synthetic interface preview, no model weights")

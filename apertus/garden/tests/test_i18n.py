@@ -97,6 +97,9 @@ class EnglishInterfaceContractTest(unittest.TestCase):
 
     def test_key_methodological_terms_have_curated_translations(self) -> None:
         expected = {
+            "Rozcestí": "Forking Paths",
+            "Rozcestí – domů": "Forking Paths — home",
+            "Výzkum a výuka": "Research and teaching",
             "Pravděpodobnostní zahrada": "Probability Garden",
             "Překvapení textu": "Text surprisal",
             "Kontrast kontextů": "Context contrast",

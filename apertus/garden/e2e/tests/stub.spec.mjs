@@ -48,7 +48,30 @@ const untranslatedInterfaceCopy = (page) => page.evaluate(() => {
   return [...new Set(found)].slice(0, 20);
 });
 
-test.describe("Pravděpodobnostní zahrada — deset klíčových cest nad stubem", () => {
+test.describe("Rozcestí — klíčové cesty nad stubem", () => {
+  test("00-brand · Značka se přepíná s jazykem a nezaměňuje se za model ani pohled", async ({appPage: page}) => {
+    await openWorkbench(page, "/?lang=cs", {mock: true});
+    await expect(page.locator(".pg-brand strong")).toHaveText("Rozcestí");
+    await expect(page.locator(".pg-brand")).toHaveAccessibleName("Rozcestí – domů");
+    await expect(page).toHaveTitle("Pravděpodobnostní zahrada · Rozcestí");
+    await expect(page.locator("h1").first()).toHaveText("Pravděpodobnostní zahrada");
+    await expect(page.locator(".pg-brand small")).toHaveText("Výzkum a výuka");
+
+    await page.locator('.pg-language-button[data-language="en"]').click();
+    await expect(page.locator(".pg-brand strong")).toHaveText("Forking Paths");
+    await expect(page.locator(".pg-brand")).toHaveAccessibleName("Forking Paths — home");
+    await expect(page).toHaveTitle("Probability Garden · Forking Paths");
+    await expect(page.locator("h1").first()).toHaveText("Probability Garden");
+    await expect(page.locator(".pg-brand small")).toHaveText("Research and teaching");
+
+    await page.getByRole("link", {name: /Model management/}).click();
+    await expect(page).toHaveTitle("Model management · Forking Paths");
+    await expect(page.locator(".pg-brand strong")).toHaveText("Forking Paths");
+    await page.locator('.pg-language-button[data-language="cs"]').click();
+    await expect(page).toHaveTitle("Správa modelů · Rozcestí");
+    await expect(page.locator(".pg-brand strong")).toHaveText("Rozcestí");
+  });
+
   test("00 · Anglické rozhraní je úplné, trvalé a nemění uživatelský text", async ({appPage: page}) => {
     await openWorkbench(page, "/?lang=en", {mock: true});
 

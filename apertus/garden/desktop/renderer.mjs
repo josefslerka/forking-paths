@@ -1,3 +1,5 @@
+import { CZECH_PRODUCT_NAME } from "./lib/branding.mjs";
+
 const statusTitle = document.querySelector("#status-title");
 const statusMessage = document.querySelector("#status-message");
 const statusDetails = document.querySelector("#status-details");
@@ -10,7 +12,7 @@ function renderStatus(payload = {}) {
   const phase = payload.phase ?? "starting";
   document.body.dataset.phase = phase;
   statusDot.setAttribute("aria-label", phase);
-  statusTitle.textContent = payload.title ?? "Apertus Workbench";
+  statusTitle.textContent = payload.title ?? CZECH_PRODUCT_NAME;
   statusMessage.textContent = payload.message ?? "";
   statusDetails.replaceChildren();
   for (const detail of payload.details ?? []) {

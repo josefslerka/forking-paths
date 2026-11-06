@@ -1,8 +1,14 @@
-# Optional Electron window
+# Forking Paths — optional Electron window
 
 The browser is sufficient for all research tools. The Electron shell provides
 a separate window, copy/paste menus and local server lifecycle management; it
 does not bundle Python or model weights.
+
+The native application is named **Forking Paths**; its Czech interface is
+**Rozcestí**. The original bundle identifier and Electron profile directory are
+intentionally preserved, so settings, language preferences and source-directory
+connections survive the name change. Python data/cache directories and
+`APERTUS_*` configuration variables are unchanged as well.
 
 ## Development launch
 
@@ -46,7 +52,7 @@ to the Python application.
 CSC_IDENTITY_AUTO_DISCOVERY=false npm run pack
 ```
 
-This produces a local Apple-silicon app directory. Open its settings/chooser
+This produces `dist/mac-arm64/Forking Paths.app`, a local Apple-silicon app directory. Open its settings/chooser
 to select the source repository if it cannot find it. Models and `.venv` stay
 external. Public signed/notarized installers and automatic updates are not
 provided by this alpha repository. Before distributing a desktop binary,

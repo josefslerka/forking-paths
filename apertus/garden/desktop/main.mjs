@@ -12,8 +12,10 @@ import { execFile, execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { PRODUCT_NAME } from "./lib/branding.mjs";
 import {
   baseURL,
+  desktopUserDataPath,
   normalizeWorkbenchURL,
   fetchWorkbenchHealth,
   buildServerArguments,
@@ -46,7 +48,8 @@ let logStream = null;
 let logPath = null;
 let statusHistory = [];
 
-app.setName("Apertus Workbench");
+app.setName(PRODUCT_NAME);
+app.setPath("userData", desktopUserDataPath(app.getPath("appData")));
 app.enableSandbox();
 nativeTheme.themeSource = "light";
 
@@ -92,7 +95,7 @@ function log(message) {
 function publishStatus(payload) {
   const entry = {
     phase: payload.phase ?? "starting",
-    title: payload.title ?? "Apertus Workbench",
+    title: payload.title ?? PRODUCT_NAME,
     message: payload.message ?? "",
     details: Array.isArray(payload.details) ? payload.details : [],
   };
@@ -171,7 +174,7 @@ async function createWindow() {
     minHeight: 700,
     backgroundColor: "#f5f2e9",
     show: false,
-    title: "Apertus Workbench",
+    title: PRODUCT_NAME,
     webPreferences: {
       preload: path.join(moduleDir, "preload.cjs"),
       nodeIntegration: false,
@@ -286,7 +289,7 @@ function spawnServer(python, validation, port) {
       publishStatus({
         phase: "error",
         title: "Server se zastavil",
-        message: "Lokální proces Apertusu neočekávaně skončil.",
+        message: "Lokální výpočetní server neočekávaně skončil.",
         details: [`Kód: ${code ?? "—"}`, `Signál: ${signal ?? "—"}`],
       });
     });
@@ -332,7 +335,7 @@ async function loadWorkbench(url) {
   currentBaseURL = url;
   publishStatus({
     phase: "ready",
-    title: "Apertus je připraven",
+    title: "Rozcestí je připravené",
     message: "Otevírám lokální workbench.",
   });
   await mainWindow.loadURL(`${url}/`);
@@ -347,7 +350,7 @@ async function startWorkbench({ forceRoot } = {}) {
     }
     publishStatus({
       phase: "starting",
-      title: "Spouštím Apertus",
+      title: "Spouštím Rozcestí",
       message: "Hledám modely a kontroluji lokální prostředí.",
     });
 
@@ -391,7 +394,7 @@ async function startWorkbench({ forceRoot } = {}) {
             : [],
         );
       throw Object.assign(
-        new Error("Vyberte repozitář apertus-workbench se souborem pyproject.toml."),
+        new Error("Vyberte zdrojový repozitář aplikace Rozcestí se souborem pyproject.toml."),
         { code: "root_missing", details },
       );
     }
@@ -435,7 +438,7 @@ async function startWorkbench({ forceRoot } = {}) {
     log(error.stack ?? error.message ?? String(error));
     publishStatus({
       phase: "error",
-      title: "Apertus se nepodařilo spustit",
+      title: "Rozcestí se nepodařilo spustit",
       message: error.message ?? String(error),
       details: error.details ?? [],
       code: error.code,
@@ -446,7 +449,7 @@ async function startWorkbench({ forceRoot } = {}) {
 async function chooseRoot(event) {
   if (!isSplashSender(event)) throw new Error("Nedůvěryhodný požadavek.");
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: "Vyberte repozitář apertus-workbench",
+    title: "Vyberte zdrojový repozitář aplikace Rozcestí",
     message: "Složka s pyproject.toml a models.toml. Váhy mohou být uložené jinde.",
     properties: ["openDirectory"],
   });
@@ -490,7 +493,7 @@ function installMenu() {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
-        label: "Apertus Workbench",
+        label: PRODUCT_NAME,
         submenu: [
           { role: "about" },
           { type: "separator" },

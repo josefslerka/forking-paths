@@ -10,6 +10,12 @@ export const DEFAULT_PORT = 8765;
 export const DEFAULT_MODEL = null; // Registry default, not a hard-coded model ID.
 export const HEALTH_PATH = "/api/health";
 
+// A display-name change must not create an empty Electron profile. Keep the
+// established directory (settings, cookies, language and saved source path).
+export function desktopUserDataPath(appData) {
+  return path.join(appData, "Apertus Workbench");
+}
+
 export function isModelManagerSender(url, base) {
   try {
     const parsed = new URL(url);

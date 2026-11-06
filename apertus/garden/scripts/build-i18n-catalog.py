@@ -97,6 +97,7 @@ SYSTEM_PROMPT = """You translate a Czech research interface for humanities
 scholars and psycholinguists into concise, idiomatic academic English.
 
 Terminology is fixed:
+- Rozcestí = Forking Paths (the application, not a model)
 - Pravděpodobnostní zahrada = Probability Garden
 - pole očekávání = field of expectations
 - překvapení / surprisal = surprisal
@@ -459,10 +460,12 @@ def write_javascript(data: dict[str, dict[str, str]]) -> None:
 def main() -> int:
     sources = collect()
     curated = json.loads((ROOT / "scripts/model-admin-en.json").read_text())
+    branding = json.loads((ROOT / "scripts/branding-en.json").read_text())
     if "--curated-only" in sys.argv:
         existing = OUTPUT.read_text().split("window.ProbabilityGardenEnglishCatalogue = ",1)[1].strip().removesuffix(";")
         translations = json.loads(existing)
         translations.setdefault("model-admin", {}).update(curated)
+        translations.setdefault("common", {}).update(branding)
         known = {source:target for page_map in translations.values() for source,target in page_map.items()}
         missing = {}
         for page, values in sources.items():
@@ -492,6 +495,7 @@ def main() -> int:
         for page, values in sources.items()
     }
     translations.setdefault("model-admin",{}).update(curated)
+    translations.setdefault("common",{}).update(branding)
     known_by_source: dict[str, str] = {}
     for page_map in translations.values():
         for source, translated in page_map.items():

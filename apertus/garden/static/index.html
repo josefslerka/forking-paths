@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Interaktivní mapa skutečných next-token pravděpodobností modelu Apertus 8B.">
-  <title>Pravděpodobnostní zahrada · Apertus 8B</title>
+  <meta name="description" content="Rozcestí: výzkumná a výuková laboratoř jazykových modelů. Prozkoumej pravděpodobnosti dalších tokenů a vliv kontextu.">
+  <title>Pravděpodobnostní zahrada · Rozcestí</title>
   <style>
     :root {
       color-scheme: dark;
@@ -1389,13 +1389,13 @@
     class="compute-overlay"
     role="status"
     aria-live="assertive"
-    aria-label="Apertus právě počítá"
+    aria-label="Model právě počítá"
     hidden
   >
     <div class="compute-status">
       <span class="compute-spinner" aria-hidden="true"></span>
       <span class="compute-copy">
-        <span id="compute-title" class="compute-title">Apertus počítá</span>
+        <span id="compute-title" class="compute-title">Model počítá</span>
         <span id="compute-detail" class="compute-detail">Úplné rozdělení dalšího tokenu…</span>
       </span>
     </div>
@@ -2422,7 +2422,7 @@
         column.messageError = isError;
       };
 
-      const showComputeOverlay = (detail, title = "Apertus počítá") => {
+      const showComputeOverlay = (detail, title = "Model počítá") => {
         computeTitle.textContent = title;
         computeDetail.textContent = detail;
         computeOverlay.hidden = false;
@@ -2431,7 +2431,7 @@
 
       const hideComputeOverlay = () => {
         computeOverlay.hidden = true;
-        computeTitle.textContent = "Apertus počítá";
+        computeTitle.textContent = "Model počítá";
         document.body.classList.remove("is-computing");
       };
 
@@ -3159,7 +3159,7 @@
               <div class="loading-level" role="status">
                 <div>
                   <div class="seed" aria-hidden="true"></div>
-                  Apertus počítá první distribuci…
+                  Model počítá první distribuci…
                 </div>
               </div>
             `
@@ -3590,7 +3590,7 @@
         column.revision += 1;
         columns = columns.filter((item) => item.id !== columnId);
         clearSearch();
-        setGlobalMessage(`Promptový sloupec byl odebrán; jeho cache může Apertus znovu využít.`);
+        setGlobalMessage(`Promptový sloupec byl odebrán; jeho cache může model znovu využít.`);
         render();
       };
 
@@ -3666,7 +3666,7 @@
             ? "Počítám nový začátek a starou zahradu zatím zachovávám…"
             : "Zakládám první distribuci tohoto promptu…"
         );
-        setColumnMessage(column, "Apertus počítá úplné rozdělení dalšího tokenu…");
+        setColumnMessage(column, "Model počítá úplné rozdělení dalšího tokenu…");
         render();
         try {
           const data = await getNext(
@@ -3773,7 +3773,7 @@
         clearSearch();
         setBusy(true);
         showComputeOverlay(`Dopočítávám větev „${candidate.display}“…`);
-        setColumnMessage(column, `Apertus dopočítává větev „${candidate.display}“…`);
+        setColumnMessage(column, `Model dopočítává větev „${candidate.display}“…`);
         render();
         try {
           const data = await getNext(candidate.next_text, candidate.next_token_ids);

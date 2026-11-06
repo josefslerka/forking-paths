@@ -70,7 +70,7 @@ def dependency_available(module: str) -> bool:
 
 def registry_bytes(value: dict) -> bytes:
     """A deterministic serializer for the deliberately small registry schema."""
-    lines = ["# Managed by Apertus Workbench. Previous content is backed up before edits."]
+    lines = ["# Managed by Forking Paths / Rozcestí. Previous content is backed up before edits."]
     for key in ("schema_version", "backend", "default_model", "enable_research_artifacts"):
         if key in value:
             lines.append(f"{key} = {json.dumps(value[key], ensure_ascii=False)}")

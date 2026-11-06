@@ -20,6 +20,10 @@
   }
 
   const overrides = new Map(Object.entries({
+    "Rozcestí": "Forking Paths",
+    "Rozcestí – domů": "Forking Paths — home",
+    "Výzkum a výuka": "Research and teaching",
+    "Výzkumná a výuková laboratoř jazykových modelů": "A research and teaching workbench for exploring language models",
     "Technické detaily vstupních embeddingů": "Input embedding technical details",
     "Technické detaily kontextového stavu": "Contextual state technical details",
     "Kontrolní náhled prvních 16 souřadnic posledního tokenu; nejde o významové rysy.": "Inspection preview of the last token's first 16 coordinates; these are not semantic features.",

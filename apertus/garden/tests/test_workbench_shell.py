@@ -19,6 +19,18 @@ class WorkbenchShellContractTest(unittest.TestCase):
         )
         cls.server = (GARDEN_DIR / "server.py").read_text(encoding="utf-8")
 
+    def test_product_brand_is_separate_from_the_garden_and_model(self) -> None:
+        self.assertIn('<strong>Rozcestí</strong>', self.javascript)
+        self.assertIn('"Rozcestí – domů"', self.javascript)
+        self.assertIn('"Výzkumná a výuková laboratoř jazykových modelů"', self.javascript)
+        self.assertIn('label: "Pravděpodobnostní zahrada"', self.javascript)
+        for html_path in STATIC_DIR.glob("*.html"):
+            with self.subTest(page=html_path.name):
+                html = html_path.read_text(encoding="utf-8")
+                if 'data-workbench-page=' in html:
+                    title = html.split("<title>", 1)[1].split("</title>", 1)[0]
+                    self.assertTrue(title.endswith(" · Rozcestí"), title)
+
     def test_every_view_loads_the_shared_shell(self) -> None:
         pages = {
             "tokenization.html": "tokenization",

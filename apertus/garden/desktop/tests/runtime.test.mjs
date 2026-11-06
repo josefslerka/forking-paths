@@ -4,8 +4,10 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { PRODUCT_NAME, CZECH_PRODUCT_NAME } from "../lib/branding.mjs";
 import {
   buildServerArguments,
+  desktopUserDataPath,
   normalizeWorkbenchURL,
   fetchWorkbenchHealth,
   candidateApertusRoots,
@@ -37,6 +39,19 @@ function fixture() {
   fs.writeFileSync(path.join(root, "pyproject.toml"), "[project]\n");
   return fs.realpathSync(root);
 }
+
+test("Forking Paths branding preserves the existing desktop profile and bundle identity", () => {
+  assert.equal(PRODUCT_NAME, "Forking Paths");
+  assert.equal(CZECH_PRODUCT_NAME, "Rozcestí");
+  assert.equal(desktopUserDataPath(path.join("user", "app-data")), path.join("user", "app-data", "Apertus Workbench"));
+  const main = fs.readFileSync(new URL("../main.mjs", import.meta.url), "utf8");
+  assert.ok(main.indexOf('app.setPath("userData", desktopUserDataPath(app.getPath("appData")))') < main.indexOf("app.requestSingleInstanceLock()"));
+  const metadata = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(metadata.build.productName, PRODUCT_NAME);
+  assert.equal(metadata.build.appId, "cz.cuni.apertus.workbench");
+  const branding = fs.readFileSync(new URL("../lib/branding.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(branding, /from ["'](?:node:|electron)/u);
+});
 
 test("native model folder picker accepts only the current model-manager origin and route", () => {
   const base = "http://127.0.0.1:8766";

@@ -87,6 +87,12 @@ def main() -> None:
         venv.EnvBuilder(with_pip=True).create(environment)
         python = environment / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
         subprocess.run([str(python), "-m", "pip", "install", "--disable-pip-version-check", str(wheel)], check=True, cwd=root)
+        scripts = environment / ("Scripts" if os.name == "nt" else "bin")
+        suffix = ".exe" if os.name == "nt" else ""
+        for name in ("forking-paths", "apertus-workbench"):
+            help_result = subprocess.run([str(scripts / (name + suffix)), "--help"],
+                                         check=True, cwd=root, capture_output=True, text=True)
+            assert "Forking Paths / Rozcestí" in help_result.stdout
         subprocess.run([str(python), "-c", "import importlib.util; assert all(importlib.util.find_spec(name) is None for name in ('mlx','torch','transformers'))"], check=True, cwd=root)
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))

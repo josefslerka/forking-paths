@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "Please cite the workbench and separately cite the exact model checkpoint used."
 type: software
-title: Apertus Workbench
+title: Forking Paths / Rozcestí
 version: 0.1.0a1
 date-released: 2026-11-05
 authors:

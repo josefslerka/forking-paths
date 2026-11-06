@@ -1,4 +1,10 @@
-# Apertus Workbench
+# Forking Paths / Rozcestí
+
+**A research and teaching workbench for exploring language models.**
+The application is called **Rozcestí** in Czech and **Forking Paths** in English.
+Apertus and EuroLLM are supported models, not the name of the application.
+The branching-probability view remains **Probability Garden / Pravděpodobnostní
+zahrada**.
 
 A local research and teaching workbench for looking at what a language model
 expects next — and how those expectations change with context. The interface
@@ -14,6 +20,12 @@ reading time, or evidence that a model understands a text as a person does.
 **Local alpha release.** No account or cloud inference API is needed. Model
 weights, private research data, calibrated readouts, and scanned documents are
 not included. No model is downloaded on startup.
+
+For compatibility, the Python distribution/import namespace, `APERTUS_*`
+environment variables and existing data/cache directories retain their original
+technical names. `forking-paths` and the existing `apertus-workbench` command
+run the same application. Rebranding does not move archives, weights or model
+registrations. The Electron application is named **Forking Paths**.
 
 [Český instalační návod](docs/INSTALL.cs.md) ·
 [Adding a model](docs/MODELS.md) · [Methods and limitations](docs/METHODS.md) ·

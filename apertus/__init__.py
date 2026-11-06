@@ -1,1 +1,1 @@
-"""Apertus Workbench application namespace (independent of model providers)."""
+"""Forking Paths application; the legacy import namespace is kept for compatibility."""

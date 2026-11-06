@@ -202,12 +202,13 @@
   const brand = document.createElement("a");
   brand.className = "pg-brand";
   brand.href = "/";
-  brand.setAttribute("aria-label", "Pravděpodobnostní zahrada – domů");
+  brand.setAttribute("aria-label", "Rozcestí – domů");
+  brand.title = t("Výzkumná a výuková laboratoř jazykových modelů");
   brand.innerHTML = `
     <span class="pg-brand-dot" aria-hidden="true"></span>
     <span>
-      <strong>Pravděpodobnostní zahrada</strong>
-      <small>Výzkumný workbench</small>
+      <strong>Rozcestí</strong>
+      <small>Výzkum a výuka</small>
     </span>
   `;
 

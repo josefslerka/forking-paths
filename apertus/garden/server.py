@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local next-token probability garden for Apertus and MLX-LM."""
+"""Forking Paths / Rozcestí: a local research workbench for language models."""
 
 from __future__ import annotations
 
@@ -16623,7 +16623,7 @@ def main() -> None:
     )
     state.start(load_initial=load_initial)
     url = f"http://{args.host}:{args.port}"
-    print(f"Pravděpodobnostní zahrada: {url}")
+    print(f"Rozcestí / Forking Paths: {url}")
     if not load_initial:
         print(f"Model setup: {url}/sprava-modelu")
     if args.mock:
