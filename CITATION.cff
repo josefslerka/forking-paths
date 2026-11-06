@@ -3,7 +3,9 @@ message: "Please cite the workbench and separately cite the exact model checkpoi
 type: software
 title: Forking Paths / Rozcestí
 version: 0.1.0a1
-date-released: 2026-11-05
+date-released: 2026-11-06
+repository-code: "https://github.com/josefslerka/forking-paths"
+url: "https://github.com/josefslerka/forking-paths"
 authors:
   - family-names: Šlerka
     given-names: Josef

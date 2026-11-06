@@ -56,6 +56,7 @@ readout and intervention claims distinct.
 
 Maintain Czech and English together. Translations are served locally; the
 catalogue-generation utility is a developer tool, not a runtime dependency.
+Keep the English `README.md` and Czech `README.cs.md` in sync as well.
 Do not send private text to a translation or inference service.
 Curated model-management translations live in
 `apertus/garden/scripts/model-admin-en.json`; regenerate the local catalogue

@@ -1,4 +1,4 @@
-include LICENSE NOTICE README.md CITATION.cff THIRD_PARTY_NOTICES.md
+include LICENSE NOTICE README.md README.cs.md CITATION.cff THIRD_PARTY_NOTICES.md
 include models.example.toml models.torch.example.toml experiment-zahrada12-materials.json
 recursive-include docs *.md
 recursive-include tools *.py

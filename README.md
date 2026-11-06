@@ -1,3 +1,5 @@
+[English](README.md) · [Čeština](README.cs.md)
+
 # Forking Paths / Rozcestí
 
 **A research and teaching workbench for exploring language models.**
@@ -5,6 +7,11 @@ The application is called **Rozcestí** in Czech and **Forking Paths** in Englis
 Apertus and EuroLLM are supported models, not the name of the application.
 The branching-probability view remains **Probability Garden / Pravděpodobnostní
 zahrada**.
+
+**Česky:** Lokální výzkumná a výuková laboratoř jazykových modelů pro
+humanitní badatele a psycholingvisty: tokenizace, pravděpodobnosti,
+překvapení textu, vliv kontextu a podporované pohledy do modelu.
+[Český popis a rychlý start →](README.cs.md)
 
 A local research and teaching workbench for looking at what a language model
 expects next — and how those expectations change with context. The interface
@@ -17,7 +24,7 @@ architectures also expose contextual representations, layer readouts and
 interventions. The application is **not** a chat service, a model of human
 reading time, or evidence that a model understands a text as a person does.
 
-**Local alpha release.** No account or cloud inference API is needed. Model
+**Early alpha — runs locally.** No account or cloud inference API is needed. Model
 weights, private research data, calibrated readouts, and scanned documents are
 not included. No model is downloaded on startup.
 
@@ -33,19 +40,22 @@ registrations. The Electron application is named **Forking Paths**.
 
 ## 1. Try the interface without a model
 
-You need Python **3.11 or 3.12**. From this repository:
+You need Git and Python **3.11 or 3.12**. Download the source and install it in
+an isolated environment:
 
 ```sh
+git clone https://github.com/josefslerka/forking-paths.git
+cd forking-paths
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .
-apertus-workbench demo
+forking-paths demo
 ```
 
 On Windows, activate with `.venv\Scripts\Activate.ps1` in PowerShell.
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Stop the server with Ctrl+C.
-If the port is occupied, use `apertus-workbench demo --port 8766`.
+If the port is occupied, use `forking-paths demo --port 8766`.
 
 **Demo values are synthetic fixtures, not measurements from Apertus or
 EuroLLM.** The interface labels this mode; use it to check the installation and
@@ -61,7 +71,7 @@ must use the same backend. You do not need both optional installations.
 ```sh
 python -m pip install -e '.[mlx]'
 cp models.example.toml models.toml
-apertus-workbench serve
+forking-paths serve
 ```
 
 Open **Model management / Správa modelů** in the navigation, or go to
@@ -91,9 +101,9 @@ See [addon formats and verification](docs/MODELS.md#experimental-addons).
 The command line remains available for reproducible setup:
 
 ```sh
-apertus-workbench models download bf16
-apertus-workbench models check bf16
-apertus-workbench serve
+forking-paths models download bf16
+forking-paths models check bf16
+forking-paths serve
 ```
 
 The BF16 checkpoint is roughly 16 GB of weights; allow additional RAM and disk
@@ -101,16 +111,16 @@ space for inference, conversion and download caching. It is not a small
 browser-only app. For a smaller running model, prepare the 8-bit variant:
 
 ```sh
-apertus-workbench models convert 8bit
-apertus-workbench serve --initial-model 8bit
+forking-paths models convert 8bit
+forking-paths serve --initial-model 8bit
 ```
 
 The optional `hybrid` registration combines that 8-bit body with exact BF16
 input embeddings/output head. It still needs **both** source directories:
 
 ```sh
-apertus-workbench models check hybrid
-apertus-workbench serve --initial-model hybrid
+forking-paths models check hybrid
+forking-paths serve --initial-model hybrid
 ```
 
 The built-in presets additionally contain 4-bit Apertus and 6-bit EuroLLM 9B.
@@ -129,8 +139,8 @@ model supported by Transformers, or run `serve` and connect it through
 EuroLLM 9B HF weights (not the MLX conversions). For the command-line route:
 
 ```sh
-apertus-workbench models check
-apertus-workbench serve --device auto
+forking-paths models check
+forking-paths serve --device auto
 ```
 
 `auto` uses CUDA if available, otherwise CPU. CPU inference uses FP32 and can
@@ -171,7 +181,7 @@ The local archive stores text you choose to save. Application data and model
 cache live in your user profile, not in the source checkout:
 
 ```sh
-apertus-workbench paths
+forking-paths paths
 ```
 
 Override with `APERTUS_DATA_DIR`, `APERTUS_CACHE_DIR`, or
@@ -195,6 +205,7 @@ npm ci
 npx playwright install chromium
 npm run test:stub
 npm run test:admin
+npm run test:addons
 ```
 
 The default tests do not download model weights. Numerical backend tests are

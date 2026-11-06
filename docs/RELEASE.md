@@ -1,9 +1,11 @@
-# Local release checklist
+# Release checklist
 
-This repository was prepared locally. It has no configured remote and has not
-been uploaded by this preparation task.
+Source repository: [josefslerka/forking-paths](https://github.com/josefslerka/forking-paths).
+The source is published under Apache-2.0. Public source availability does not
+mean that the local application server is safe to expose, or that signed
+installers, model weights or experimental packages are distributed here.
 
-Before an actual public release:
+Before each source or binary release:
 
 - Run the Python, synthetic browser, desktop-helper and wheel-install gates
   from CONTRIBUTING. Record versions and skipped asset-dependent checks.
