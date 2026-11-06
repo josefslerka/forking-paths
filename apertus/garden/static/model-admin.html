@@ -20,7 +20,7 @@
     <h1>Správa modelů</h1>
     <p class="lede">Připoj vlastní váhy nebo nainstaluj připravený profil. Zkontrolujeme soubory, ukážeme dostupné nástroje a na přání vyzkoušíme krátký výpočet.</p>
     <p id="model-state-text" role="status">Načítám nastavení…</p>
-    <nav class="actions" aria-label="Přidání modelu"><a class="admin-link" href="#local-model-form">Připojit lokální model</a><a class="admin-link" href="#install-profile-form">Nainstalovat připravený profil</a></nav>
+    <nav class="actions" aria-label="Přidání modelu"><a class="admin-link" href="#local-model-form">Připojit lokální model</a><a class="admin-link" href="#install-profile-form">Nainstalovat připravený profil</a><a class="admin-link" href="#experimental-addons">Experimentální doplňky</a></nav>
   </header>
   <aside id="setup-notice" class="notice" hidden><strong>Zatím není načtený žádný model.</strong><p>Připoj váhy níže nebo zvol připravený profil. Pak u modelu klikni na Použít. Není potřeba restartovat aplikaci.</p></aside>
   <aside id="demo-notice" class="notice" hidden><strong>V demu je správa pouze k prohlédnutí.</strong><p>Ukázkový režim nemění skutečný registr ani nestahuje váhy. Pro správu spusť aplikaci v běžném režimu.</p></aside>
@@ -32,7 +32,7 @@
   <section id="job-panel" class="panel job-panel" hidden aria-labelledby="job-title" aria-live="polite">
     <div class="section-heading"><div><p class="eyebrow">PRŮBĚH OPERACE</p><h2 id="job-title">Připravuji model</h2></div><button id="cancel-job" type="button">Přerušit</button></div>
     <p id="job-message"></p><progress id="job-progress" aria-label="Průběh přípravy modelu"></progress>
-    <p class="muted">Během přípravy se neprovádějí další výpočty. Původní model se po dokončení znovu načte. Dokončené váhy se při přerušení nemažou.</p>
+    <p id="job-hint" class="muted">Během přípravy se neprovádějí další výpočty. Původní model se po dokončení znovu načte. Dokončené váhy se při přerušení nemažou.</p>
     <details><summary>Technické podrobnosti operace</summary><pre id="job-details"></pre></details>
   </section>
   <section aria-labelledby="registered-title">
@@ -65,6 +65,16 @@
       <p class="muted small">Hybrid potřebuje také původní BF16 váhy. Kvantizované profily se připravují z původního modelu; zdroje se potom automaticky nemažou.</p>
       <p class="muted small">Jde o velké soubory, nikoli malý doplněk prohlížeče. Odhad velikosti nepotvrzuje, že model poběží v dostupné operační paměti.</p>
     </form>
+  </section>
+  <section id="experimental-addons" aria-labelledby="addons-title">
+    <div class="section-heading"><div><p class="eyebrow">VOLITELNÉ · VÝZKUMNÉ NÁSTROJE</p><h2 id="addons-title">Experimentální doplňky</h2></div></div>
+    <p>Tyto nástroje potřebují samostatný balíček pro konkrétní model. Připojení nic nekopíruje ani nestahuje; odpojení nemaže původní soubory.</p>
+    <p class="muted">Postup: připojit složku → ověřit balíček → zapnout. Ověření kontroluje soubory a shodu nastavení modelu. Před prvním výpočtem čtečky ještě zkontrolují obsah vah nebo provedou přenosovou sondu.</p>
+    <div id="addon-list" class="addon-grid" aria-live="polite"></div>
+    <details class="panel"><summary>Nastavení a omezení doplňků</summary><code id="addon-config-path" data-i18n-ignore></code>
+      <p class="muted">Nastavení i jeho zálohy jsou jen v uživatelských datech, mimo Git. Každý doplněk se zapíná zvlášť a jen pro kompatibilní modely. Zapnutí neznamená ověření všech vědeckých tvrzení o metodě.</p>
+      <p class="muted">Starší detektor potřebuje také původní zamčené pomocné soubory. Spouštět lze jen přesně rozpoznanou a kontrolním součtem ověřenou implementaci extrakce příznaků, nikoli libovolný Python plugin.</p>
+    </details>
   </section>
   <details class="panel"><summary>Kam se ukládá nastavení a jak fungují kontroly</summary>
     <dl class="technical-info"><dt>Registr modelů</dt><dd><code id="registry-path"></code></dd><dt>Adresář pro nové váhy</dt><dd><code id="cache-path"></code></dd><dt>Zálohy nastavení</dt><dd><code id="backup-path"></code></dd><dt>Výpočetní prostředí</dt><dd id="backend-name"></dd></dl>

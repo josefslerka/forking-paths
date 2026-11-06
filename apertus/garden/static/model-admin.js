@@ -5,9 +5,15 @@
   const $ = (id) => document.getElementById(id);
   let snapshot = null, inspection = null, plan = null, disconnect = null;
   let pending = false, refreshRunning = false, cardSignature = "", installJob = null;
+  let addonSnapshot = null;
+  const addonControls = new Map();
+  const addonReasons = {addon_missing:"Není připojený potřebný experimentální doplněk.",addon_unverified:"Balíček doplňku zatím není ověřený nebo se změnily jeho soubory.",addon_incompatible:"Připojený doplněk není kompatibilní s tímto modelem nebo přesností.",addon_disabled:"Experimentální doplněk je připojený, ale vypnutý."};
   const profiles = {bf16:"Apertus 8B · BF16", "8bit":"Apertus 8B · 8bit", "4bit":"Apertus 8B · 4bit", hybrid:"Apertus 8B · Hybrid 8bit/BF16",eurollm9:"EuroLLM 9B · 6bit", "eurollm9-hf":"EuroLLM 9B · HF"};
   const capabilityNames = {tokenization:"Tokenizace",garden:"Pravděpodobnostní zahrada",surprise:"Překvapení textu",contrast:"Kontrast kontextů","model-comparison":"Porovnání modelů",embeddings:"Embeddingy",raw:"RAW vrstvy",steering:"Steering",attribution:"Preference",patching:"Kauzální přenos",tuned:"RAW × TUNED",jlens:"RAW × J-LENS",detector:"AI detektor"};
   const errors = {
+    addon_conflict:"Nastavení doplňků se mezitím změnilo. Obnov přehled a akci zopakuj; po ruční úpravě souboru restartuj server.",
+    invalid_addon_path:"Vyber existující složku s balíčkem doplňku.",invalid_addon_files:"Balíček neprošel kontrolou souborů, kontrolních součtů nebo formátu.",
+    addon_missing:"Nejdřív připoj balíček doplňku.",addon_unverified:"Nejdřív ověř balíček pro kompatibilní model.",addon_incompatible:"Pro tento model není připojený balíček kompatibilní.",
     dependency_missing:"Nejdřív doinstaluj potřebné výpočetní knihovny podle návodu. Žádné váhy se zatím nestáhly.",
     registry_conflict:"Nastavení se mezitím změnilo. Přehled jsme obnovili; zkontroluj jej a akci zopakuj.",
     reload_required:"Nejdřív použij změny registru ze souboru.",model_busy:"Právě probíhá jiná operace. Počkej na její dokončení.",
@@ -27,7 +33,7 @@
     demo_readonly:"V demu se skutečné nastavení nemění. Spusť aplikaci v běžném režimu.",
     registry_required:"Tento způsob spuštění nepoužívá registr. Spusť aplikaci běžným příkazem podle návodu."
   };
-  const phases = {queued:"Čeká ve frontě",preparing:"Připravuji prostředí",download:"Stahuji původní váhy",convert:"Převádím váhy",compose:"Kontroluji zdroje Hybridu",loading:"Načítám model",checking:"Počítám zkušební distribuci",restoring:"Vracím původní model",done:"Hotovo"};
+  const phases = {queued:"Čeká ve frontě",preparing:"Připravuji prostředí",download:"Stahuji původní váhy",convert:"Převádím váhy",compose:"Kontroluji zdroje Hybridu",loading:"Načítám model",checking:"Počítám zkušební distribuci",verifying_addon:"Ověřuji soubory a kompatibilitu doplňku",restoring:"Vracím původní model",done:"Hotovo"};
   const node = (tag, text, className) => { const element=document.createElement(tag); if(text!==undefined)element.textContent=text; if(className)element.className=className; return element; };
   const userNode = (tag, text, className) => {const element=node(tag,text,className);element.dataset.i18nIgnore="true";return element;};
   const formatBytes = (number) => number ? `${(number/1e9).toLocaleString(window.ProbabilityGardenI18n?.localeTag?.() || "cs",{maximumFractionDigits:1})} GB` : t("Bez dalšího stahování");
@@ -50,9 +56,10 @@
     $("start-installation").disabled=Boolean(isBusy()) || !$("confirm-download").checked || !plan;
     $("confirm-disconnect").disabled=Boolean(isBusy());
     for(const button of document.querySelectorAll("[data-admin-action]"))button.disabled=pending||button.dataset.blocked==="true";
+    for(const control of addonControls.values())control.lock();
   }
   function unavailableReason(id, model) {
-    if(["tuned","jlens","detector"].includes(id))return "Vyžaduje samostatný kalibrovaný artefakt pro tento checkpoint.";
+    if(["tuned","jlens","detector"].includes(id))return addonReasons[model.experimental_addons?.[id]?.code] || "Vyžaduje samostatný kalibrovaný artefakt pro tento checkpoint.";
     if(snapshot.backend==="torch")return "Pohledy do vrstev zatím vyžadují podporovaný model v MLX.";
     if(["attribution","patching"].includes(id))return "Tento nástroj má další podmínky pro architekturu a přesnost Apertusu.";
     return "Pro tento adaptér zatím není pohled implementovaný.";
@@ -86,19 +93,64 @@
         if(!model.default)button("Nastavit jako výchozí",()=>edit("set_default",model.id),!model.enabled);
         button(model.enabled?"Skrýt z nabídky":"Vrátit do nabídky",()=>edit("set_enabled",model.id,{enabled:!model.enabled}),model.active||model.default);
       }
-      const remove=button("Odpojit",()=>{disconnect=model;$("disconnect-name").textContent=model.label;$("disconnect-dialog").showModal();},model.active||model.default||model.required_by.length>0);
+      const remove=button("Odpojit",()=>{disconnect=model;$("disconnect-title").textContent=t("Odpojit model?");$("disconnect-name").textContent=model.label;$("disconnect-dialog").showModal();},model.active||model.default||model.required_by.length>0);
       if(model.required_by.length)remove.title=t("Tento záznam potřebují jiné profily.");
       card.append(actions);list.append(card);
+    }
+  }
+  async function addonAction(kind,actionName,extra={}) {
+    return request("/api/model-admin/addons",{kind,action:actionName,registry_sha256:snapshot.registry_sha256,addon_revision:addonSnapshot.revision,...extra});
+  }
+  function renderAddons(value) {
+    addonSnapshot=value;$("addon-config-path").textContent=value.config_path;
+    const descriptions={tuned:"Naučené čtečky pro konkrétní režim Apertusu. Kalibrace pro Hybrid se nepoužije automaticky pro BF16.",jlens:"Předpočítané Jacobiany. Současný formát je ověřený jen pro BF16 Apertus; na Hybridu zůstane nedostupný.",detector:"Výzkumný detektor pro odpovídající Apertus Hybrid. Skóre není důkazem autorství ani jistotou původu textu."};
+    const labels={missing:"Nepřipojeno",unverified:"Čeká na ověření",incompatible:"Nekompatibilní",ready:"Ověřeno · vypnuto",enabled:"Zapnuto"};
+    for(const row of value.items) {
+      let control=addonControls.get(row.kind);
+      if(!control) {
+        const card=node("article",undefined,"addon-card");card.dataset.addonKind=row.kind;
+        card.append(node("h3",row.label),node("p",t(descriptions[row.kind]),"muted small"));
+        const badge=node("span",undefined,"badge");const state=node("div",undefined,"badges");state.append(badge);card.append(state);
+        const compatible=node("p",undefined,"small");const connectedPath=userNode("code","","model-path");card.append(compatible,connectedPath);
+        const form=node("form");const path=node("input");path.id=`addon-path-${row.kind}`;path.dataset.i18nIgnore="true";path.placeholder="/path/to/artifact";path.maxLength=4096;path.required=true;path.autocomplete="off";path.spellcheck=false;
+        const label=node("label",t("Složka balíčku"));label.htmlFor=path.id;form.append(label,path);
+        const formActions=node("div",undefined,"actions");const inspect=node("button",t("Zkontrolovat složku"));inspect.type="submit";formActions.append(inspect);
+        if(window.apertusDesktop?.chooseModelDirectory){const choose=node("button",t("Vybrat složku"));choose.type="button";choose.addEventListener("click",()=>action(async()=>{const result=await window.apertusDesktop.chooseModelDirectory();if(!result.canceled){path.value=result.path;path.dispatchEvent(new Event("input"));}}));formActions.append(choose);}
+        form.append(formActions);card.append(form);
+        const inspection=node("div",undefined,"inspection");card.append(inspection);
+        const connect=node("button",t("Připojit balíček"));connect.type="button";connect.hidden=true;card.append(connect);
+        const actions=node("div",undefined,"actions");const verify=node("button",t("Ověřit balíček"));const enable=node("button");const remove=node("button",t("Odpojit"));for(const b of [verify,enable,remove])b.type="button";actions.append(verify,enable,remove);card.append(actions);
+        const details=node("details");const raw=userNode("pre","");details.append(node("summary",t("Technické podrobnosti")),raw);card.append(details);$("addon-list").append(card);
+        control={row,path,badge,compatible,connectedPath,raw,enable,inspected:null,lock(){const busy=Boolean(isBusy());inspect.disabled=busy;connect.disabled=busy||!this.inspected?.files_ok;verify.disabled=busy||!this.row.connected;enable.disabled=busy||!this.row.connected||(!this.row.enabled&&!this.row.compatible_models.length);remove.disabled=busy||!this.row.connected;}};
+        addonControls.set(row.kind,control);
+        path.addEventListener("input",()=>{control.inspected=null;connect.hidden=true;inspection.replaceChildren();control.lock();});
+        form.addEventListener("submit",event=>{event.preventDefault();action(async()=>{const result=await addonAction(row.kind,"inspect",{path:path.value});control.inspected=result;inspection.replaceChildren(node("p",t(result.files_ok?"Soubory balíčku jsou připravené k připojení.":"Balíček zatím není připravený.")));if(result.errors.length)inspection.append(userNode("pre",result.errors.join("\n")));connect.hidden=!result.files_ok;control.lock();});});
+        connect.addEventListener("click",()=>action(async()=>{if(!control.inspected?.files_ok)return;await addonAction(row.kind,"connect",{path:control.inspected.path});control.inspected=null;connect.hidden=true;inspection.replaceChildren();message(t("Balíček je připojený. Teď ho ověř a potom zapni."));await refresh();}));
+        verify.addEventListener("click",()=>action(async()=>{const job=await request("/api/model-admin/jobs",{action:"addon_verify",kind:row.kind,registry_sha256:snapshot.registry_sha256,addon_revision:addonSnapshot.revision});renderJob(job);await refresh();}));
+        enable.addEventListener("click",()=>action(async()=>{await addonAction(row.kind,"set_enabled",{enabled:!control.row.enabled});message(t("Nastavení doplňku bylo uloženo."));await refresh();}));
+        remove.addEventListener("click",()=>action(async()=>{disconnect={addon:true,kind:row.kind,label:row.label};$("disconnect-title").textContent=t("Odpojit doplněk?");$("disconnect-name").textContent=row.label;$("disconnect-dialog").showModal();}));
+      }
+      control.row=row;control.badge.textContent=t(labels[row.status]||labels.unverified);
+      control.badge.classList.toggle("warn",["unverified","incompatible"].includes(row.status));
+      control.compatible.replaceChildren(node("span",t("Kompatibilní modely")+": "),userNode("span",row.compatible_models.map(model=>model.label).join(", ")||t(row.verification?"Žádný z připojených modelů":"Zatím neověřeno")));
+      if(row.enabled&&!row.active_available)control.compatible.append(node("p",t("Pro aktivní model není tento doplněk dostupný."),"muted"));
+      if(!control.path.value&&row.path)control.path.value=row.path;
+      control.connectedPath.textContent=row.path||"";
+      control.raw.textContent=JSON.stringify(row.verification||{},null,2);
+      control.enable.textContent=t(row.enabled?"Vypnout":"Zapnout");
+      control.lock();
     }
   }
   function renderJob(job) {
     if(!job){$("job-panel").hidden=true;return;}
     installJob=job;$("job-panel").hidden=false;
     const done=job.phase==="done";
-    $("job-title").textContent=t(job.action==="smoke"?"Zkušební výpočet":"Příprava modelu");
+    $("job-title").textContent=t(job.action==="addon_verify"?"Ověření experimentálního doplňku":job.action==="smoke"?"Zkušební výpočet":"Příprava modelu");
+    $("job-hint").textContent=t(job.action==="addon_verify"?"Kontrola doplňku nemění připojené balíčky ani váhy modelu. Případné zapnutí potvrdíš zvlášť.":"Během přípravy se neprovádějí další výpočty. Původní model se po dokončení znovu načte. Dokončené váhy se při přerušení nemažou.");
     let label=t(phases[job.phase]||"Pracuji…");
     if(job.status==="cancelling")label=t("Přerušuji po dokončení bezpečného kroku…");
     if(done)label=t(job.status==="completed"?(job.action==="smoke"?"Načtení a zkušební výpočet proběhly v pořádku.":"Soubory jsou připravené. Model můžeš načíst tlačítkem Použít."):job.status==="cancelled"?"Operace byla přerušena. Dokončené váhy zůstaly na disku.":errors[job.error_code]||"Operace se nezdařila.");
+    if(done&&job.status==="completed"&&job.action==="addon_verify")label=t("Balíček prošel kontrolou. Zapnout ho lze jen pro uvedené kompatibilní modely.");
     if(!done&&job.steps.length)label+=` · ${t("Krok")} ${job.step}/${job.steps.length}`;
     $("job-message").textContent=label;$("job-details").textContent=[job.error||"",...job.logs,job.result?JSON.stringify(job.result,null,2):""].filter(Boolean).join("\n");
     $("job-progress").hidden=done;if(job.steps.length){$("job-progress").max=job.steps.length;$("job-progress").value=Math.max(0,job.step-1);}else $("job-progress").removeAttribute("value");
@@ -118,7 +170,7 @@
       $("model-state-text").textContent=t(value.status==="setup_required"?"Vyber model, který chceš načíst.":value.busy?"Probíhá operace s modelem…":"Nastavení je připravené.");
       const current=$("profile-id").value;
       if(JSON.stringify(value.profiles.map(p=>p.id))!==JSON.stringify([...$("profile-id").options].map(p=>p.value))){$("profile-id").replaceChildren(...value.profiles.map(p=>{const option=node("option",profiles[p.id]||p.id);option.value=p.id;option.dataset.i18nIgnore="true";return option;}));if(current)$("profile-id").value=current;}
-      renderCards();renderJob(value.job);lockForms();
+      renderCards();renderJob(value.job);renderAddons(await api.fetchJson("/api/model-admin/addons",{silent:true}));lockForms();
     } catch(error) {message(t(errors[error.code]||"Nastavení se nepodařilo načíst."),error);}
     finally{refreshRunning=false;}
   }
@@ -140,7 +192,7 @@
   $("start-installation").addEventListener("click",()=>action(async()=>{if(!plan||!$("confirm-download").checked)return;const job=await request("/api/model-admin/jobs",{action:"install",plan_id:plan.id,registry_sha256:plan.registry_sha256,confirmed:true});$("install-dialog").close();plan=null;renderJob(job);await refresh();}));
   $("cancel-job").addEventListener("click",()=>action(async()=>{if(installJob)renderJob(await request("/api/model-admin/cancel",{job_id:installJob.id}));}));
   $("cancel-disconnect").addEventListener("click",()=>$("disconnect-dialog").close());
-  $("confirm-disconnect").addEventListener("click",()=>action(async()=>{if(disconnect)await edit("remove",disconnect.id);$("disconnect-dialog").close();disconnect=null;}));
+  $("confirm-disconnect").addEventListener("click",()=>action(async()=>{if(disconnect?.addon){await addonAction(disconnect.kind,"disconnect");await refresh();}else if(disconnect)await edit("remove",disconnect.id);$("disconnect-dialog").close();$("disconnect-title").textContent=t("Odpojit model?");disconnect=null;}));
   $("refresh-models").addEventListener("click",()=>refresh());
   $("reload-registry").addEventListener("click",()=>action(async()=>{await request("/api/model-admin/reload",{registry_sha256:snapshot.registry_sha256});await refresh();message(t("Změny byly použity."));}));
   const desktop=window.apertusDesktop;

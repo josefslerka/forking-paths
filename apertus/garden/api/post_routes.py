@@ -35,6 +35,7 @@ _ROUTES = {
     "/api/model-admin/jobs": PostRoute("_post_model_admin"),
     "/api/model-admin/cancel": PostRoute("_post_model_admin"),
     "/api/model-admin/reload": PostRoute("_post_model_admin"),
+    "/api/model-admin/addons": PostRoute("_post_model_admin"),
     "/api/model-comparison": PostRoute("_post_model_comparison"),
     "/api/model-comparison/cancel": PostRoute("_post_model_comparison_cancel"),
     "/api/tokenization": PostRoute("_post_tokenization"),

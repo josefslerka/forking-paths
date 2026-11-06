@@ -39,4 +39,6 @@ jobs:
         working-directory: apertus/garden/e2e
       - run: npm run test:admin
         working-directory: apertus/garden/e2e
+      - run: npm run test:addons
+        working-directory: apertus/garden/e2e
       - run: node --test apertus/garden/desktop/tests/*.test.mjs

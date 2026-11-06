@@ -14,6 +14,7 @@ npm ci
 npx playwright install chromium
 npm run test:stub
 npm run test:admin
+npm run test:addons
 cd ../desktop
 npm ci
 npm test
@@ -30,6 +31,12 @@ download/inference doubles exist only in the test launcher, never as a
 production environment switch. Cancellation, conflict guards and exact backup
 behaviour also have Python tests; tiny numerical suites exercise real admin
 loading/restoration on MLX and Torch. Keep all such tests free of large downloads.
+
+`test:addons` runs a separate synthetic MLX-metadata server on its own port.
+It covers connect/verify/enable, model-specific availability, checksum failure,
+CZ/EN and non-destructive disconnection. Placeholder tensors are not numerical
+reader validation. Real artifact checks are separate and use private local
+packages; never copy those packages, receipts, corpora or absolute paths into Git.
 
 `test_predictive_detector.py` contains historical regressions against private
 calibration assets and skips them if absent. No private corpus is required by

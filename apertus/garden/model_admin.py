@@ -30,11 +30,13 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from .experimental_addons import AddonError, ExperimentalAddons
     from .cli import check_model
     from .model_registry import model_descriptor, read_json
     from .registry_config import ADAPTERS, ModelRegistry, load_registry, parse_registry, validate_model_files
     from .settings import cache_directory, data_directory
 except ImportError:
+    from experimental_addons import AddonError, ExperimentalAddons
     from cli import check_model
     from model_registry import model_descriptor, read_json
     from registry_config import ADAPTERS, ModelRegistry, load_registry, parse_registry, validate_model_files
@@ -125,6 +127,10 @@ class ModelAdmin:
         self.checks: dict[str, dict] = {}
         self.cache: dict[tuple, dict] = {}
         self.child: subprocess.Popen | None = None
+        self.addons = ExperimentalAddons(state, self.data_root, config_lock=registry_lock, readonly=self.readonly)
+        if not self.readonly:
+            state.experimental_addons = self.addons
+            state.refresh_experimental_addons(initial=True)
 
     def _current(self) -> tuple[ModelRegistry, dict, bytes]:
         registry = load_registry(self.registry.path)
@@ -166,6 +172,11 @@ class ModelAdmin:
             if len(self.cache) > 128:
                 self.cache.pop(next(iter(self.cache)))
         value = copy.deepcopy(self.cache[key])
+        if self.state.experimental_addons is not None:
+            availability = self.addons.availability(model_id)
+            value["capabilities"] = [item for item in value["capabilities"] if item not in availability]
+            value["capabilities"] += [kind for kind, item in availability.items() if item["available"]]
+            value["experimental_addons"] = availability
         value.update({"default":model_id == registry.default_model,
                       "active":not self.state.mock and self.state.model is not None and model_id == self.state.active_model_id,
                       "check":copy.deepcopy(self.checks.get(value["signature"]))})
@@ -193,6 +204,31 @@ class ModelAdmin:
                     "busy":bool(self.active_job() or self.state.outstanding_operation),
                     "unavailable_capabilities":[capability for capability in CAPABILITIES if capability not in {"tokenization","garden","surprise","contrast","model-comparison"}],
                     "backup_directory":str(self.data_root / "model-registry-backups")}
+
+    def addon_action(self, request: dict) -> dict:
+        with self.lock, self.state.state_lock:
+            self._idle()
+            registry, _value, _raw = self._current()
+            self._revision(registry, request)
+            if self.state.registry.sha256 != registry.sha256:
+                raise AdminError("reload_required", "Apply external registry changes first.")
+            self.addons.check_revision(request.get("addon_revision"))
+            action, kind = request.get("action"), request.get("kind")
+            self.addons._kind(kind)
+            if action == "inspect":
+                return self.addons.inspect(kind, request.get("path"))
+            if action == "connect":
+                self.addons.connect(kind, request.get("path"))
+            elif action in {"set_enabled", "disconnect"}:
+                self.addons.edit(kind, action=action, enabled=request.get("enabled"))
+            else:
+                raise AdminError("invalid_action", "Unknown experimental-addon action.")
+            self.cache.clear()
+            return self.addons.snapshot()
+
+    def addon_snapshot(self) -> dict:
+        with self.lock, self.state.state_lock:
+            return self.addons.snapshot()
 
     def inspect(self, request: dict) -> dict:
         with self.lock:
@@ -423,6 +459,12 @@ class ModelAdmin:
                     raise AdminError("dependency_missing", "Install the selected inference/download extra before starting a download.")
                 registry = self._commit(copy.deepcopy(plan["value"]), registry, raw)
                 steps, model_id = copy.deepcopy(plan["steps"]), plan["profile_id"]
+            elif action == "addon_verify":
+                kind = self.addons._kind(request.get("kind"))
+                self.addons.check_revision(request.get("addon_revision"))
+                if self.addons.root(kind) is None:
+                    raise AddonError("addon_missing", "Connect the package first.")
+                steps, model_id = [], registry.default_model
             elif action == "smoke":
                 model_id = request.get("model_id")
                 if model_id not in registry.model_paths():
@@ -436,6 +478,8 @@ class ModelAdmin:
             job = {"id":uuid.uuid4().hex,"action":action,"model_id":model_id,"status":"queued","phase":"queued",
                    "steps":steps,"step":0,"logs":[],"error":None,"error_code":None,"result":None,
                    "started_at":utc_now(),"finished_at":None,"cancel":threading.Event()}
+            if action == "addon_verify":
+                job["kind"] = kind
             self.jobs[job["id"]] = job
             while len(self.jobs) > 8:
                 self.jobs.popitem(last=False)
@@ -556,6 +600,11 @@ class ModelAdmin:
                     if problems:
                         raise AdminError("invalid_model_files", "Prepared files did not pass validation.", details=problems)
                 self._progress(job, result={"files_ok":True,"model_id":job["model_id"]})
+            elif job["action"] == "addon_verify":
+                self._progress(job, phase="verifying_addon")
+                result = self.addons.verify(job["kind"], cancelled=lambda:self._cancelled(job),
+                                            progress=lambda filename:self._log(job,filename))
+                self._progress(job, result=result)
             else:
                 self._progress(job, phase="loading")
                 if state.model is None or state.active_model_id != job["model_id"]:

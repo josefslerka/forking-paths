@@ -94,6 +94,19 @@ LEGACY_TIMING_FIELDS_V2 = tuple(
 
 ScoreWindow = Callable[[str], dict[str, Any]]
 
+# Reviewed legacy feature implementation. A package cannot authorize new Python
+# code by declaring its own hash: changing these requires a code review/tests.
+LEGACY_CODE_SHA256 = {
+    "score_pilot.py": "f15fedec475691773832328c99b001992cf44e598c47010f878ebef1b097c3e3",
+    "prepare_fusion_stylometry.py": "ebc6221e07a548d2a7e5853d6ccf8b3bd9af501287e9ead06c23327991372e06",
+    "normalize_corpus_typography.py": "857ee5d1998819af2029faa36036e8590665c97698a12a044f6a288fbeb26797",
+    "analyze_lexical_diversity.py": "f3dd4835aa13e3328a559d3b9ae99753095a72a923d18ba349b9772db0d29489",
+    "analyze_sentence_punctuation.py": "2d3cad509f87855e2134a598b2ed9d6337e1ccee79342ec6b02dc2709bd56ad6",
+    "analyze_syntactic_readability.py": "4d85b464b2348f530a0dc6e5bd29097f1b16a2f690f84d342b1a11aa74920909",
+    "analyze_function_words.py": "3dfd44cf876c452c4c52a90a59634076884914525c8193b61befd898fdd4e2e2",
+    "analyze_information_aesthetics.py": "83161e1edcdf267cb918fedc7cc51afc4c2a3808fe188bde436871077cffd27f",
+}
+
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -110,6 +123,24 @@ def load_module(path: Path, name: str) -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def verify_legacy_runtime_code(root: Path, bundle: dict) -> dict[str, Path]:
+    """Recognize a frozen legacy implementation without executing it."""
+    result = {"scorer": root / "scripts/score_pilot.py", "stylometry": root / "scripts/prepare_fusion_stylometry.py"}
+    extractors = bundle.get("stylometry", {}).get("legacy_extractors", {})
+    if set(extractors) != {"normalization", "lexical", "sentence", "syntactic", "function_words", "information_aesthetics"}:
+        raise RuntimeError("Unsupported frozen detector feature extractors.")
+    for name, entry in extractors.items():
+        path = Path(entry["path"])
+        if entry.get("sha256") != LEGACY_CODE_SHA256.get(path.name):
+            raise RuntimeError("Unreviewed detector Python code is not allowed.")
+        result[name] = path
+    for path in result.values():
+        expected = LEGACY_CODE_SHA256.get(path.name)
+        if expected is None or not path.is_file() or sha256_file(path) != expected:
+            raise RuntimeError(f"Missing or changed reviewed detector code: {path.name}")
+    return result
 
 
 def sigmoid(value: float) -> float:
@@ -133,7 +164,15 @@ class PredictiveDetector:
         challenger_manifest_path: Path = DEFAULT_CHALLENGER_MANIFEST,
         model_dir: Path = DEFAULT_MODEL_DIR,
         timing_log_path: Path | None = DEFAULT_TIMING_LOG,
+        artifact_root: Path | None = None,
     ) -> None:
+        self.artifact_root = artifact_root.expanduser().resolve() if artifact_root is not None else None
+        if self.artifact_root is not None:
+            bundle_path = self.artifact_root / "expansion_v1/model_v2/inference_bundle_v2.json"
+            model_lock_path = self.artifact_root / "expansion_v1/model_v2/model_lock.json"
+            deployment_path = self.artifact_root / "runtime/detector_v2_deployment.json"
+            challenger_bundle_path = self.artifact_root / "pair_enrichment_v1/inference_bundle_pair_challenger.json"
+            challenger_manifest_path = self.artifact_root / "runtime/detector_pair_challenger.json"
         self.bundle_path = bundle_path.resolve()
         self.model_lock_path = model_lock_path.resolve()
         self.deployment_path = deployment_path.resolve()
@@ -482,17 +521,18 @@ class PredictiveDetector:
                     extractor["sha256"],
                 )
 
+            code = verify_legacy_runtime_code(self.artifact_root, bundle) if self.artifact_root is not None else None
             scorer = load_module(
-                SCORER_SCRIPT,
+                code["scorer"] if code else SCORER_SCRIPT,
                 "predictive_detector_scorer",
             )
             stylometry = load_module(
-                STYLOMETRY_SCRIPT,
+                code["stylometry"] if code else STYLOMETRY_SCRIPT,
                 "predictive_detector_stylometry",
             )
             stylometry_modules = {
-                name: stylometry.load_module(
-                    Path(metadata["path"]),
+                name: load_module(
+                    code[name] if code else Path(metadata["path"]),
                     f"predictive_detector_{name}",
                 )
                 for name, metadata in bundle["stylometry"][
@@ -508,6 +548,7 @@ class PredictiveDetector:
             tokenizer = AutoTokenizer.from_pretrained(
                 self.model_dir,
                 local_files_only=True,
+                trust_remote_code=False,
             )
 
             self.bundle = bundle

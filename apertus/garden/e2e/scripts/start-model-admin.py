@@ -66,5 +66,21 @@ with tempfile.TemporaryDirectory(prefix="apertus-admin-e2e-") as temporary:
     # The fake installer must not depend on optional real download/inference stacks.
     model_admin.dependency_available=lambda module:True
     model_admin.shutil.disk_usage=lambda path:SimpleNamespace(free=10**12)
-    sys.argv=["server","--registry",str(registry),"--data-dir",str(directory/"data"),"--port","8896","--setup-only"]
+    port="8896"
+    if "--addons-only" in sys.argv:
+        # Independent synthetic MLX-metadata fixture, not a production flag.
+        sys.path.insert(0,str(ROOT / "apertus/garden/tests"))
+        from test_tuned_lens import artifact_manifest
+        fixture_files(directory/"cache/models/bf16",family="apertus",layers=32,vocab=131072)
+        fixture_files(directory/"cache/models/other",family="apertus",layers=32,vocab=131072)
+        registry.write_bytes(model_admin.registry_bytes({"schema_version":1,"backend":"mlx","default_model":"bf16","models":{
+            name:{"path":str(directory/"cache/models"/name),"label":"E2E "+name,"adapter":"apertus"} for name in ("bf16","other")}}))
+        reader=directory/"cache/models/reader-fixture";reader.mkdir()
+        from apertus.garden.registry_config import load_registry
+        selected=load_registry(registry)
+        fingerprint,_inventory=server.metadata_fingerprint("bf16",[("model",selected.models["bf16"].path)])
+        manifest=artifact_manifest(reader,artifact_id=reader.name,model_id="bf16",metadata_fingerprint=fingerprint)
+        (reader/"manifest.json").write_text(json.dumps(manifest))
+        port="8897"
+    sys.argv=["server","--registry",str(registry),"--data-dir",str(directory/"data"),"--port",port,"--setup-only"]
     server.main()

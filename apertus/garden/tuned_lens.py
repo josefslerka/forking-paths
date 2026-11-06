@@ -591,7 +591,8 @@ class TunedLensCatalog:
         if not self.root.is_dir():
             return []
         matches: list[ArtifactMatch] = []
-        for path in sorted(self.root.glob("*/manifest.json")):
+        paths = [self.root / "manifest.json"] if (self.root / "manifest.json").is_file() else sorted(self.root.glob("*/manifest.json"))
+        for path in paths:
             try:
                 submitted = json.loads(path.read_text(encoding="utf-8"))
                 manifest = validate_manifest(

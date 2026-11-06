@@ -31,6 +31,18 @@ manual registry edits and separately acquired checkpoints are the user's trust
 decision. The Electron picker exposes directory selection only on trusted
 model-management routes, with context isolation and Node integration disabled.
 
+Experimental-addon connections are also privileged local settings. They may
+read artifact manifests and frozen provenance references outside the selected
+directory. Use only packages you trust. The GUI cannot accept a new Python
+implementation or executable filename from a package: the legacy detector's
+external feature extractors must match a small reviewed SHA-256 allowlist in
+the application itself. A self-declared package checksum cannot add code to
+that allowlist. Calibration files remain outside Git; settings/receipts/backups
+can contain private absolute paths and must not be shared without review.
+Receipt invalidation uses observed size/mtime and model metadata between full
+verification runs, not a new cryptographic proof on every request. Native
+readers retain their full-content/transfer validation before use.
+
 Normal inference does not call a cloud model API. Explicit setup downloads
 contact Hugging Face; pip/npm installation contacts their package registries.
 Dependency behaviour and infrastructure are outside this project's complete

@@ -64,6 +64,27 @@ apertus-workbench models check bf16
 apertus-workbench serve
 ```
 
+### Experimentální doplňky
+
+Ve Správě modelů je samostatná část **Experimentální doplňky**. U TUNED,
+J-LENS nebo detektoru vyberte složku původního balíčku, zkontrolujte ji,
+potvrďte připojení, pak použijte **Ověřit balíček** a **Zapnout**.
+Připojení nic nestahuje ani nekopíruje. Odpojení ponechá soubory na disku.
+
+Každá karta ukazuje kompatibilní modely. Současný J-LENS je pouze pro BF16
+Apertus; původní detektor pro odpovídající Hybrid. TUNED se váže ke konkrétnímu
+režimu, pro který byl naučen. Modely EuroLLM nebo jiné přesnosti tím automaticky
+nezískají tyto nástroje. Před prvním výpočtem mohou proběhnout další kontroly
+obsahu vah či přenosová sonda.
+
+Nastavení je v `experimental-addons.json` v uživatelských datech, včetně
+oddělených záloh. Není v Gitu. Starší detektor navíc vyžaduje zamčené pomocné
+soubory, na které odkazuje jeho manifest. Když chybí nebo se změnily, nelze ho
+zapnout pouhým přepínačem. Ověření balíčku není důkazem kvality metody ani
+spolehlivou identifikací autorství konkrétního textu.
+
+### Velikost modelu a úspornější varianty
+
 BF16 váhy mají přibližně 16 GB. Počítejte s další pamětí pro samotný výpočet a
 s místem na disku pro stahování. Osmibitovou variantu připravíte zvlášť:
 

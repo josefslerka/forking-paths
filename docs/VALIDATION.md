@@ -105,3 +105,33 @@ end-to-end for this update. Platform, authentication and numerical limitations
 above still apply. The GUI is a privileged **local-only** interface, not a
 multi-user administrator service. A passing one-distribution computation check
 does not validate every tool or the full weight provenance.
+
+## Experimental-addons update — 6 November 2026
+
+- Full Python gate: **487 passed, 17 skipped**. Twelve new synthetic checks
+  cover read-only inspection, direct artifact directories/catalogs, separate
+  connect/verify/enable, persisted receipts, checksum/model-change invalidation,
+  acceptance gates, BF16-only J-LENS, Torch exclusion, exact settings backups,
+  cancellation, non-destructive disconnect and rejection of self-authorized code.
+- Browser suites: **33 general + 6 administration + 4 addon tests passed**.
+  Addon tests use a dedicated synthetic server/package directory and exercise
+  compatible vs unrelated models, tampered files, Czech/English and mobile
+  layout. Their placeholder tensors are not native numerical reader validation.
+- Desktop helper gate: **11 passed**. The addon form uses the existing guarded
+  native directory picker; no new filesystem or execution API was exposed.
+- Existing private packages were connected **in place**, only through ignored
+  local user-data settings. No packages, corpora or calibration results were
+  copied into the repository, and nothing was downloaded or published.
+- Real local native checks completed: TUNED inference on Apertus Hybrid with
+  its original accepted reader/full-content gate; frozen detector inference on
+  explicitly synthetic Czech text; J-LENS inference on BF16 Apertus with the
+  original frozen transfer probe **passed**. The previous Hybrid was restored.
+  BF16's first content/probe check was substantially slower than interface tests.
+  These checks establish integration, not detector accuracy or broad method
+  validity. Research datasets and historical acceptance limitations are unchanged.
+- Updated wheel/sdist built. The wheel passed disposable-venv checks outside
+  the checkout with only NumPy, including a model-free management launch.
+
+The current connections deliberately have different scopes: this TUNED reader
+and the frozen detector are Hybrid-specific, while J-LENS is BF16-only. A green
+package badge does not override the native reader's stricter runtime checks.

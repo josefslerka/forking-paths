@@ -39,6 +39,7 @@ EXPECTED_POST_ROUTES = {
     "/api/model-admin/jobs",
     "/api/model-admin/cancel",
     "/api/model-admin/reload",
+    "/api/model-admin/addons",
     "/api/model-comparison",
     "/api/model-comparison/cancel",
     "/api/experiments",

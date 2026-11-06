@@ -513,6 +513,8 @@
       const activeModel = health?.active_model ?? {};
       renderModelSelect(health);
       const capabilities = health?.capabilities;
+      const addonReasons = {addon_missing:"Není připojený potřebný experimentální doplněk.",addon_unverified:"Balíček doplňku zatím není ověřený nebo se změnily jeho soubory.",addon_incompatible:"Připojený doplněk není kompatibilní s tímto modelem nebo přesností.",addon_disabled:"Experimentální doplněk je připojený, ale vypnutý."};
+      const reasonFor = (id) => addonReasons[health?.experimental_addons?.[id]?.code];
       let setupNotice = root.querySelector("[data-model-setup-notice]");
       if (health.status === "setup_required" && page !== "model-admin") {
         if (!setupNotice) {
@@ -530,7 +532,7 @@
           const supported = capabilities.includes(link.dataset.page) || (detectorComparison && link.dataset.page === "detector");
           link.setAttribute("aria-disabled", String(!supported));
           link.style.opacity = supported ? "" : "0.4";
-          if (!supported) link.title = t("Tento pohled není pro aktivní model dostupný.");
+          if (!supported) link.title = t(reasonFor(link.dataset.page) || "Tento pohled není pro aktivní model dostupný.");
           else link.removeAttribute("title");
         }
         let notice = root.querySelector("[data-model-capability-notice]");
@@ -541,6 +543,8 @@
             notice.setAttribute("role", "status");
             root.prepend(notice);
           }
+          const reason=reasonFor(page);
+          if(reason&&notice.dataset.reason!==reason){notice.dataset.reason=reason;const link=element("a","","Otevřít správu modelů");link.href="/sprava-modelu#experimental-addons";notice.replaceChildren(element("span","",reason+" "),link);}
         } else notice?.remove();
       }
       updateContext({

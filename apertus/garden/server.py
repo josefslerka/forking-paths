@@ -30,9 +30,9 @@ from urllib.parse import parse_qs, urlparse
 import numpy as np
 
 try:
-    from .model_admin import AdminError, ModelAdmin
+    from .model_admin import AddonError, AdminError, ModelAdmin
 except ImportError:
-    from model_admin import AdminError, ModelAdmin
+    from model_admin import AddonError, AdminError, ModelAdmin
 
 try:
     from .registry_config import ADAPTERS, ModelRegistry, load_registry, resolve_weight_file, validate_model_files
@@ -514,7 +514,7 @@ RUNTIME_PROVENANCE = {
     "transformers_version": installed_package_version("transformers"),
     "analysis_source_sha256": {
         name: hashlib.sha256((APP_DIR / name).read_bytes()).hexdigest()
-        for name in ("server.py", "backends.py", "model_registry.py", "registry_config.py", "model_admin.py", "model_setup.py", "settings.py", "model_comparison.py", "steering_comparison.py", "detector_readers.py", "domains/steering.py", "domains/tokenization.py", "domains/teacher_forced.py", "domains/representations.py")
+        for name in ("server.py", "backends.py", "model_registry.py", "registry_config.py", "model_admin.py", "model_setup.py", "experimental_addons.py", "predictive_detector.py", "settings.py", "model_comparison.py", "steering_comparison.py", "detector_readers.py", "domains/steering.py", "domains/tokenization.py", "domains/teacher_forced.py", "domains/representations.py")
     },
     "source_control": source_control_provenance(),
 }
@@ -745,6 +745,7 @@ class ModelState:
     outstanding_operation_started_monotonic: float | None = None
     predictive_detector_engine: PredictiveDetector | None = None
     load_initial_model: bool = field(default=True, init=False)
+    experimental_addons: Any = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.backend = create_backend(self.backend_name, self.device)
@@ -768,11 +769,32 @@ class ModelState:
                 model_id, self.model_paths[model_id], self.model_label(model_id, model_id),
                 backend=self.backend_name, mock=self.mock,
                 registration=self.registry.models.get(model_id) if self.registry else None,
-                enable_research_artifacts=self.registry.enable_research_artifacts if self.registry else True,
+                enable_research_artifacts=(self.registry.enable_research_artifacts if self.registry else True) and self.experimental_addons is None,
             )
             if self.registry:
                 self.model_descriptors[model_id]["checkpoint"] = self.registry.source_identity(model_id)
-        return self.model_descriptors[model_id]
+        descriptor = self.model_descriptors[model_id]
+        if self.experimental_addons is not None:
+            availability = self.experimental_addons.availability(model_id)
+            descriptor = {**descriptor, "capabilities": [item for item in descriptor["capabilities"] if item not in availability] +
+                          [kind for kind, item in availability.items() if item["available"]], "experimental_addons": availability}
+        return descriptor
+
+    def refresh_experimental_addons(self, *, initial=False) -> None:
+        """Bind local artifact directories while idle/on the numerical worker."""
+        with self.state_lock:
+            manager = self.experimental_addons
+            self.tuned_lens_catalog = TunedLensCatalog(manager.root("tuned") or self.tuned_lens_root)
+            self.jacobian_lens_catalog = JacobianLensCatalog(manager.root("jlens") or self.jacobian_lens_root)
+            self.predictive_detector_engine = None
+            self.model_descriptors.clear()
+            self.model_provenance_cache.clear()
+            with self.cache_lock:
+                self.tuned_lens_cache.clear()
+                self.jacobian_lens_cache.clear()
+                self.jacobian_probe_report_cache.clear()
+            if not initial:
+                self.model_generation += 1
 
     def model_label(self, model_id: str, fallback: str | None = None) -> str:
         if self.registry and model_id in self.registry.models:
@@ -1517,6 +1539,7 @@ class ModelState:
             "mock": self.mock,
             "backend": "mock" if self.mock else self.backend_name,
             "capabilities": (["guide", "archive", "model-admin"] if self.status == "setup_required" else self.model_descriptor(self.active_model_id)["capabilities"]),
+            "experimental_addons": self.experimental_addons.availability(self.active_model_id) if self.experimental_addons is not None else {},
             "error": self.error,
             "cache_entries": len(self.logits_cache),
             "performance": {
@@ -13863,7 +13886,7 @@ class ModelState:
         capture_window: Any = None,
     ) -> dict[str, Any]:
         if self.predictive_detector_engine is None:
-            self.predictive_detector_engine = PredictiveDetector(
+            self.predictive_detector_engine = self.experimental_addons.create_detector() if self.experimental_addons is not None else PredictiveDetector(
                 model_dir=self.model_paths["bf16"],
             )
         def score_window(window: str) -> dict[str, Any]:
@@ -14456,13 +14479,13 @@ class GardenHandler(BaseHTTPRequestHandler):
             self.send_static_file(APP_DIR / path.removeprefix("/"),
                                   "text/javascript; charset=utf-8" if path.endswith(".js") else "text/css; charset=utf-8", "Missing model administration asset")
             return
-        if path == "/api/model-admin" or path.startswith("/api/model-admin/jobs/"):
+        if path in {"/api/model-admin", "/api/model-admin/addons"} or path.startswith("/api/model-admin/jobs/"):
             if not self.require_safe_archive_read():
                 return
             try:
                 admin = self.server.model_admin
-                self.send_json(admin.snapshot() if path == "/api/model-admin" else admin.job_status(path.rsplit("/",1)[-1]))
-            except AdminError as exc:
+                self.send_json(admin.snapshot() if path == "/api/model-admin" else admin.addon_snapshot() if path == "/api/model-admin/addons" else admin.job_status(path.rsplit("/",1)[-1]))
+            except (AdminError, AddonError) as exc:
                 self.send_json({"code":exc.code,"error":str(exc),"details":exc.details}, HTTPStatus.NOT_FOUND if exc.code == "unknown_job" else HTTPStatus.CONFLICT)
             except (OSError, ValueError) as exc:
                 self.send_json({"code":"registry_unavailable","error":str(exc)}, HTTPStatus.SERVICE_UNAVAILABLE)
@@ -16170,7 +16193,9 @@ class GardenHandler(BaseHTTPRequestHandler):
 
     def _post_model_admin(self, path: str, request: dict) -> None:
         admin = self.server.model_admin
-        if path.endswith("/inspect"):
+        if path == "/api/model-admin/addons":
+            result = admin.addon_action(request)
+        elif path.endswith("/inspect"):
             result = admin.inspect(request)
         elif path.endswith("/edit"):
             result = admin.edit(request)
@@ -16263,7 +16288,7 @@ class GardenHandler(BaseHTTPRequestHandler):
                     "Tělo požadavku musí být JSON objekt."
                 )
             self._dispatch_post_request(path, request)
-        except AdminError as exc:
+        except (AdminError, AddonError) as exc:
             self.send_json({"code":exc.code,"error":str(exc),"details":exc.details},
                            HTTPStatus.CONFLICT if exc.code in {"registry_conflict","reload_required","model_busy","active_model","default_model","model_dependency","target_exists","profile_conflict"} else HTTPStatus.BAD_REQUEST)
         except ExperimentConflictError as exc:

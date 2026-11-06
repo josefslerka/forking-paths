@@ -69,6 +69,13 @@ edits are backed up and applied without restarting. Demo mode is read-only.
 You still install the numerical Python extra once in the terminal; the GUI does
 not run pip or install arbitrary Python code.
 
+**Experimental addons** on the same page connect optional TUNED, J-LENS and
+detector packages: **Connect directory → Verify package → Enable**. Each package
+lists compatible models/precisions. These are local connections, not bundled
+downloads: artifacts, calibration corpora and private provenance stay outside
+Git. The current J-LENS is BF16-only; the frozen detector requires Apertus Hybrid.
+See [addon formats and verification](docs/MODELS.md#experimental-addons).
+
 The command line remains available for reproducible setup:
 
 ```sh

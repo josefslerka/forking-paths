@@ -9,4 +9,4 @@ elif [ -x "$repo_dir/.venv/bin/python" ]; then
 else
   python_bin=python3
 fi
-exec "$python_bin" "$script_dir/start-model-admin.py"
+exec "$python_bin" "$script_dir/start-model-admin.py" "$@"

@@ -53,6 +53,59 @@ creates `<data>/models.toml`, never edits installed package files. The launcher
 finds that user registry next time. An explicit registry or one in the current
 working directory takes precedence.
 
+## Experimental addons
+
+The management page has a separate **Experimental addons** section. Select a
+directory, inspect it, connect it, run **Verify package**, then explicitly
+**Enable**. There is no automatic artifact download or copying into the
+repository. Disconnecting removes only the connection; original files remain.
+Demo/legacy path-only launches cannot edit these settings.
+
+Supported formats are deliberately specific, not arbitrary executable plugins:
+
+- **TUNED:** one `apertus.tuned-lens-artifact` directory with `manifest.json`,
+  translators and metrics, or a catalog containing those directories. Its
+  held-out acceptance must pass. Model ID/mode and metadata fingerprint must
+  match the registered model; a Hybrid reader is not reused on BF16.
+- **J-LENS:** one `apertus.jacobian-lens-artifact` directory or a catalog. This
+  format supports BF16 Apertus only. Configuration shape and the frozen
+  tokenizer probe must agree. A different HF→MLX JSON serialization is not by
+  itself a rejection: native use still requires the existing numeric transfer
+  probe, including readout agreement. Hybrid remains unavailable.
+- **Detector:** the frozen predictive-stylometry v2 package root, containing
+  `runtime/detector_v2_deployment.json`, the v2 model/lock, challenger and their
+  supporting provenance files. Its current reader requires the matching
+  8-bit/BF16 Apertus Hybrid. The legacy package still references frozen external
+  files and is **not self-contained**; moving only its model JSON is insufficient.
+  Missing/changed references are reported rather than silently ignored.
+
+Verification runs on the numerical worker, checks schemas, artifact SHA-256
+digests and model metadata, and creates a local receipt. The detector additionally
+checks its frozen runtime before enabling. Executable legacy extractors must
+match the **reviewed hash allowlist in application code**, not merely a hash
+declared by a package. The optional detector is thus a narrow compatibility
+adapter for an established research package, not a Python plugin installer.
+
+Receipts/settings live in `<data>/experimental-addons.json`, with atomic writes,
+revision conflict protection and exact previous-file backups under
+`<data>/experimental-addon-backups`. No corpus or artifact is added to Git.
+Manual edits to this file require a restart. Unlike model registrations, addon
+connections belong to a user-data directory and do not modify `models.toml`.
+The historical `enable_research_artifacts` flag does not bypass these managed
+connections: connect/verify/enable each addon through administration.
+
+An observed file size/mtime or model-identity change invalidates its receipt.
+This is not a fresh whole-model rehash on every health poll. Before actual
+reader inference, TUNED still checks full model content and J-LENS still runs
+its native BF16 transfer probe; none of those gates is waived by a green
+administrative badge. Package verification is not evidence of semantic
+interpretability, detector accuracy or AI authorship. Private packages and their
+inputs need their own licensing/sharing review before any distribution.
+
+Availability is shown per model, with separate reasons for an absent package,
+pending/stale verification, disabled connection and incompatible precision.
+An enabled package never grants its tool to an unrelated model or Torch backend.
+
 ## A minimal registration
 
 Copy `models.example.toml` (MLX) or `models.torch.example.toml` (PyTorch) to
@@ -101,7 +154,7 @@ between MLX, Torch, Ollama, and a remote API.
 | `convert_from`, `bits`, `group_size` | Explicit MLX conversion recipe; bits 4/6/8, groups 32/64/128. |
 | `kind` | `native` (default), `source` (conversion input, hidden from toolbar), or reserved `apertus-hybrid`. |
 | `enabled` | Optional boolean, default true. False hides the inference entry without deleting files or conversion references; the default must remain enabled. |
-| `enable_research_artifacts` | Top-level opt-in for separately validated Apertus lens/detector artifacts; defaults to false. Not a download switch. |
+| `enable_research_artifacts` | Historical opt-in for direct/legacy API use; defaults false. Managed server launches use individually verified addon connections instead. Not a download switch. |
 
 Unknown fields, unknown adapters and cyclic conversion dependencies fail
 early. IDs beginning with `mock` are reserved for clearly labelled synthetic
